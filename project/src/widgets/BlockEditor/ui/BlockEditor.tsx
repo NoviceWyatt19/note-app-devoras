@@ -21,7 +21,11 @@ interface CodeMirrorBlockProps {
   onSelect: () => void;
 }
 
-const CodeMirrorBlock: React.FC<CodeMirrorBlockProps> = ({
+// Wrap with React.memo so a block only re-renders when its own props change.
+// Without memo, every keystroke in any block causes ALL CodeMirrorBlock
+// instances to re-render because BlockEditor's state update triggers a full
+// component tree reconciliation.
+const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBlock({
   block,
   index,
   isFocused,
@@ -31,7 +35,7 @@ const CodeMirrorBlock: React.FC<CodeMirrorBlockProps> = ({
   onFocusPrev,
   onFocusNext,
   onSelect,
-}) => {
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
 
@@ -190,18 +194,19 @@ const CodeMirrorBlock: React.FC<CodeMirrorBlockProps> = ({
       <div ref={containerRef} className="w-full" />
     </div>
   );
-};
+});
 
 // Main BlockEditor Widget Component
 export const BlockEditor: React.FC = () => {
   const { currentFile, updateContent } = useDocumentStore();
-  const {
-    blocks,
-    activeBlockId,
-    focusOffset,
-    mergeBlockWithPrevious,
-    focusBlock,
-  } = useBlockStore();
+
+  // Narrow Zustand selectors — each subscription only triggers a re-render
+  // when its specific slice of the store changes, not on every store write.
+  const blocks = useBlockStore(s => s.blocks);
+  const activeBlockId = useBlockStore(s => s.activeBlockId);
+  const focusOffset = useBlockStore(s => s.focusOffset);
+  const mergeBlockWithPrevious = useBlockStore(s => s.mergeBlockWithPrevious);
+  const focusBlock = useBlockStore(s => s.focusBlock);
 
   const handleBlockUpdate = (id: string, text: string) => {
     // Always read from the store directly to avoid stale React closure values.
@@ -274,7 +279,7 @@ export const BlockEditor: React.FC = () => {
             block={block}
             index={index}
             isFocused={activeBlockId === block.id}
-            focusOffset={focusOffset}
+            focusOffset={activeBlockId === block.id ? focusOffset : 0}
             onUpdate={(text) => handleBlockUpdate(block.id, text)}
             onMerge={() => handleMerge(block.id)}
             onFocusPrev={() => {
