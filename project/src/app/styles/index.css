@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-[#0d0e12] text-slate-100 font-sans overflow-hidden select-none;
+  }
+}
+
+/* Custom Scrollbar Styles */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #111216;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #272a37;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3a3f52;
+}
+
+/* CodeMirror customization support */
+.cm-editor {
+  height: 100%;
+}
