@@ -99,7 +99,7 @@ export const WorkspacePage: React.FC = () => {
                   : 'border-darkBorder text-mutedText/40 cursor-default'
               }`}
             >
-              저장 (Ctrl+S)
+              저장 (Cmd+S)
             </button>
           )}
         </div>

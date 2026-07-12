@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { useBlockStore, EditorBlock } from '@/entities/block/model/store';
 import { useDocumentStore } from '@/entities/document/model/store';
-import { EditorState } from '@codemirror/state';
+import { EditorState, Transaction } from '@codemirror/state';
 import { EditorView, keymap, drawSelection } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { markdown } from '@codemirror/lang-markdown';
@@ -15,7 +15,6 @@ interface CodeMirrorBlockProps {
   isFocused: boolean;
   focusOffset: number;
   onUpdate: (content: string) => void;
-  onSplit: (offset: number) => void;
   onMerge: () => void;
   onFocusPrev: () => void;
   onFocusNext: () => void;
@@ -28,7 +27,6 @@ const CodeMirrorBlock: React.FC<CodeMirrorBlockProps> = ({
   isFocused,
   focusOffset,
   onUpdate,
-  onSplit,
   onMerge,
   onFocusPrev,
   onFocusNext,
@@ -41,26 +39,20 @@ const CodeMirrorBlock: React.FC<CodeMirrorBlockProps> = ({
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // Define custom keybindings for block boundaries
+    // Define custom keybindings for block boundaries.
+    // NOTE: Enter is intentionally NOT intercepted here.
+    // Under the H1/H2 slicing policy, Enter is a plain newline inside the
+    // current block. Block splitting is triggered automatically when the
+    // user types a '# ' or '## ' heading prefix, detected by handleBlockUpdate.
     const blockKeymap = keymap.of([
-      {
-        key: 'Enter',
-        run: (view) => {
-          const { from, empty } = view.state.selection.main;
-          if (empty) {
-            onSplit(from);
-            return true; // prevent default enter action
-          }
-          return false;
-        },
-      },
       {
         key: 'Backspace',
         run: (view) => {
           const { from, empty } = view.state.selection.main;
+          // Only intercept at the very start of the block to merge with previous
           if (empty && from === 0) {
             onMerge();
-            return true; // prevent default backspace action
+            return true;
           }
           return false;
         },
@@ -102,7 +94,13 @@ const CodeMirrorBlock: React.FC<CodeMirrorBlockProps> = ({
         keymap.of([...defaultKeymap, ...historyKeymap]),
         blockKeymap,
         EditorView.updateListener.of((update) => {
-          if (update.docChanged) {
+          // Only relay user-initiated changes, NOT external syncs dispatched
+          // with Transaction.userEvent 'external' (e.g. content sync from store re-slice).
+          // This prevents the feedback loop: external dispatch → docChanged → onUpdate → re-dispatch.
+          const isExternal = update.transactions.some(
+            tr => tr.annotation(Transaction.userEvent) === 'external'
+          );
+          if (update.docChanged && !isExternal) {
             onUpdate(update.state.doc.toString());
           }
           if (update.focusChanged && update.view.hasFocus) {
@@ -146,14 +144,18 @@ const CodeMirrorBlock: React.FC<CodeMirrorBlockProps> = ({
     };
   }, []);
 
-  // Update content inside CodeMirror externally if store sync changes
+  // Sync CodeMirror content when the block's content changes externally (e.g. re-slice)
   useEffect(() => {
     const view = viewRef.current;
     if (!view) return;
     const currentDoc = view.state.doc.toString();
     if (block.content !== currentDoc) {
+      // Mark this dispatch as NOT a user event so updateListener.docChanged
+      // does NOT fire onUpdate — this prevents the feedback loop where an
+      // external content update triggers another handleBlockUpdate.
       view.dispatch({
         changes: { from: 0, to: currentDoc.length, insert: block.content },
+        annotations: [Transaction.userEvent.of('external')],
       });
     }
   }, [block.content]);
@@ -197,33 +199,56 @@ export const BlockEditor: React.FC = () => {
     blocks,
     activeBlockId,
     focusOffset,
-    updateBlockContent,
-    splitBlock,
     mergeBlockWithPrevious,
     focusBlock,
-    getMergedContent,
   } = useBlockStore();
 
   const handleBlockUpdate = (id: string, text: string) => {
-    updateBlockContent(id, text);
-    // Merge all blocks and project to document store (realtime AST mapping)
-    const merged = getMergedContent();
-    updateContent(merged);
-  };
+    // Always read from the store directly to avoid stale React closure values.
+    // Zustand set() is synchronous so getState() always reflects the latest state.
+    useBlockStore.getState().updateBlockContent(id, text);
 
-  const handleSplit = (id: string, offset: number) => {
-    splitBlock(id, offset);
-    setTimeout(() => {
-      updateContent(getMergedContent());
-    }, 0);
+    // Re-read after the above synchronous update
+    const state = useBlockStore.getState();
+    const merged = state.getMergedContent();
+
+    // Count structural H1/H2 boundaries in the merged document
+    const lines = merged.replace(/\r\n/g, '\n').split('\n');
+    let headingCount = 0;
+    lines.forEach((line) => {
+      if (line.startsWith('# ') || line.startsWith('## ')) headingCount++;
+    });
+    if (headingCount === 0) headingCount = 1;
+
+    // Only re-slice when a heading was actually added or removed
+    if (headingCount !== state.blocks.length) {
+      const prevIds = new Set(state.blocks.map(b => b.id));
+
+      state.setBlocksFromContent(merged);
+
+      // Find the block that didn't exist before — that is the newly created block
+      const nextBlocks = useBlockStore.getState().blocks;
+      const newBlock = nextBlocks.find(b => !prevIds.has(b.id));
+      if (newBlock) {
+        // Place cursor at the end of the heading line (after '# ' or '## ' text),
+        // not at offset 0 which would sit before the heading prefix.
+        const firstNewline = newBlock.content.indexOf('\n');
+        const headingLineEnd = firstNewline === -1 ? newBlock.content.length : firstNewline;
+        // Defer one tick so the new CodeMirror instance is mounted before focusing
+        setTimeout(() => useBlockStore.getState().focusBlock(newBlock.id, headingLineEnd), 0);
+      }
+    }
+
+    updateContent(merged);
   };
 
   const handleMerge = (id: string) => {
     mergeBlockWithPrevious(id);
     setTimeout(() => {
-      updateContent(getMergedContent());
+      updateContent(useBlockStore.getState().getMergedContent());
     }, 0);
   };
+
 
   if (!currentFile) {
     return (
@@ -248,7 +273,6 @@ export const BlockEditor: React.FC = () => {
             isFocused={activeBlockId === block.id}
             focusOffset={focusOffset}
             onUpdate={(text) => handleBlockUpdate(block.id, text)}
-            onSplit={(offset) => handleSplit(block.id, offset)}
             onMerge={() => handleMerge(block.id)}
             onFocusPrev={() => {
               if (index > 0) focusBlock(blocks[index - 1].id, blocks[index - 1].content.length);

@@ -1,12 +1,13 @@
 import { create } from 'zustand';
 import { FileEntry, fileSystemRepository } from '@/shared/api/fs';
-import { MindNode, SpatialData, parseMarkdown, serializeSpatialData } from '../lib/parser';
+import { MindNode, parseMarkdown } from '../lib/parser';
+import { useWorkspaceStore } from '@/entities/workspace/model/store';
 
 interface DocumentState {
   currentFile: FileEntry | null;
   rawContent: string;
   nodes: MindNode[];
-  spatialData: SpatialData;
+  spatialData: Record<string, { x: number; y: number }>;
   isDirty: boolean;
   loadFile: (file: FileEntry) => Promise<void>;
   updateContent: (content: string) => void;
@@ -23,12 +24,35 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
 
   loadFile: async (file) => {
     try {
+      const workspacePath = useWorkspaceStore.getState().workspacePath;
+      if (!workspacePath) return;
+
+      // 1. Read Markdown content
       const content = await fileSystemRepository.readFile(file.path);
-      const { nodes, spatialData } = parseMarkdown(content, file.path);
+
+      // 2. Read separate layout metadata (.devoras/spatial.json)
+      const allMetadata = await fileSystemRepository.readSpatialMetadata(workspacePath);
+      const spatialData = allMetadata[file.path] || {};
+
+      // 3. Parse headings structure
+      const parsedNodes = parseMarkdown(content);
+
+      // 4. Align parsed nodes with layout metadata coordinates
+      const alignedNodes = parsedNodes.map((node) => {
+        if (spatialData[node.id]) {
+          return {
+            ...node,
+            x: spatialData[node.id].x,
+            y: spatialData[node.id].y,
+          };
+        }
+        return node;
+      });
+
       set({
         currentFile: file,
         rawContent: content,
-        nodes,
+        nodes: alignedNodes,
         spatialData,
         isDirty: false,
       });
@@ -38,31 +62,33 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   },
 
   updateContent: (content) => {
-    const { currentFile, spatialData } = get();
+    const { currentFile, spatialData, rawContent } = get();
     if (!currentFile) return;
 
-    const { nodes, spatialData: parsedSpatial } = parseMarkdown(content, currentFile.path);
+    // Parse markdown structure (extract pure headings nodes)
+    const parsedNodes = parseMarkdown(content);
 
-    // Merge existing memory-spatialData (unsaved coordinates) with newly parsed spatial data (from text)
-    const mergedSpatial = { ...spatialData, ...parsedSpatial };
-
-    // Align newly parsed nodes with the merged spatial coordinates to maintain existing node positions
-    const alignedNodes = nodes.map((node) => {
-      if (mergedSpatial[node.id]) {
+    // Align parsed nodes with existing memory-spatial coordinates
+    const alignedNodes = parsedNodes.map((node) => {
+      if (spatialData[node.id]) {
         return {
           ...node,
-          x: mergedSpatial[node.id].x,
-          y: mergedSpatial[node.id].y,
+          x: spatialData[node.id].x,
+          y: spatialData[node.id].y,
         };
       }
       return node;
     });
 
+    // Only mark as dirty when content has actually changed from the on-disk version.
+    // This prevents CodeMirror's initialization-time docChanged event from
+    // incorrectly signalling an unsaved edit the moment a file is opened.
+    const hasChanged = content !== rawContent;
+
     set({
       rawContent: content,
       nodes: alignedNodes,
-      spatialData: mergedSpatial,
-      isDirty: true,
+      isDirty: hasChanged,
     });
   },
 
@@ -75,7 +101,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       [nodeId]: { x, y },
     };
 
-    // Update coordinates in nodes list directly to keep visual drag-effects fluid
+    // Fast inline synchronization to prevent drag-stuttering
     const updatedNodes = get().nodes.map((node) => {
       if (node.id === nodeId) {
         return { ...node, x, y };
@@ -94,11 +120,26 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     const { currentFile, rawContent, spatialData, isDirty } = get();
     if (!currentFile || !isDirty) return;
 
+    const workspacePath = useWorkspaceStore.getState().workspacePath;
+    if (!workspacePath) return;
+
     try {
-      const finalizedContent = serializeSpatialData(rawContent, currentFile.path, spatialData);
-      await fileSystemRepository.writeFile(currentFile.path, finalizedContent);
+      // 1. Write the clean markdown file (without comments)
+      await fileSystemRepository.writeFile(currentFile.path, rawContent);
+
+      // 2. Read all existing workspace metadata
+      const allMetadata = await fileSystemRepository.readSpatialMetadata(workspacePath);
+
+      // 3. Update metadata for the current file path
+      const updatedMetadata = {
+        ...allMetadata,
+        [currentFile.path]: spatialData,
+      };
+
+      // 4. Save metadata file
+      await fileSystemRepository.writeSpatialMetadata(workspacePath, updatedMetadata);
+
       set({
-        rawContent: finalizedContent,
         isDirty: false,
       });
     } catch (e) {
