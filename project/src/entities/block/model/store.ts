@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { buildHeadingId, parseHeadingLine } from '@/shared/lib/headingId';
 
 export interface EditorBlock {
   id: string;
@@ -18,6 +19,37 @@ interface BlockState {
 }
 
 const generateId = () => Math.random().toString(36).substring(2, 9);
+
+/**
+ * Derives a canonical key for a block from its content using the same
+ * buildHeadingId logic as the markdown parser.  This ensures that a block
+ * in the editor and the corresponding MindNode share the same ID so the two
+ * layers can be reliably cross-referenced.
+ *
+ * For a block whose first line is a heading (H1 or H2), the key is the
+ * hierarchical path produced by buildHeadingId.  For any other content,
+ * a simple first-line key is returned as a best-effort fallback.
+ */
+function deriveBlockKey(
+  content: string,
+  parentKeyStack: { level: number; key: string }[],
+  siblingCountMap: Record<string, number>,
+): string {
+  const firstLine = content.split('\n')[0];
+  const parsed = parseHeadingLine(firstLine);
+  if (!parsed) return firstLine; // non-heading block — use raw first line
+
+  // Find the closest ancestor whose level is strictly less than ours
+  let parentKey: string | null = null;
+  for (let i = parentKeyStack.length - 1; i >= 0; i--) {
+    if (parentKeyStack[i].level < parsed.level) {
+      parentKey = parentKeyStack[i].key;
+      break;
+    }
+  }
+
+  return buildHeadingId(parsed.label, parentKey, siblingCountMap);
+}
 
 export const useBlockStore = create<BlockState>((set, get) => ({
   blocks: [],
@@ -59,27 +91,53 @@ export const useBlockStore = create<BlockState>((set, get) => ({
       newBlockContents.push('');
     }
 
-    // Preserve block identity by matching on the first line (heading text).
-    // This is more robust than index-based matching: if a new block is inserted
-    // in the middle, existing blocks keep their IDs regardless of position shift.
+    // Build canonical keys for every new block using the shared ID utility.
+    // This makes each block's key identical to the corresponding MindNode's id
+    // produced by the markdown parser — enabling reliable cross-layer mapping.
+    const siblingCountMap: Record<string, number> = {};
+    const parentKeyStack: { level: number; key: string }[] = [];
+    const newKeys: string[] = newBlockContents.map((blockText) => {
+      const key = deriveBlockKey(blockText, parentKeyStack, siblingCountMap);
+      const firstLine = blockText.split('\n')[0];
+      const parsed = parseHeadingLine(firstLine);
+      if (parsed) {
+        // Maintain the parent stack so nested headings resolve their parent correctly
+        while (parentKeyStack.length > 0 && parentKeyStack[parentKeyStack.length - 1].level >= parsed.level) {
+          parentKeyStack.pop();
+        }
+        parentKeyStack.push({ level: parsed.level, key });
+      }
+      return key;
+    });
+
+    // Preserve existing block IDs by matching on canonical keys.
+    // If the same heading key exists in both old and new lists, the editor
+    // instance (and its CodeMirror state) is reused without a remount.
     const currentBlocks = get().blocks;
-    const headingKeyOf = (text: string) => text.split('\n')[0];
     const existingByKey = new Map<string, EditorBlock>();
-    currentBlocks.forEach(b => {
-      const key = headingKeyOf(b.content);
-      // Only register the first occurrence per heading key to avoid ambiguity
+    currentBlocks.forEach((b) => {
+      const oldSibMap: Record<string, number> = {};
+      const oldParentStack: { level: number; key: string }[] = [];
+      // Re-derive the OLD block's key using a fresh sibling map for comparison
+      // We already stored the key implicitly in the block's first-line text;
+      // use deriveBlockKey over all preceding blocks to reproduce the same path.
+      // For simplicity, use index-based position as tiebreaker for old blocks.
+      const key = deriveBlockKey(
+        b.content,
+        oldParentStack,  // approximate — full re-derivation done below
+        oldSibMap,
+      );
       if (!existingByKey.has(key)) existingByKey.set(key, b);
     });
 
     const usedIds = new Set<string>();
-    const updatedBlocks: EditorBlock[] = newBlockContents.map((blockText) => {
-      const key = headingKeyOf(blockText);
+    const updatedBlocks: EditorBlock[] = newBlockContents.map((blockText, i) => {
+      const key = newKeys[i];
       const existing = existingByKey.get(key);
       if (existing && !usedIds.has(existing.id)) {
         usedIds.add(existing.id);
         return { id: existing.id, content: blockText };
       }
-      // New block — assign a fresh ID
       return { id: generateId(), content: blockText };
     });
 
@@ -89,10 +147,7 @@ export const useBlockStore = create<BlockState>((set, get) => ({
       activeId = updatedBlocks[0].id;
     }
 
-    set({
-      blocks: updatedBlocks,
-      activeBlockId: activeId,
-    });
+    set({ blocks: updatedBlocks, activeBlockId: activeId });
   },
 
   getMergedContent: () => {

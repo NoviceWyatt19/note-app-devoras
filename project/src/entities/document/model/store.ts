@@ -37,14 +37,19 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       // 3. Parse headings structure
       const parsedNodes = parseMarkdown(content);
 
-      // 4. Align parsed nodes with layout metadata coordinates
+      // 4. Align parsed nodes with layout metadata coordinates.
+      //    Primary lookup: exact node ID.
+      //    Fallback lookup: strip the _N sibling suffix (e.g. "Title_2" → "Title")
+      //    so that when the first occurrence of a duplicate heading is deleted and
+      //    the second becomes the canonical ID, its coordinates are not lost.
       const alignedNodes = parsedNodes.map((node) => {
         if (spatialData[node.id]) {
-          return {
-            ...node,
-            x: spatialData[node.id].x,
-            y: spatialData[node.id].y,
-          };
+          return { ...node, x: spatialData[node.id].x, y: spatialData[node.id].y };
+        }
+        // Graceful fallback: try the base ID without sibling suffix
+        const baseId = node.id.replace(/_\d+$/, '');
+        if (baseId !== node.id && spatialData[baseId]) {
+          return { ...node, x: spatialData[baseId].x, y: spatialData[baseId].y };
         }
         return node;
       });
