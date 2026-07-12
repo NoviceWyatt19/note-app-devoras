@@ -30,9 +30,19 @@ export const useBlockStore = create<BlockState>((set, get) => ({
     const newBlockContents: string[] = [];
     let currentBlockLines: string[] = [];
 
-    // Parse blocks sliced by H1 ('# ') or H2 ('## ')
+    // Parse blocks sliced by H1 ('# ') or H2 ('## ').
+    // Lines inside fenced code blocks (``` / ~~~) are intentionally excluded
+    // from slice boundary detection to prevent code comments like '# note'
+    // from breaking the document into spurious editor blocks.
+    let insideCodeFence = false;
     lines.forEach((line) => {
-      if (line.startsWith('# ') || line.startsWith('## ')) {
+      // Toggle fence state; the delimiter line itself is not a boundary
+      if (/^(`{3,}|~{3,})/.test(line)) {
+        insideCodeFence = !insideCodeFence;
+        currentBlockLines.push(line);
+        return;
+      }
+      if (!insideCodeFence && (line.startsWith('# ') || line.startsWith('## '))) {
         if (currentBlockLines.length > 0) {
           newBlockContents.push(currentBlockLines.join('\n'));
           currentBlockLines = [];

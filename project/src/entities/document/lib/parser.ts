@@ -18,7 +18,19 @@ export function parseMarkdown(content: string): MindNode[] {
   const activeHeaders: MindNode[] = []; // Stack to keep track of parents
   const siblingCountMap: Record<string, number> = {};
 
+  // Track whether the current line is inside a fenced code block (``` or ~~~).
+  // Headings inside code fences must NOT be parsed as mind nodes.
+  let insideCodeFence = false;
+
   lines.forEach((line) => {
+    // Toggle fence state on opening/closing delimiters
+    if (/^(`{3,}|~{3,})/.test(line)) {
+      insideCodeFence = !insideCodeFence;
+      return; // The fence delimiter line itself is never a heading
+    }
+    // Skip all content inside a code fence
+    if (insideCodeFence) return;
+
     const headingMatch = line.match(headingRegex);
     if (headingMatch) {
       const level = headingMatch[1].length;

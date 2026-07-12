@@ -212,11 +212,14 @@ export const BlockEditor: React.FC = () => {
     const state = useBlockStore.getState();
     const merged = state.getMergedContent();
 
-    // Count structural H1/H2 boundaries in the merged document
+    // Count structural H1/H2 boundaries, skipping lines inside code fences —
+    // must be consistent with setBlocksFromContent's slicing logic.
     const lines = merged.replace(/\r\n/g, '\n').split('\n');
     let headingCount = 0;
+    let fenceActive = false;
     lines.forEach((line) => {
-      if (line.startsWith('# ') || line.startsWith('## ')) headingCount++;
+      if (/^(`{3,}|~{3,})/.test(line)) { fenceActive = !fenceActive; return; }
+      if (!fenceActive && (line.startsWith('# ') || line.startsWith('## '))) headingCount++;
     });
     if (headingCount === 0) headingCount = 1;
 
