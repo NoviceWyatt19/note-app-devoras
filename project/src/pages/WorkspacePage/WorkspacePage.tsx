@@ -83,8 +83,8 @@ export const WorkspacePage: React.FC = () => {
 
       {/* 2. Center: Block Editor */}
       <div className="flex-1 min-w-0 h-full flex flex-col bg-darkBg relative">
-        {/* Editor Title Bar */}
-        <div className="h-10 border-b border-darkBorder flex items-center justify-between px-6 flex-shrink-0">
+        {/* Editor Title Bar — also acts as a drag region for window movement */}
+        <div data-tauri-drag-region className="h-10 border-b border-darkBorder flex items-center justify-between px-6 flex-shrink-0">
           <div className="text-xs font-semibold text-slate-300 truncate max-w-sm">
             {currentFile ? currentFile.name : '문서가 열리지 않음'}
             {isDirty && <span className="ml-2 inline-block w-1.5 h-1.5 rounded-full bg-amber-500" title="저장되지 않음"></span>}

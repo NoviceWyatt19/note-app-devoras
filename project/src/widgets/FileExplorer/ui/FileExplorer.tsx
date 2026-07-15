@@ -63,8 +63,12 @@ export const FileExplorer: React.FC = () => {
 
   return (
     <div className="flex-1 flex flex-col min-h-0 select-none">
-      {/* Sidebar Header */}
-      <div className="h-10 border-b border-darkBorder flex items-center justify-between px-4 flex-shrink-0 bg-darkPanel">
+      {/* Sidebar Header — left padding clears the macOS traffic light buttons (~78px).
+           data-tauri-drag-region makes this bar act as the window drag handle. */}
+      <div
+        data-tauri-drag-region
+        className="h-10 border-b border-darkBorder flex items-center justify-between pl-20 pr-4 flex-shrink-0 bg-darkPanel"
+      >
         <span className="text-xs font-bold uppercase tracking-wider text-mutedText">워크스페이스</span>
         {workspacePath && (
           <button

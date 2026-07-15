@@ -111,22 +111,28 @@ export const useBlockStore = create<BlockState>((set, get) => ({
     });
 
     // Preserve existing block IDs by matching on canonical keys.
-    // If the same heading key exists in both old and new lists, the editor
-    // instance (and its CodeMirror state) is reused without a remount.
+    // IMPORTANT: old block keys must be derived using the SAME sequential
+    // parent-stack accumulation as new block keys. Deriving them in isolation
+    // (empty parentStack per block) produces a different path for H2+ blocks
+    // (e.g. "Section A" instead of "Title/Section A"), causing every H2 block
+    // to receive a new random ID on every re-slice and making it impossible to
+    // identify the truly new block — which was the root cause of the cursor
+    // always jumping to the first H2 instead of the newly created block.
     const currentBlocks = get().blocks;
+    const oldSiblingCountMap: Record<string, number> = {};
+    const oldParentKeyStack: { level: number; key: string }[] = [];
     const existingByKey = new Map<string, EditorBlock>();
     currentBlocks.forEach((b) => {
-      const oldSibMap: Record<string, number> = {};
-      const oldParentStack: { level: number; key: string }[] = [];
-      // Re-derive the OLD block's key using a fresh sibling map for comparison
-      // We already stored the key implicitly in the block's first-line text;
-      // use deriveBlockKey over all preceding blocks to reproduce the same path.
-      // For simplicity, use index-based position as tiebreaker for old blocks.
-      const key = deriveBlockKey(
-        b.content,
-        oldParentStack,  // approximate — full re-derivation done below
-        oldSibMap,
-      );
+      const key = deriveBlockKey(b.content, oldParentKeyStack, oldSiblingCountMap);
+      // Maintain old parent stack identically to the new-key derivation loop
+      const firstLine = b.content.split('\n')[0];
+      const parsed = parseHeadingLine(firstLine);
+      if (parsed) {
+        while (oldParentKeyStack.length > 0 && oldParentKeyStack[oldParentKeyStack.length - 1].level >= parsed.level) {
+          oldParentKeyStack.pop();
+        }
+        oldParentKeyStack.push({ level: parsed.level, key });
+      }
       if (!existingByKey.has(key)) existingByKey.set(key, b);
     });
 

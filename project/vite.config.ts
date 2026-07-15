@@ -34,11 +34,7 @@ export default defineConfig({
   // Env variables starting with the item of `envPrefix` will be exposed in tauri's source code through `import.meta.env`.
   envPrefix: ['VITE_', 'TAURI_ENV_'],
   build: {
-    // Tauri supports es2021
+    // Tauri supports es2021; use safari13 target on macOS to avoid unsupported syntax
     target: process.env.TAURI_ENV_PLATFORM == 'windows' ? 'chrome105' : 'safari13',
-    // don't minify for debug builds
-    minify: !process.env.TAURI_ENV_DEBUG ? 'esbuild' : false,
-    // produce sourcemaps for debug builds
-    sourcemap: !!process.env.TAURI_ENV_DEBUG,
   },
 });
