@@ -1,5 +1,6 @@
 # Devoras Custom Ignores
-/functions/
+/functions/*
+!/functions/*.md
 /기획서.pdf
 /로드맵.pdf
 /로드맵.pdf
