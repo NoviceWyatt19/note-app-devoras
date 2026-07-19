@@ -147,13 +147,46 @@ export const useBlockStore = create<BlockState>((set, get) => ({
       return { id: generateId(), content: blockText };
     });
 
-    // Keep the currently active block focused; fall back to first block
+    // Keep the currently active block focused.
+    // When the active block's ID disappears from updatedBlocks, we distinguish
+    // two fundamentally different causes by comparing block counts:
+    //
+    //   (A) Block count DECREASED  → merge / downgrade (H1/H2 → H3):
+    //       The old block was absorbed into the preceding block.
+    //       Focus the absorbing block (oldIndex - 1) at the join point.
+    //
+    //   (B) Block count SAME or INCREASED → promote / upgrade (H3 → H1/H2):
+    //       The old block was replaced in-place by a new block with a new ID
+    //       (heading level changed → key changed → new ID issued).
+    //       Focus the block at the same position (oldIndex) in updatedBlocks.
     let activeId = get().activeBlockId;
-    if (!activeId || !updatedBlocks.some(b => b.id === activeId)) {
+    let newFocusOffset = get().focusOffset;
+
+    if (activeId && !updatedBlocks.some(b => b.id === activeId)) {
+      const oldIndex = currentBlocks.findIndex(b => b.id === activeId);
+      const blockCountDecreased = updatedBlocks.length < currentBlocks.length;
+
+      if (blockCountDecreased && oldIndex > 0) {
+        // Case A: block merged into the one above — focus absorbing block at join point.
+        const absorbingBlock = updatedBlocks[Math.min(oldIndex - 1, updatedBlocks.length - 1)];
+        activeId = absorbingBlock.id;
+        newFocusOffset = currentBlocks[oldIndex - 1].content.length;
+      } else {
+        // Case B: block promoted/replaced in-place (or first block removed).
+        // Focus the block now occupying the same index position.
+        const targetBlock = updatedBlocks[Math.min(Math.max(oldIndex, 0), updatedBlocks.length - 1)];
+        activeId = targetBlock.id;
+        // Place cursor after the new heading prefix (e.g. '## ' = 3 chars, '# ' = 2 chars)
+        const firstLine = targetBlock.content.split('\n')[0];
+        newFocusOffset = firstLine.length;
+      }
+    } else if (!activeId) {
       activeId = updatedBlocks[0].id;
+      newFocusOffset = 0;
     }
 
-    set({ blocks: updatedBlocks, activeBlockId: activeId });
+    set({ blocks: updatedBlocks, activeBlockId: activeId, focusOffset: newFocusOffset });
+
   },
 
   getMergedContent: () => {
