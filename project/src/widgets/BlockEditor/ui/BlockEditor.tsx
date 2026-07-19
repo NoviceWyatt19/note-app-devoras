@@ -14,7 +14,7 @@ interface CodeMirrorBlockProps {
   index: number;
   isFocused: boolean;
   focusOffset: number;
-  onUpdate: (content: string) => void;
+  onUpdate: (content: string, cursorOffset: number) => void;
   onMerge: () => void;
   onFocusPrev: () => void;
   onFocusNext: () => void;
@@ -114,7 +114,12 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
             tr => tr.annotation(Transaction.userEvent) === 'external'
           );
           if (update.docChanged && !isExternal) {
-            callbacksRef.current.onUpdate(update.state.doc.toString());
+            // Pass the cursor anchor so handleBlockUpdate can precisely restore
+            // cursor position after a re-slice, instead of hardcoding headingLineEnd.
+            callbacksRef.current.onUpdate(
+              update.state.doc.toString(),
+              update.state.selection.main.anchor
+            );
           }
           if (update.focusChanged && update.view.hasFocus) {
             onSelect();
@@ -217,7 +222,22 @@ export const BlockEditor: React.FC = () => {
   const mergeBlockWithPrevious = useBlockStore(s => s.mergeBlockWithPrevious);
   const focusBlock = useBlockStore(s => s.focusBlock);
 
-  const handleBlockUpdate = (id: string, text: string) => {
+  const handleBlockUpdate = (id: string, text: string, cursorOffset: number) => {
+    // Snapshot blocks BEFORE the update to compute the absolute cursor position
+    // in the merged document. This must happen before updateBlockContent mutates
+    // the store, since other blocks' lengths are used in the accumulation below.
+    const prevBlocksSnapshot = useBlockStore.getState().blocks;
+    const activeIndex = prevBlocksSnapshot.findIndex(b => b.id === id);
+
+    // Translate the CodeMirror-local cursor offset into an absolute offset inside
+    // the merged document (blocks joined by '\n').
+    // getMergedContent() = block[0] + '\n' + block[1] + '\n' + ...
+    // so each block boundary contributes +1 for the separator newline.
+    let absoluteCursorPos = cursorOffset;
+    for (let i = 0; i < activeIndex; i++) {
+      absoluteCursorPos += prevBlocksSnapshot[i].content.length + 1;
+    }
+
     // Always read from the store directly to avoid stale React closure values.
     // Zustand set() is synchronous so getState() always reflects the latest state.
     useBlockStore.getState().updateBlockContent(id, text);
@@ -243,17 +263,30 @@ export const BlockEditor: React.FC = () => {
 
       state.setBlocksFromContent(merged);
 
-      // Find the block that didn't exist before — that is the newly created block
       const nextBlocks = useBlockStore.getState().blocks;
       const newBlock = nextBlocks.find(b => !prevIds.has(b.id));
       if (newBlock) {
-        // Place cursor at the end of the heading line (after '# ' or '## ' text),
-        // not at offset 0 which would sit before the heading prefix.
-        const firstNewline = newBlock.content.indexOf('\n');
-        const headingLineEnd = firstNewline === -1 ? newBlock.content.length : firstNewline;
+        // Map absoluteCursorPos back to a specific block + relative offset so the
+        // cursor lands exactly where the user was typing, not at headingLineEnd.
+        let accumulated = 0;
+        let targetId = nextBlocks[nextBlocks.length - 1].id;
+        let targetOffset = 0;
+
+        for (let i = 0; i < nextBlocks.length; i++) {
+          const len = nextBlocks[i].content.length;
+          if (absoluteCursorPos <= accumulated + len) {
+            targetId = nextBlocks[i].id;
+            targetOffset = Math.min(Math.max(0, absoluteCursorPos - accumulated), len);
+            break;
+          }
+          accumulated += len + 1; // +1 for the '\n' separator
+        }
+
         // Defer one tick so the new CodeMirror instance is mounted before focusing
-        setTimeout(() => useBlockStore.getState().focusBlock(newBlock.id, headingLineEnd), 0);
+        setTimeout(() => useBlockStore.getState().focusBlock(targetId, targetOffset), 0);
       }
+      // If no newBlock found (merge/downgrade case), setBlocksFromContent's
+      // Case A logic already handled focus correctly — nothing more to do.
     }
 
     updateContent(merged);
@@ -289,7 +322,7 @@ export const BlockEditor: React.FC = () => {
             index={index}
             isFocused={activeBlockId === block.id}
             focusOffset={activeBlockId === block.id ? focusOffset : 0}
-            onUpdate={(text) => handleBlockUpdate(block.id, text)}
+            onUpdate={(text, cursorOffset) => handleBlockUpdate(block.id, text, cursorOffset)}
             onMerge={() => handleMerge(block.id)}
             onFocusPrev={() => {
               if (index > 0) focusBlock(blocks[index - 1].id, blocks[index - 1].content.length);
