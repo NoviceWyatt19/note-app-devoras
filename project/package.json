@@ -1,7 +1,7 @@
 {
   "name": "devoras",
   "private": true,
-  "version": "0.2.6",
+  "version": "0.2.7",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -13,40 +13,40 @@
     "prepare": "cd .. && husky project/.husky"
   },
   "dependencies": {
-    "@codemirror/commands": "^6.3.3",
+    "@codemirror/commands": "^6.10.4",
     "@codemirror/lang-markdown": "^6.5.0",
-    "@codemirror/language": "^6.10.0",
-    "@codemirror/state": "^6.4.0",
-    "@codemirror/theme-one-dark": "^6.1.2",
-    "@codemirror/view": "^6.24.0",
-    "@tauri-apps/api": "^2.0.0",
+    "@codemirror/language": "^6.12.4",
+    "@codemirror/state": "^6.7.1",
+    "@codemirror/theme-one-dark": "^6.1.3",
+    "@codemirror/view": "^6.43.6",
+    "@tauri-apps/api": "^2.11.1",
     "@tauri-apps/plugin-dialog": "^2.7.1",
     "@tauri-apps/plugin-fs": "^2.5.1",
-    "lucide-react": "^0.300.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "zustand": "^4.5.0"
+    "lucide-react": "^1.24.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zustand": "^4.5.7"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.11.4",
-    "@types/node": "^20.11.24",
-    "@types/react": "^18.2.43",
-    "@types/react-dom": "^18.2.17",
-    "@typescript-eslint/eslint-plugin": "^6.14.0",
-    "@typescript-eslint/parser": "^6.14.0",
-    "@vitejs/plugin-react": "^4.2.1",
-    "autoprefixer": "^10.4.18",
-    "eslint": "^8.55.0",
+    "@types/node": "^20.19.43",
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "autoprefixer": "^10.4.21",
+    "eslint": "^8.57.1",
     "eslint-config-prettier": "^9.1.0",
-    "eslint-plugin-react-hooks": "^4.6.0",
-    "eslint-plugin-react-refresh": "^0.4.5",
+    "eslint-plugin-react-hooks": "^4.6.2",
+    "eslint-plugin-react-refresh": "^0.4.26",
     "husky": "^8.0.3",
-    "lint-staged": "^15.2.0",
-    "postcss": "^8.4.35",
-    "prettier": "^3.1.1",
-    "tailwindcss": "^3.4.1",
-    "typescript": "^5.2.2",
-    "vite": "^8.1.4"
+    "lint-staged": "^15.5.2",
+    "postcss": "^8.5.3",
+    "prettier": "^3.4.2",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.3",
+    "vite": "^7.3.6"
   },
   "lint-staged": {
     "src/**/*.{ts,tsx}": [
@@ -55,6 +55,17 @@
     ],
     "src/**/*.{css,json}": [
       "prettier --write"
+    ]
+  },
+  "_compatibility_notes": {
+    "held_for_major_migration": [
+      "react 18→19 (API 변경, 별도 마이그레이션 필요)",
+      "tailwindcss 3→4 (설정 파일 구조 전면 개편 필요)",
+      "eslint 8→9/10 (flat config 형식으로 전환 필요, @typescript-eslint v8 연동)",
+      "zustand 4→5 (일부 API 변경)",
+      "typescript 5→7 (안정성 검증 필요)",
+      "husky 8→9 (prepare 스크립트 형식 변경)",
+      "@vitejs/plugin-react 4→6 (Vite 8 OXC 파이프라인 완전 호환은 plugin-react-oxc로 전환 권장)"
     ]
   }
 }
