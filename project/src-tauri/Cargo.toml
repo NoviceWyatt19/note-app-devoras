@@ -1,6 +1,6 @@
 [package]
 name = "devoras"
-version = "0.2.7"
+version = "0.2.8"
 description = "Devoras - Markdown Mind Map Note App"
 authors = ["Devoras Team"]
 license = ""

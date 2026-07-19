@@ -39,6 +39,15 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
 
+  // Mutable ref that always holds the latest callback props.
+  // The keymap's run() functions read from this ref instead of capturing
+  // props directly, which prevents stale-closure bugs caused by the
+  // one-time useEffect([], []) initialization pattern.
+  const callbacksRef = useRef({ onFocusPrev, onFocusNext, onMerge, onUpdate });
+  useEffect(() => {
+    callbacksRef.current = { onFocusPrev, onFocusNext, onMerge, onUpdate };
+  });
+
   // Initialize CodeMirror instance
   useEffect(() => {
     if (!containerRef.current) return;
@@ -55,7 +64,7 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
           const { from, empty } = view.state.selection.main;
           // Only intercept at the very start of the block to merge with previous
           if (empty && from === 0) {
-            onMerge();
+            callbacksRef.current.onMerge();
             return true;
           }
           return false;
@@ -67,7 +76,7 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
           const { from } = view.state.selection.main;
           const line = view.state.doc.lineAt(from);
           if (line.number === 1) {
-            onFocusPrev();
+            callbacksRef.current.onFocusPrev();
             return true;
           }
           return false;
@@ -80,7 +89,7 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
           const line = view.state.doc.lineAt(from);
           const totalLines = view.state.doc.lines;
           if (line.number === totalLines) {
-            onFocusNext();
+            callbacksRef.current.onFocusNext();
             return true;
           }
           return false;
@@ -105,7 +114,7 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
             tr => tr.annotation(Transaction.userEvent) === 'external'
           );
           if (update.docChanged && !isExternal) {
-            onUpdate(update.state.doc.toString());
+            callbacksRef.current.onUpdate(update.state.doc.toString());
           }
           if (update.focusChanged && update.view.hasFocus) {
             onSelect();

@@ -189,7 +189,13 @@ export class TauriFileSystem implements FileSystemRepository {
 // ----------------------------------------------------
 // 3. Auto-selecting factory instance
 // ----------------------------------------------------
-const isTauri = typeof window !== 'undefined' && (window as any).__TAURI__ !== undefined;
+// Tauri 1: window.__TAURI__ (withGlobalTauri: true 설정 필요)
+// Tauri 2: window.__TAURI_INTERNALS__ (웹뷰에 항상 주입되는 IPC 포트 객체)
+// 두 조건을 OR로 결합하여 양쪽 버전 모두 안전하게 감지한다.
+const isTauri =
+  typeof window !== 'undefined' &&
+  ((window as any).__TAURI__ !== undefined ||
+    (window as any).__TAURI_INTERNALS__ !== undefined);
 
 export const fileSystemRepository: FileSystemRepository = isTauri
   ? new TauriFileSystem()
