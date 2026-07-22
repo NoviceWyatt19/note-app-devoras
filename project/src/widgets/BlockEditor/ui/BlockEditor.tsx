@@ -1,12 +1,17 @@
 import React, { useEffect, useRef } from 'react';
 import { useBlockStore, EditorBlock } from '@/entities/block/model/store';
 import { useDocumentStore } from '@/entities/document/model/store';
+import { useWorkspaceStore } from '@/entities/workspace/model/store';
 import { EditorState, Transaction } from '@codemirror/state';
 import { EditorView, keymap, drawSelection } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { markdown } from '@codemirror/lang-markdown';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { FileEdit } from 'lucide-react';
+import { FormatToolbar } from './FormatToolbar';
+import { setActiveEditorView } from '@/shared/lib/activeEditorView';
+import { generateImageFileName } from '@/shared/lib/imageUtils';
+import { fileSystemRepository } from '@/shared/api/fs';
 
 // Single CodeMirror block component
 interface CodeMirrorBlockProps {
@@ -106,6 +111,84 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
         drawSelection(),
         keymap.of([...defaultKeymap, ...historyKeymap]),
         blockKeymap,
+        // Image paste: intercept clipboard items that are images, save them
+        // to assets/images/ and insert a markdown image link at the cursor.
+        // Non-image paste falls through to CodeMirror's default handler.
+        EditorView.domEventHandlers({
+          paste(event, view) {
+            const e = event as ClipboardEvent;
+            const items = e.clipboardData?.items;
+            if (!items) return false;
+            let imageItem: DataTransferItem | null = null;
+            for (const item of Array.from(items)) {
+              if (item.type.startsWith('image/')) { imageItem = item; break; }
+            }
+            if (!imageItem) return false; // let CodeMirror handle normal text paste
+
+            e.preventDefault();
+            const blob = imageItem.getAsFile();
+            if (!blob) return true;
+
+            // Async save + insert (fire-and-forget; view.dispatch triggers onUpdate)
+            void (async () => {
+              try {
+                const workspacePath = useWorkspaceStore.getState().workspacePath;
+                if (!workspacePath) return;
+                const fileName = generateImageFileName(blob.type);
+                const buffer = await blob.arrayBuffer();
+                const relativePath = await fileSystemRepository.saveImageAsset(
+                  workspacePath, new Uint8Array(buffer), fileName,
+                );
+                const md = `![이미지](${relativePath})`;
+                const { from, to } = view.state.selection.main;
+                view.dispatch({
+                  changes: { from, to, insert: md },
+                  selection: { anchor: from + md.length },
+                });
+              } catch (err) {
+                console.error('Image paste failed:', err);
+              }
+            })();
+            return true;
+          },
+
+          // Image drag-and-drop: copy external image files into assets/images/
+          // and insert a markdown link at the drop position.
+          drop(event, view) {
+            const e = event as DragEvent;
+            const files = e.dataTransfer?.files;
+            if (!files || files.length === 0) return false;
+            let imageFile: File | null = null;
+            for (const file of Array.from(files)) {
+              if (file.type.startsWith('image/')) { imageFile = file; break; }
+            }
+            if (!imageFile) return false;
+
+            e.preventDefault();
+            const dropPos = view.posAtCoords({ x: e.clientX, y: e.clientY }) ?? view.state.doc.length;
+            const captured = imageFile; // capture before async closure
+
+            void (async () => {
+              try {
+                const workspacePath = useWorkspaceStore.getState().workspacePath;
+                if (!workspacePath) return;
+                const fileName = generateImageFileName(captured.type);
+                const buffer = await captured.arrayBuffer();
+                const relativePath = await fileSystemRepository.saveImageAsset(
+                  workspacePath, new Uint8Array(buffer), fileName,
+                );
+                const md = `![이미지](${relativePath})`;
+                view.dispatch({
+                  changes: { from: dropPos, to: dropPos, insert: md },
+                  selection: { anchor: dropPos + md.length },
+                });
+              } catch (err) {
+                console.error('Image drop failed:', err);
+              }
+            })();
+            return true;
+          },
+        }),
         EditorView.updateListener.of((update) => {
           // Only relay user-initiated changes, NOT external syncs dispatched
           // with Transaction.userEvent 'external' (e.g. content sync from store re-slice).
@@ -121,8 +204,15 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
               update.state.selection.main.anchor
             );
           }
-          if (update.focusChanged && update.view.hasFocus) {
-            onSelect();
+          if (update.focusChanged) {
+            if (update.view.hasFocus) {
+              // Track this view globally so FormatToolbar can apply formatting
+              // to the correct block even after toolbar buttons steal focus.
+              setActiveEditorView(update.view);
+              onSelect();
+            }
+            // Do NOT clear on focus-lost: the toolbar uses onMouseDown+preventDefault
+            // to keep the editor focused — clearing here would break toolbar actions.
           }
         }),
         EditorView.theme({
@@ -159,6 +249,9 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
     return () => {
       view.destroy();
       viewRef.current = null;
+      // Release the global active-view reference to prevent the FormatToolbar
+      // from dispatching into a destroyed view after this block unmounts.
+      setActiveEditorView(null);
     };
   }, []);
 
@@ -310,26 +403,36 @@ export const BlockEditor: React.FC = () => {
   }
 
   return (
-    <div className="py-6 max-w-3xl mx-auto min-h-full flex flex-col">
-      <div className="space-y-3 flex-1">
-        {blocks.map((block, index) => (
-          <CodeMirrorBlock
-            key={block.id}
-            block={block}
-            index={index}
-            isFocused={activeBlockId === block.id}
-            focusOffset={activeBlockId === block.id ? focusOffset : 0}
-            onUpdate={(text, cursorOffset) => handleBlockUpdate(block.id, text, cursorOffset)}
-            onMerge={() => handleMerge(block.id)}
-            onFocusPrev={() => {
-              if (index > 0) focusBlock(blocks[index - 1].id, blocks[index - 1].content.length);
-            }}
-            onFocusNext={() => {
-              if (index < blocks.length - 1) focusBlock(blocks[index + 1].id, 0);
-            }}
-            onSelect={() => focusBlock(block.id)}
-          />
-        ))}
+    <div className="min-h-full flex flex-col">
+      {/* Sticky formatting toolbar — stays visible while scrolling through blocks */}
+      <div className="sticky top-0 z-10 bg-darkBg/95 backdrop-blur-sm">
+        <div className="max-w-3xl mx-auto">
+          <FormatToolbar />
+        </div>
+      </div>
+
+      {/* Editor blocks */}
+      <div className="py-6 max-w-3xl mx-auto w-full flex-1 flex flex-col">
+        <div className="space-y-3 flex-1">
+          {blocks.map((block, index) => (
+            <CodeMirrorBlock
+              key={block.id}
+              block={block}
+              index={index}
+              isFocused={activeBlockId === block.id}
+              focusOffset={activeBlockId === block.id ? focusOffset : 0}
+              onUpdate={(text, cursorOffset) => handleBlockUpdate(block.id, text, cursorOffset)}
+              onMerge={() => handleMerge(block.id)}
+              onFocusPrev={() => {
+                if (index > 0) focusBlock(blocks[index - 1].id, blocks[index - 1].content.length);
+              }}
+              onFocusNext={() => {
+                if (index < blocks.length - 1) focusBlock(blocks[index + 1].id, 0);
+              }}
+              onSelect={() => focusBlock(block.id)}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );

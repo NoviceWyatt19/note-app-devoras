@@ -11,6 +11,12 @@ export interface FileSystemRepository {
   writeFile(filePath: string, content: string): Promise<void>;
   readSpatialMetadata(workspacePath: string): Promise<Record<string, any>>;
   writeSpatialMetadata(workspacePath: string, metadata: Record<string, any>): Promise<void>;
+  /**
+   * Saves a binary image blob to `{workspacePath}/assets/images/{fileName}`,
+   * auto-creating the directory if absent.
+   * Returns the relative markdown-ready path: `assets/images/{fileName}`.
+   */
+  saveImageAsset(workspacePath: string, data: Uint8Array, fileName: string): Promise<string>;
 }
 
 // ----------------------------------------------------
@@ -99,6 +105,17 @@ export class MockFileSystem implements FileSystemRepository {
     const metaPath = `${workspacePath}/.devoras/spatial.json`;
     this.virtualFs[metaPath] = { content: JSON.stringify(metadata) };
   }
+
+  async saveImageAsset(
+    _workspacePath: string,
+    _data: Uint8Array,
+    fileName: string,
+  ): Promise<string> {
+    // Browser mock: no real file I/O — return the relative path so the
+    // markdown link is still syntactically correct for testing.
+    console.info(`[Mock] Image save skipped for: assets/images/${fileName}`);
+    return `assets/images/${fileName}`;
+  }
 }
 
 // ----------------------------------------------------
@@ -182,6 +199,27 @@ export class TauriFileSystem implements FileSystemRepository {
       await writeTextFile(metaPath, JSON.stringify(metadata, null, 2));
     } catch (e) {
       console.error('Tauri writeSpatialMetadata error:', e);
+    }
+  }
+
+  async saveImageAsset(
+    workspacePath: string,
+    data: Uint8Array,
+    fileName: string,
+  ): Promise<string> {
+    try {
+      const { writeFile, mkdir, exists } = await import('@tauri-apps/plugin-fs');
+      // Ensure assets/ and assets/images/ directories exist
+      const assetsDir = `${workspacePath}/assets`;
+      const imagesDir = `${workspacePath}/assets/images`;
+      if (!await exists(assetsDir)) await mkdir(assetsDir);
+      if (!await exists(imagesDir)) await mkdir(imagesDir);
+      const filePath = `${imagesDir}/${fileName}`;
+      await writeFile(filePath, data);
+      return `assets/images/${fileName}`;
+    } catch (e) {
+      console.error('Tauri saveImageAsset error:', e);
+      throw e;
     }
   }
 }
