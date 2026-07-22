@@ -51,6 +51,31 @@ function deriveBlockKey(
   return buildHeadingId(parsed.label, parentKey, siblingCountMap);
 }
 
+/**
+ * Derives canonical keys for a list of block contents, accumulating the
+ * parent-stack state sequentially across the entire list.
+ *
+ * This is the single source of truth for the stack pop/push logic that was
+ * previously duplicated between the newKeys loop and the existingByKey loop
+ * in setBlocksFromContent. Any change to heading traversal rules only needs
+ * to be made here.
+ */
+function deriveKeysWithParentStack(contents: string[]): string[] {
+  const sibMap: Record<string, number> = {};
+  const parentStack: { level: number; key: string }[] = [];
+  return contents.map((content) => {
+    const key = deriveBlockKey(content, parentStack, sibMap);
+    const parsed = parseHeadingLine(content.split('\n')[0]);
+    if (parsed) {
+      while (parentStack.length > 0 && parentStack[parentStack.length - 1].level >= parsed.level) {
+        parentStack.pop();
+      }
+      parentStack.push({ level: parsed.level, key });
+    }
+    return key;
+  });
+}
+
 export const useBlockStore = create<BlockState>((set, get) => ({
   blocks: [],
   activeBlockId: null,
@@ -91,49 +116,20 @@ export const useBlockStore = create<BlockState>((set, get) => ({
       newBlockContents.push('');
     }
 
-    // Build canonical keys for every new block using the shared ID utility.
-    // This makes each block's key identical to the corresponding MindNode's id
-    // produced by the markdown parser — enabling reliable cross-layer mapping.
-    const siblingCountMap: Record<string, number> = {};
-    const parentKeyStack: { level: number; key: string }[] = [];
-    const newKeys: string[] = newBlockContents.map((blockText) => {
-      const key = deriveBlockKey(blockText, parentKeyStack, siblingCountMap);
-      const firstLine = blockText.split('\n')[0];
-      const parsed = parseHeadingLine(firstLine);
-      if (parsed) {
-        // Maintain the parent stack so nested headings resolve their parent correctly
-        while (parentKeyStack.length > 0 && parentKeyStack[parentKeyStack.length - 1].level >= parsed.level) {
-          parentKeyStack.pop();
-        }
-        parentKeyStack.push({ level: parsed.level, key });
-      }
-      return key;
-    });
+    // Build canonical keys for every new block. Keys are identical to the
+    // corresponding MindNode IDs produced by the markdown parser, enabling
+    // reliable cross-layer mapping.
+    const newKeys = deriveKeysWithParentStack(newBlockContents);
 
-    // Preserve existing block IDs by matching on canonical keys.
-    // IMPORTANT: old block keys must be derived using the SAME sequential
-    // parent-stack accumulation as new block keys. Deriving them in isolation
-    // (empty parentStack per block) produces a different path for H2+ blocks
-    // (e.g. "Section A" instead of "Title/Section A"), causing every H2 block
-    // to receive a new random ID on every re-slice and making it impossible to
-    // identify the truly new block — which was the root cause of the cursor
-    // always jumping to the first H2 instead of the newly created block.
+    // Preserve existing block IDs by matching canonical keys.
+    // deriveKeysWithParentStack guarantees the same sequential parent-stack
+    // accumulation for both old and new keys, so H2+ block paths are consistent
+    // (e.g. "Title/Section A" not just "Section A") and IDs are correctly preserved.
     const currentBlocks = get().blocks;
-    const oldSiblingCountMap: Record<string, number> = {};
-    const oldParentKeyStack: { level: number; key: string }[] = [];
+    const oldKeys = deriveKeysWithParentStack(currentBlocks.map((b) => b.content));
     const existingByKey = new Map<string, EditorBlock>();
-    currentBlocks.forEach((b) => {
-      const key = deriveBlockKey(b.content, oldParentKeyStack, oldSiblingCountMap);
-      // Maintain old parent stack identically to the new-key derivation loop
-      const firstLine = b.content.split('\n')[0];
-      const parsed = parseHeadingLine(firstLine);
-      if (parsed) {
-        while (oldParentKeyStack.length > 0 && oldParentKeyStack[oldParentKeyStack.length - 1].level >= parsed.level) {
-          oldParentKeyStack.pop();
-        }
-        oldParentKeyStack.push({ level: parsed.level, key });
-      }
-      if (!existingByKey.has(key)) existingByKey.set(key, b);
+    currentBlocks.forEach((b, i) => {
+      if (!existingByKey.has(oldKeys[i])) existingByKey.set(oldKeys[i], b);
     });
 
     const usedIds = new Set<string>();
