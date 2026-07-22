@@ -1,5 +1,5 @@
 # Ticket: refactor_20260722_195402_single_block_mode_option
-**Status**: TODO
+**Status**: HOLD (Post-MVP)
 **Target Release**: v0.2.9
 **Date**: 2026-07-22
 
