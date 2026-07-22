@@ -9,10 +9,14 @@ interface DocumentState {
   nodes: MindNode[];
   spatialData: Record<string, { x: number; y: number }>;
   isDirty: boolean;
+  /** Current editor view mode. Resets to 'write' on every file load. */
+  viewMode: 'write' | 'read';
   loadFile: (file: FileEntry) => Promise<void>;
   updateContent: (content: string) => void;
   updateNodeCoordinate: (nodeId: string, x: number, y: number) => void;
   saveFile: () => Promise<void>;
+  setViewMode: (mode: 'write' | 'read') => void;
+  toggleViewMode: () => void;
 }
 
 export const useDocumentStore = create<DocumentState>((set, get) => ({
@@ -21,6 +25,10 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   nodes: [],
   spatialData: {},
   isDirty: false,
+  viewMode: 'write',
+
+  setViewMode: (mode) => set({ viewMode: mode }),
+  toggleViewMode: () => set((s) => ({ viewMode: s.viewMode === 'write' ? 'read' : 'write' })),
 
   loadFile: async (file) => {
     try {
@@ -60,6 +68,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
         nodes: alignedNodes,
         spatialData,
         isDirty: false,
+        viewMode: 'write', // Always start in write mode when opening a new file
       });
     } catch (e) {
       console.error(`Failed to load file ${file.path}:`, e);

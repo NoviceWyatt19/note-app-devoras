@@ -16,6 +16,7 @@ interface BlockState {
 
   mergeBlockWithPrevious: (id: string) => void;
   focusBlock: (id: string, offset?: number) => void;
+  reorderBlocks: (fromIndex: number, toIndex: number) => void;
 }
 
 const generateId = () => Math.random().toString(36).substring(2, 9);
@@ -197,5 +198,14 @@ export const useBlockStore = create<BlockState>((set, get) => ({
       activeBlockId: id,
       focusOffset: offset,
     });
+  },
+
+  reorderBlocks: (fromIndex, toIndex) => {
+    if (fromIndex === toIndex) return;
+    const { blocks } = get();
+    const reordered = [...blocks];
+    const [moved] = reordered.splice(fromIndex, 1);
+    reordered.splice(toIndex, 0, moved);
+    set({ blocks: reordered });
   },
 }));

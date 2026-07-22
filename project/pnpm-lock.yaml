@@ -38,6 +38,9 @@ importers:
       lucide-react:
         specifier: ^1.24.0
         version: 1.24.0(react@18.3.1)
+      marked:
+        specifier: ^18.0.7
+        version: 18.0.7
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -1381,6 +1384,11 @@ packages:
     resolution: {integrity: sha512-YT6mBD8lGKkg4nM39enlm94/sfJIiW0YKUT60fBy4YK8tai31ylg1VhGNWxkpSKHo9UagfnZqwIff3HTDQwXeA==}
     peerDependencies:
       react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
+
+  marked@18.0.7:
+    resolution: {integrity: sha512-iDVQ5ldaiKXn6b2JroX5kgRfmwgqolW7NpaEzTl1k/2Zh1njIEN9yniyLV/mOvWwtsE8OGgkjsCYvijuPk1dtA==}
+    engines: {node: '>= 20'}
+    hasBin: true
 
   merge-stream@2.0.0:
     resolution: {integrity: sha512-abv/qOcuPfk3URPfDzmZU1LKmuw8kT+0nIHvKrKgFrwifol/doWcdA4ZqsWQ8ENrFKkd67Mfpo/LovbIUsbt3w==}
@@ -3089,6 +3097,8 @@ snapshots:
   lucide-react@1.24.0(react@18.3.1):
     dependencies:
       react: 18.3.1
+
+  marked@18.0.7: {}
 
   merge-stream@2.0.0: {}
 

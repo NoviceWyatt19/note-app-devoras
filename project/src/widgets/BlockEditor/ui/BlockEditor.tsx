@@ -9,6 +9,7 @@ import { markdown } from '@codemirror/lang-markdown';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { FileEdit } from 'lucide-react';
 import { FormatToolbar } from './FormatToolbar';
+import { ReadView } from './ReadView';
 import { setActiveEditorView } from '@/shared/lib/activeEditorView';
 import { generateImageFileName } from '@/shared/lib/imageUtils';
 import { fileSystemRepository } from '@/shared/api/fs';
@@ -305,7 +306,7 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
 
 // Main BlockEditor Widget Component
 export const BlockEditor: React.FC = () => {
-  const { currentFile, updateContent } = useDocumentStore();
+  const { currentFile, updateContent, viewMode } = useDocumentStore();
 
   // Narrow Zustand selectors — each subscription only triggers a re-render
   // when its specific slice of the store changes, not on every store write.
@@ -404,36 +405,41 @@ export const BlockEditor: React.FC = () => {
 
   return (
     <div className="min-h-full flex flex-col">
-      {/* Sticky formatting toolbar — stays visible while scrolling through blocks */}
+      {/* Sticky formatting toolbar — visible in both modes */}
       <div className="sticky top-0 z-10 bg-darkBg/95 backdrop-blur-sm">
         <div className="max-w-3xl mx-auto">
           <FormatToolbar />
         </div>
       </div>
 
-      {/* Editor blocks */}
-      <div className="py-6 max-w-3xl mx-auto w-full flex-1 flex flex-col">
-        <div className="space-y-3 flex-1">
-          {blocks.map((block, index) => (
-            <CodeMirrorBlock
-              key={block.id}
-              block={block}
-              index={index}
-              isFocused={activeBlockId === block.id}
-              focusOffset={activeBlockId === block.id ? focusOffset : 0}
-              onUpdate={(text, cursorOffset) => handleBlockUpdate(block.id, text, cursorOffset)}
-              onMerge={() => handleMerge(block.id)}
-              onFocusPrev={() => {
-                if (index > 0) focusBlock(blocks[index - 1].id, blocks[index - 1].content.length);
-              }}
-              onFocusNext={() => {
-                if (index < blocks.length - 1) focusBlock(blocks[index + 1].id, 0);
-              }}
-              onSelect={() => focusBlock(block.id)}
-            />
-          ))}
+      {/* Mode-dependent content area */}
+      {viewMode === 'read' ? (
+        <ReadView />
+      ) : (
+        /* Write mode: CodeMirror block editors */
+        <div className="py-6 max-w-3xl mx-auto w-full flex-1 flex flex-col">
+          <div className="space-y-3 flex-1">
+            {blocks.map((block, index) => (
+              <CodeMirrorBlock
+                key={block.id}
+                block={block}
+                index={index}
+                isFocused={activeBlockId === block.id}
+                focusOffset={activeBlockId === block.id ? focusOffset : 0}
+                onUpdate={(text, cursorOffset) => handleBlockUpdate(block.id, text, cursorOffset)}
+                onMerge={() => handleMerge(block.id)}
+                onFocusPrev={() => {
+                  if (index > 0) focusBlock(blocks[index - 1].id, blocks[index - 1].content.length);
+                }}
+                onFocusNext={() => {
+                  if (index < blocks.length - 1) focusBlock(blocks[index + 1].id, 0);
+                }}
+                onSelect={() => focusBlock(block.id)}
+              />
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

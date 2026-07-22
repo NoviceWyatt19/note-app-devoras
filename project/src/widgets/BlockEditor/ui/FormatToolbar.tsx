@@ -1,6 +1,7 @@
 import React from 'react';
-import { Bold, Italic, Strikethrough, Link2, Code2, Table } from 'lucide-react';
+import { Bold, Italic, Strikethrough, Link2, Code2, Table, Eye, Edit3 } from 'lucide-react';
 import { getActiveEditorView } from '@/shared/lib/activeEditorView';
+import { useDocumentStore } from '@/entities/document/model/store';
 
 // ---------------------------------------------------------------------------
 // Format application helpers
@@ -106,40 +107,59 @@ const tools: ToolDef[] = [
 // ---------------------------------------------------------------------------
 
 export const FormatToolbar: React.FC = () => {
+  const { viewMode, toggleViewMode } = useDocumentStore();
+
   return (
     <div
       className="flex items-center gap-0.5 px-3 py-1.5 border-b border-darkBorder/40 bg-darkPanel/60"
-      // Prevent the toolbar from stealing focus from the editor.
-      // onMouseDown runs before the browser's default focus-transfer behaviour;
-      // preventDefault here keeps the CodeMirror view focused so format actions
-      // can still read getActiveEditorView() correctly.
       onMouseDown={(e) => e.preventDefault()}
     >
-      {tools.map((tool) => (
+      {/* Format buttons — only relevant in write mode */}
+      {viewMode === 'write' && (
+        <>
+          {tools.map((tool) => (
+            <button
+              key={tool.label}
+              title={tool.label}
+              onClick={tool.action}
+              className="
+                flex items-center justify-center
+                w-7 h-7 rounded
+                text-mutedText hover:text-slate-200
+                hover:bg-white/10 active:bg-white/20
+                transition-colors duration-100
+                select-none
+              "
+            >
+              {tool.icon}
+            </button>
+          ))}
+
+          {/* Divider */}
+          <div className="w-px h-4 bg-darkBorder/60 mx-1" />
+
+          <span className="text-[10px] text-mutedText/40 font-mono select-none">
+            선택 후 클릭으로 서식 적용
+          </span>
+        </>
+      )}
+
+      {/* Mode toggle — always visible, pinned to the right */}
+      <div className="ml-auto">
         <button
-          key={tool.label}
-          title={tool.label}
-          onClick={tool.action}
-          className="
-            flex items-center justify-center
-            w-7 h-7 rounded
-            text-mutedText hover:text-slate-200
-            hover:bg-white/10 active:bg-white/20
-            transition-colors duration-100
-            select-none
-          "
+          title={viewMode === 'write' ? '읽기 모드로 전환 (Read)' : '편집 모드로 전환 (Edit)'}
+          onClick={toggleViewMode}
+          className={[
+            'flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition-all duration-150 select-none',
+            viewMode === 'read'
+              ? 'text-indigo-300 bg-indigo-950/70 border border-indigo-800/50 hover:bg-indigo-900/50'
+              : 'text-mutedText hover:text-slate-200 hover:bg-white/10',
+          ].join(' ')}
         >
-          {tool.icon}
+          {viewMode === 'write' ? <Eye size={12} /> : <Edit3 size={12} />}
+          <span>{viewMode === 'write' ? 'Read' : 'Edit'}</span>
         </button>
-      ))}
-
-      {/* Divider */}
-      <div className="w-px h-4 bg-darkBorder/60 mx-1" />
-
-      {/* Keyboard shortcut hints */}
-      <span className="text-[10px] text-mutedText/40 ml-1 font-mono select-none">
-        선택 후 클릭으로 서식 적용
-      </span>
+      </div>
     </div>
   );
 };
