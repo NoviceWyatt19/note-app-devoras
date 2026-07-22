@@ -13,7 +13,7 @@ interface BlockState {
   setBlocksFromContent: (content: string) => void;
   getMergedContent: () => string;
   updateBlockContent: (id: string, content: string) => void;
-  splitBlock: (id: string, cursorOffset: number) => void;
+
   mergeBlockWithPrevious: (id: string) => void;
   focusBlock: (id: string, offset?: number) => void;
 }
@@ -169,33 +169,6 @@ export const useBlockStore = create<BlockState>((set, get) => ({
       return block;
     });
     set({ blocks: updated });
-  },
-
-  splitBlock: (id, cursorOffset) => {
-    const { blocks } = get();
-    const index = blocks.findIndex(b => b.id === id);
-    if (index === -1) return;
-
-    const targetBlock = blocks[index];
-    const textBefore = targetBlock.content.substring(0, cursorOffset);
-    const textAfter = targetBlock.content.substring(cursorOffset);
-
-    // Splitting H2: Prefix the new block with H2 heading to create a new mind node
-    const newBlockId = generateId();
-    const newBlock: EditorBlock = {
-      id: newBlockId,
-      content: `## 새 노드\n${textAfter}`,
-    };
-
-    const newBlocks = [...blocks];
-    newBlocks[index] = { ...targetBlock, content: textBefore };
-    newBlocks.splice(index + 1, 0, newBlock);
-
-    set({
-      blocks: newBlocks,
-      activeBlockId: newBlockId,
-      focusOffset: 3, // Focus cursor after '## ' prefix
-    });
   },
 
   mergeBlockWithPrevious: (id) => {
