@@ -259,34 +259,31 @@ export const BlockEditor: React.FC = () => {
 
     // Only re-slice when a heading was actually added or removed
     if (headingCount !== state.blocks.length) {
-      const prevIds = new Set(state.blocks.map(b => b.id));
-
       state.setBlocksFromContent(merged);
 
       const nextBlocks = useBlockStore.getState().blocks;
-      const newBlock = nextBlocks.find(b => !prevIds.has(b.id));
-      if (newBlock) {
-        // Map absoluteCursorPos back to a specific block + relative offset so the
-        // cursor lands exactly where the user was typing, not at headingLineEnd.
-        let accumulated = 0;
-        let targetId = nextBlocks[nextBlocks.length - 1].id;
-        let targetOffset = 0;
 
-        for (let i = 0; i < nextBlocks.length; i++) {
-          const len = nextBlocks[i].content.length;
-          if (absoluteCursorPos <= accumulated + len) {
-            targetId = nextBlocks[i].id;
-            targetOffset = Math.min(Math.max(0, absoluteCursorPos - accumulated), len);
-            break;
-          }
-          accumulated += len + 1; // +1 for the '\n' separator
+      // Always map absoluteCursorPos to the precise target block + relative offset.
+      // This unifies cursor restoration for both promotion (new block created) and
+      // demotion (block absorbed) cases. Previously the demotion path was delegated to
+      // setBlocksFromContent's internal Case A heuristic (junction-point offset),
+      // which discarded the user's actual typing position in favour of an approximation.
+      let accumulated = 0;
+      let targetId = nextBlocks[nextBlocks.length - 1].id;
+      let targetOffset = 0;
+
+      for (let i = 0; i < nextBlocks.length; i++) {
+        const len = nextBlocks[i].content.length;
+        if (absoluteCursorPos <= accumulated + len) {
+          targetId = nextBlocks[i].id;
+          targetOffset = Math.min(Math.max(0, absoluteCursorPos - accumulated), len);
+          break;
         }
-
-        // Defer one tick so the new CodeMirror instance is mounted before focusing
-        setTimeout(() => useBlockStore.getState().focusBlock(targetId, targetOffset), 0);
+        accumulated += len + 1; // +1 for the '\n' separator
       }
-      // If no newBlock found (merge/downgrade case), setBlocksFromContent's
-      // Case A logic already handled focus correctly — nothing more to do.
+
+      // Defer one tick so any newly mounted CodeMirror instance is in the DOM before focusing
+      setTimeout(() => useBlockStore.getState().focusBlock(targetId, targetOffset), 0);
     }
 
     updateContent(merged);

@@ -23,10 +23,14 @@ export const FileExplorer: React.FC = () => {
     }
 
     await loadFile(file);
-    
+
     // Load blocks in the editor store using document rawContent
     const freshContent = useDocumentStore.getState().rawContent;
     setBlocksFromContent(freshContent);
+    // setBlocksFromContent no longer manages activeBlockId/focusOffset (SRP).
+    // Explicitly focus the first block so the editor is ready to use immediately.
+    const firstBlockOnLoad = useBlockStore.getState().blocks[0];
+    if (firstBlockOnLoad) useBlockStore.getState().focusBlock(firstBlockOnLoad.id, 0);
   };
 
   const handleCreateFile = async (e: React.FormEvent) => {
@@ -55,6 +59,9 @@ export const FileExplorer: React.FC = () => {
       };
       await loadFile(freshFile);
       setBlocksFromContent(initialContent);
+      // Focus the first block of the newly created file.
+      const firstBlockOnCreate = useBlockStore.getState().blocks[0];
+      if (firstBlockOnCreate) useBlockStore.getState().focusBlock(firstBlockOnCreate.id, 0);
     } catch (e) {
       console.error('Failed to create file:', e);
       alert('파일 생성 중 에러가 발생했습니다.');
