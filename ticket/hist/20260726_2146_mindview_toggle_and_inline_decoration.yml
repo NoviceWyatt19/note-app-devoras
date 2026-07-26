@@ -1,0 +1,21 @@
+# 📜 HISTORY TICKET  
+type: "HISTORY_TICKET"  
+id: "HIST-20260726-02"  
+# ━━━  
+update: "2026-07-26 21:46"  
+# ━━━  
+project_ref: "PRJ-DEVORAS-MVP"  
+# ━━━  
+cumulative_changes:  
+  - "v0.4.0: MindView 가시성 제어 토글 추가 및 토글 시 에디터 가로폭 반응형 유연 확장"  
+  - "v0.4.0: 마인드맵 노드 호버 시 본문 내용 팝업 미리보기(200ms 디바운스 및 핀 고정 기능 포함) 연동"  
+  - "v0.4.0: extractSectionContent 헬퍼 함수 구현으로 다음 헤딩 전까지 본문 추출 안정성 제고 (코드 펜스 내 헤딩 스킵)"  
+  - "v0.4.0: CodeMirror 6 마크다운 인라인 데코레이션 아키텍처 구축 및 오케스트레이터 플러그인 확장 (BoldItalic, Checkbox, CodeBlock, Hyperlink, Latex-KaTeX 위젯 렌더러 구현)"  
+  - "v0.4.0: Read/Write 모드 전환을 돕는 ReadView, viewMode 및 reorderBlocks 연동 완료"  
+# ━━━  
+technical_debt:  
+  - "KaTeX 렌더링 시 멀티라인 fence 수식이 뷰포트 밖에서 시작할 경우 일부 미렌더링되는 문제"  
+  - "에디터 내 한글 IME 입력 조합 도중 마인드 뷰 동기화 충돌로 인한 렉 및 포커스 이탈"  
+  - "블록 간 Arrow Up/Down 이동 시 Cursor 가로 Column 위치 리셋 현상"  
+# ━━━  
+next_session_start: "로컬 로드맵(AGENT_TICKET_EXECUTION_ROADMAP.yml) Phase 1에 명시된 '에디터 줄바꿈·한글 IME 조합 및 마인드 뷰 상호작용 회귀(DBG-20260724-01)' 버그 디버깅 및 한글 호환성 정교화"

@@ -126,3 +126,24 @@ rules:
   restrictions:  
     - "[절대 금지 사항 및 제한 사항 1]"  
 ```
+
+---
+
+## **3. 🧪 하네스 엔지니어링 (Harness Engineering) 도입 규격**
+
+에이전트가 디버깅/구현 작업 시 **불필요하게 소스코드 전체 컨텍스트를 로드하여 토큰을 낭비하는 문제**를 방지하기 위해, 작업을 최소 단위로 샌드박싱하여 검증하는 '하네스' 기법을 의무화합니다.
+
+1. **하네스 스크립트 작성**:
+   - 리팩토링 및 디버그 작업 대상 모듈을 고립시켜 검증할 수 있는 가벼운 테스트 러너 스크립트를 작성합니다.
+   - 예시 경로: `project/src/shared/lib/editor/decorators/__tests__/decorator_harness.ts`
+   
+2. **티켓 내 하네스 지정**:
+   - `Implement` 및 `Debug` 티켓 작성 시 `harness:` 필드를 명시하고 하네스 실행 명령 혹은 테스트 검증 방법을 명시합니다.
+   - 예시:
+     ```yaml
+     harness: 
+       path: "project/src/shared/lib/editor/decorators/__tests__/decorator_harness.ts"
+       run_command: "pnpm ts-node decorator_harness.ts"
+     ```
+3. **효과**:
+   - 에이전트가 전체 UI 빌드를 하지 않고도 단일 로직 단위로 검증을 끝마칠 수 있게 되어, 반복적인 빌드 실패로 인한 컨텍스트 오버헤드를 원천 차단합니다.

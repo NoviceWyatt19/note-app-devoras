@@ -13,11 +13,9 @@ const DISPLAY_SINGLE_RE = /\$\$([^$\n]+?)\$\$/g;
 // Inline math:  $formula$  — must NOT be adjacent `$$`
 const INLINE_RE = /(?<!\$)\$([^$\n]+?)\$(?!\$)/g;
 
-// Fence-style display math spanning multiple lines
-// Opener: line is exactly `$$`
-const DISPLAY_FENCE_OPEN = /^\$\$\s*$/;
-// Closer: same pattern
-const DISPLAY_FENCE_CLOSE = /^\$\$\s*$/;
+// Fence-style display math: line that is exactly `$$` (with optional trailing whitespace)
+const DISPLAY_FENCE_RE = /^\$\$\s*$/;
+
 
 // ---------------------------------------------------------------------------
 // KaTeX widget helpers
@@ -147,7 +145,7 @@ export class LatexDecorator implements SyntaxDecorator {
       const line = doc.lineAt(pos);
       const lineText = doc.sliceString(line.from, line.to);
 
-      if (DISPLAY_FENCE_OPEN.test(lineText)) {
+      if (DISPLAY_FENCE_RE.test(lineText)) {
         if (fenceFrom === -1) {
           // Opening fence
           fenceFrom = line.from;
