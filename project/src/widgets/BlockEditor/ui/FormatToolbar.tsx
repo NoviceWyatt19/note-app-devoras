@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bold, Italic, Strikethrough, Link2, Code2, Table, Eye, Edit3 } from 'lucide-react';
+import { Bold, Italic, Strikethrough, Link2, Code2, Table, Eye, Edit3, Minus, Plus } from 'lucide-react';
 import { getActiveEditorView } from '@/shared/lib/activeEditorView';
 import { useDocumentStore } from '@/entities/document/model/store';
 
@@ -107,7 +107,7 @@ const tools: ToolDef[] = [
 // ---------------------------------------------------------------------------
 
 export const FormatToolbar: React.FC = () => {
-  const { viewMode, toggleViewMode } = useDocumentStore();
+  const { viewMode, toggleViewMode, fontSize, adjustFontSize } = useDocumentStore();
 
   return (
     <div
@@ -143,6 +143,25 @@ export const FormatToolbar: React.FC = () => {
           </span>
         </>
       )}
+
+      {/* Font size is shared by write and read modes. */}
+      <div className="flex items-center gap-0.5 ml-3 text-mutedText">
+        <button
+          title="글꼴 크기 줄이기"
+          onClick={() => adjustFontSize(-1)}
+          className="flex items-center justify-center w-6 h-6 rounded hover:text-slate-200 hover:bg-white/10"
+        >
+          <Minus size={12} />
+        </button>
+        <span className="w-8 text-center text-[10px] font-mono select-none">{fontSize}px</span>
+        <button
+          title="글꼴 크기 키우기"
+          onClick={() => adjustFontSize(1)}
+          className="flex items-center justify-center w-6 h-6 rounded hover:text-slate-200 hover:bg-white/10"
+        >
+          <Plus size={12} />
+        </button>
+      </div>
 
       {/* Mode toggle — always visible, pinned to the right */}
       <div className="ml-auto">

@@ -1,0 +1,48 @@
+# 🐛 [요약형] DEBUG TICKET
+type: "DEBUG_TICKET"
+id: "DBG-20260725-01"
+# ━━━
+update: "2026-07-26 21:25"
+# ━━━
+subject: "Read Mode에서 빈 줄(줄 띄움) 간격 미렌더링 이슈"
+# ━━━
+symptom:
+  situation: "Write Mode에서 Enter를 여러 번 입력해 만든 빈 줄 및 문단 간격이 Read Mode 렌더링 시 완전히 소실되어 문단이 연속으로 붙어 보임"
+  repro_steps:
+    - "Write Mode에서 첫 번째 문단 입력 후 Enter를 2번 이상 입력하여 빈 줄 생성"
+    - "두 번째 문단 입력 후 Read Mode로 전환"
+    - "문단 사이에 빈 줄 간격(여백)이 적용되지 않고 텍스트가 붙어서 렌더링되는 현상 확인"
+  expected: "Write Mode에서 의도한 빈 줄 간격이 Read Mode에서도 시각적 여백(Margin/BR)으로 정상 표현됨"
+# ━━━
+analysis:
+  hypotheses:
+    - "[기각] Block 병합 및 전달 과정에서 연속된 개행 문자(\\n\\n)가 단일 공백/개행으로 정규화(Trim/Collapse)됨 → setBlocksFromContent가 split('\\n') + join('\\n') 방식으로 빈 줄을 그대로 보존함을 확인"
+    - "[확정] ReadView CSS에서 <p> 태그의 margin-bottom/padding 값이 사실상 0으로 수렴 → Tailwind Preflight가 p { margin: 0 }으로 리셋 후, 재정의된 margin: 0.5rem 0이 CSS margin collapse에 의해 실제 7px으로 붕괴. 14px 폰트 기준 한 줄 높이(24.5px)의 29%에 불과해 시각적으로 '없는 것처럼' 인식됨"
+    - "[기각] marked 파서의 AST 변환 시 빈 줄 블록이 빈 요소로 처리되어 DOM 생성 단계에서 생략됨 → marked({ gfm: true, breaks: true })는 \\n\\n을 <p>...</p><p>...</p>로 정상 분리함을 확인"
+  root_cause: |
+    CSS margin collapse가 핵심 원인.
+    .rv-content p { margin: 0.5rem 0 }에서 인접 <p> 태그의 상하 margin이 붕괴되어
+    max(0.5rem, 0.5rem) = 7px만 적용됨.
+    단일 빈 줄(Enter 2회) 렌더링은 해결되었으나,
+    다중 빈 줄(Enter 3회 이상)은 marked가 모든 연속 개행을 단일 단락 구분으로 처리하여
+    추가 간격이 반영되지 않는 잔여 한계가 존재함(당장 수정 보류).
+# ━━━
+resolution:
+  direction: "CSS margin collapse 제거로 단일 빈 줄 간격 복원 (다중 빈 줄은 향후 과제)"
+  action: |
+    [완료] index.css: .rv-content p { margin: 0.5rem 0 } →
+      margin: 0; padding-bottom: 1.1em; 으로 교체 (padding은 collapsing 미발생)
+      p:last-child { padding-bottom: 0 } 추가
+      .rv-content p.rv-blank-spacer { ... } 스페이서 스타일 추가
+    [완료] ReadView.tsx preprocessMd: \\n{3,} → <p class="rv-blank-spacer">&nbsp;</p> 변환 추가
+      (다중 빈 줄 처리 시도했으나 marked 내부 파이프라인 구조상 완전한 시각 반영은 미해결 — 보류)
+  verified: "단일 빈 줄(Enter 2회) → Read Mode에서 시각적 여백 정상 렌더링 확인 ✅"
+# ━━━
+known_limitation:
+  subject: "다중 빈 줄(Enter 3회 이상) 추가 간격 미반영"
+  detail: "marked가 연속 개행을 단일 단락 구분으로 정규화하는 근본 동작으로 인해 preprocessMd 수준의 우회로는 완전한 해결 어려움. 추후 marked 커스텀 렌더러 또는 별도 빈 줄 카운팅 파이프라인 도입 시 재검토 필요."
+  priority: "낮음 (보류)"
+# ━━━
+prevention:
+  verification: "단일 개행, 빈 줄(2연속 Enter), 다중 빈 줄(3연속 이상)에 대한 Write->Read 전환 시 여백 검증"
+  action_plan: "다중 빈 줄 지원이 필요할 경우 marked 커스텀 렌더러(Renderer.paragraph) 또는 preprocessMd에서 개행 횟수 계수 후 em 높이를 가진 div 주입 방식 검토"

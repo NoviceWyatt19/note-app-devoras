@@ -13,6 +13,27 @@ import { ReadView } from './ReadView';
 import { setActiveEditorView } from '@/shared/lib/activeEditorView';
 import { generateImageFileName } from '@/shared/lib/imageUtils';
 import { fileSystemRepository } from '@/shared/api/fs';
+import { createDecorationPlugin } from '@/shared/lib/editor/decorators/orchestrator';
+import { BoldItalicDecorator } from '@/shared/lib/editor/decorators/impl/BoldItalicDecorator';
+import { StrikethroughDecorator } from '@/shared/lib/editor/decorators/impl/StrikethroughDecorator';
+import { CheckboxDecorator } from '@/shared/lib/editor/decorators/impl/CheckboxDecorator';
+import { CodeBlockDecorator } from '@/shared/lib/editor/decorators/impl/CodeBlockDecorator';
+import { LatexDecorator } from '@/shared/lib/editor/decorators/impl/LatexDecorator';
+import { HyperlinkDecorator } from '@/shared/lib/editor/decorators/impl/HyperlinkDecorator';
+
+// ---------------------------------------------------------------------------
+// Module-level decoration plugin
+// Instantiated once and shared across all CodeMirrorBlock instances.
+// To add new syntax: append a new SyntaxDecorator to this array.
+// ---------------------------------------------------------------------------
+const markdownDecorationPlugin = createDecorationPlugin([
+  new BoldItalicDecorator(),
+  new StrikethroughDecorator(),
+  new CheckboxDecorator(),
+  new CodeBlockDecorator(),
+  new LatexDecorator(),
+  new HyperlinkDecorator(),
+]);
 
 // Single CodeMirror block component
 interface CodeMirrorBlockProps {
@@ -112,6 +133,10 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
         drawSelection(),
         keymap.of([...defaultKeymap, ...historyKeymap]),
         blockKeymap,
+        // Markdown WYSIWYG-like inline decorations (bold, italic, strikethrough,
+        // checkbox, code block, LaTeX math). New syntaxes: add a SyntaxDecorator
+        // to the markdownDecorationPlugin array at the top of this file.
+        markdownDecorationPlugin,
         // Image paste: intercept clipboard items that are images, save them
         // to assets/images/ and insert a markdown image link at the cursor.
         // Non-image paste falls through to CodeMirror's default handler.
@@ -223,7 +248,7 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
           },
           '.cm-scroller': {
             fontFamily: 'JetBrains Mono, Fira Code, monospace',
-            fontSize: '13px',
+            fontSize: 'var(--editor-font-size, 13px)',
             overflow: 'hidden',
           },
           '.cm-content': {
@@ -306,7 +331,7 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
 
 // Main BlockEditor Widget Component
 export const BlockEditor: React.FC = () => {
-  const { currentFile, updateContent, viewMode } = useDocumentStore();
+  const { currentFile, updateContent, viewMode, fontSize } = useDocumentStore();
 
   // Narrow Zustand selectors — each subscription only triggers a re-render
   // when its specific slice of the store changes, not on every store write.
@@ -404,7 +429,10 @@ export const BlockEditor: React.FC = () => {
   }
 
   return (
-    <div className="min-h-full flex flex-col">
+    <div
+      className="min-h-full flex flex-col"
+      style={{ '--editor-font-size': `${fontSize}px` } as React.CSSProperties}
+    >
       {/* Sticky formatting toolbar — visible in both modes */}
       <div className="sticky top-0 z-10 bg-darkBg/95 backdrop-blur-sm">
         <div className="max-w-3xl mx-auto">

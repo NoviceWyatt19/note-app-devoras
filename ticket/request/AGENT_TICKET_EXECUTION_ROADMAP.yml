@@ -1,0 +1,89 @@
+# 🚀 AGENT TICKET EXECUTION ROADMAP
+update: "2026-07-25 17:43"
+total_tickets: 9
+
+# ━━━ PRIORITY MATRIX
+priority_matrix:
+  P0_CRITICAL:
+    description: "최우선 블로커 - 텍스트 입력 및 데이터 손실 방지"
+    tickets:
+      - id: "DBG-20260724-01"
+        subject: "에디터 줄바꿈·한글 IME 조합 및 마인드 뷰 상호작용 회귀"
+      - id: "RFC-20260724-01"
+        subject: "실서비스 수준 한글 IME 입력 호환성 개선"
+
+  P1_HIGH:
+    description: "에디터 핵심 UX 및 렌더링 정상화"
+    tickets:
+      - id: "DBG-20260725-01"
+        subject: "Read Mode에서 빈 줄(줄 띄움) 간격 미렌더링 이슈"
+      - id: "DBG-20260724-02"
+        subject: "블록 간 방향키(ArrowUp, ArrowDown) 이동 시 가로 컬럼 위치 미보존"
+
+  P2_MEDIUM:
+    description: "에디터 의미 렌더링 및 신규 파일 기능"
+    tickets:
+      - id: "RFC-20260724-02"
+        subject: "Write Mode 마크다운 의미 렌더링 및 테마 확장"
+      - id: "IMPL-20260725-02"
+        subject: "파일 신규 생성 카테고리화 및 개발 설정/문서 파일 생성 지원"
+
+  P3_LOW:
+    description: "레이아웃 및 뷰포트 개선"
+    tickets:
+      - id: "IMPL-20260724-01"
+        subject: "유동 노트 캔버스 폭 및 정렬 제어"
+      - id: "IMPL-20260724-02"
+        subject: "마인드 뷰 가시성 제어 및 노드 미리보기"
+
+  EXEMPT:
+    description: "작업 대상 제외 (완료 또는 보류)"
+    tickets:
+      - id: "RFC-20260723-01"
+        status: "DONE"
+        subject: "Write Mode 인라인 렌더링 및 확장 가능한 데코레이션 아키텍처 구축"
+      - id: "RFC-20260722-01"
+        status: "HOLD (Post-MVP)"
+        subject: "단일 블록 편집 모드(Single Block Mode) 옵션 및 상태 추가"
+
+# ━━━ EXECUTION PHASES
+execution_phases:
+  phase_1:
+    name: "텍스트 입력 및 데이터 보존 (Input Blocker)"
+    sequence:
+      - step: 1
+        ticket_id: "DBG-20260724-01"
+        file: "debug/20260724_180000_editor_korean_ime_and_mindview_regression.yml"
+      - step: 2
+        ticket_id: "RFC-20260724-01"
+        file: "refactor/20260724_174800_korean_ime_input_parity.yml"
+
+  phase_2:
+    name: "에디터 기본 동작 및 렌더링 정상화"
+    sequence:
+      - step: 3
+        ticket_id: "DBG-20260725-01"
+        file: "debug/20260725_030000_read_mode_empty_line_spacing_missing.yml"
+      - step: 4
+        ticket_id: "DBG-20260724-02"
+        file: "debug/20260724_170000_block_arrow_key_column_position.yml"
+
+  phase_3:
+    name: "에디터 의미 렌더링 및 신규 파일 기능"
+    sequence:
+      - step: 5
+        ticket_id: "RFC-20260724-02"
+        file: "refactor/20260724_180000_write_mode_markdown_semantics.yml"
+      - step: 6
+        ticket_id: "IMPL-20260725-02"
+        file: "impl/20260725_023700_file_creation_category_others_support.yml"
+
+  phase_4:
+    name: "레이아웃 및 뷰포트 개선"
+    sequence:
+      - step: 7
+        ticket_id: "IMPL-20260724-01"
+        file: "impl/20260724_181119_fluid_note_canvas_layout.yml"
+      - step: 8
+        ticket_id: "IMPL-20260724-02"
+        file: "impl/20260724_173333_mindview_visibility_and_node_preview.yml"

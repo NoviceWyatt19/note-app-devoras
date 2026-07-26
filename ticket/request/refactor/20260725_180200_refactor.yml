@@ -1,0 +1,30 @@
+# ⚙️ [가공형] REFACTOR TICKET
+type: "REFACTOR_TICKET"
+id: "RFC-20260725-01"
+# ━━━
+update: "2026-07-25 18:02"
+# ━━━
+subject: "H1~H6 헤딩별 블록 슬라이싱 역할 설정화 및 H3 블록 과분할 방지"
+# ━━━
+goal: "노트 타이틀(#)과 주요 구분(##) 중심으로 에디터 블록 슬라이싱을 개편하고, H3(###)의 블록 과분할을 방지하며 H1~H6 헤딩역할 사용자 설정 모델 구축"
+# ━━━
+requirements:
+  - "H3(###) 헤딩을 독립 에디터 블록 슬라이싱 대상에서 제외하고 H2(##) 블록 내부의 서식/의미적 헤딩으로 처리"
+  - "H1(#)은 노트 제목/최상위 구분, H2(##)는 메인 에디터 블록 경계선으로 기본값 변경"
+  - "H1~H6 레벨별 역할(메인 블록, 서브 블록[보류], 내부 헤딩, 일반 텍스트) 매핑 설정(HeadingRoleConfig) 구조 설계"
+  - "서브 블록(Sub-block) 계층 슬라이싱 기능은 Post-MVP로 보류(HOLD) 처리"
+# ━━━
+architecture_decisions:
+  slicing_default: "기본 슬라이싱 경계를 H1/H2 분할에서 H2 전용 분할로 기본값 변경 (H1은 문서 제목 전용)"
+  inner_heading_rendering: "H3 이하 헤딩은 BlockEditor 내부 CodeMirror의 SyntaxDecorator로 시각적 헤딩 스타일 적용"
+  config_model:
+    title_level: "H1"
+    main_block_levels: ["H2"]
+    inner_heading_levels: ["H3", "H4", "H5", "H6"]
+    sub_block_levels: []  # HOLD (Post-MVP)
+# ━━━
+file_changes:
+  modified:
+    - "project/src/entities/block/model/store.ts"
+    - "project/src/shared/lib/parser/markdown.ts"
+    - "project/src/entities/document/model/types.ts"

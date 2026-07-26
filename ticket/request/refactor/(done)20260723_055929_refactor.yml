@@ -1,0 +1,31 @@
+# ⚙️ [가공형] REFACTOR TICKET
+type: "REFACTOR_TICKET"
+id: "RFC-20260723-01"
+# ━━━
+update: "2026-07-23 05:59"
+# ━━━
+subject: "Write Mode 인라인 렌더링 및 확장 가능한 데코레이션 아키텍처 구축"
+# ━━━
+goal: "플러그인 형태로 조립 가능한 확장 마크다운 데코레이션 아키텍처(Markdown Decoration Extension System) 구축"
+# ━━━
+status: "DONE"
+target_release: "v0.3.1"
+# ━━━
+architecture_decisions:
+  interface: "SyntaxDecorator 공통 인터페이스 정의 (createDecorations)"
+  orchestrator: "DecorationOrchestrator ViewPlugin 기반 병합 관리"
+  impl_decorators:
+    - "BoldItalicDecorator (커서 진입 시 프리픽스 노출)"
+    - "StrikethroughDecorator"
+    - "CheckboxDecorator (HTML widget 토글)"
+    - "CodeBlockDecorator"
+    - "LatexDecorator (KaTeX 확장 포인트)"
+    - "HyperlinkDecorator"
+# ━━━
+file_changes:
+  created:
+    - "project/src/shared/lib/editor/decorators/types.ts"
+    - "project/src/shared/lib/editor/decorators/orchestrator.ts"
+    - "project/src/shared/lib/editor/decorators/impl/*"
+  modified:
+    - "project/src/widgets/BlockEditor/ui/BlockEditor.tsx"

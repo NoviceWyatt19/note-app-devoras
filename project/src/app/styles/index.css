@@ -37,12 +37,30 @@
 
 .rv-content {
   color: #cbd5e1; /* slate-300 */
-  font-size: 0.875rem;
+  font-size: var(--editor-font-size, 14px);
   line-height: 1.75;
 }
 
 .rv-content p {
-  margin: 0.5rem 0;
+  /* Use padding-bottom instead of margin so adjacent <p> gaps never collapse.
+   * Tailwind Preflight resets all p margins to 0; even with our override the
+   * top+bottom margin collapse to max(0.5rem, 0.5rem)=7px, which is
+   * visually indistinguishable from no gap at 14px font / 1.75 line-height.
+   * padding-bottom: 1.1em ≈ 15px = a clearly perceptible blank-line gap. */
+  margin: 0;
+  padding-bottom: 1.1em;
+}
+
+.rv-content p:last-child {
+  padding-bottom: 0;
+}
+
+/* Spacer injected by preprocessMd for consecutive blank lines (3+ \n).
+ * marked collapses all extra blank lines to a single paragraph break, so
+ * preprocessMd inserts &nbsp; paragraphs to preserve the user's visual intent. */
+.rv-content p.rv-blank-spacer {
+  padding-bottom: 0.6em;
+  font-size: 0.4em; /* shrink the &nbsp; character to near-invisible */
 }
 
 .rv-content h1 { font-size: 1.5rem; font-weight: 700; color: #f1f5f9; margin: 0.75rem 0 0.5rem; line-height: 1.3; }
@@ -134,4 +152,3 @@
   padding: 0.05em 0.3em;
   border-radius: 3px;
 }
-

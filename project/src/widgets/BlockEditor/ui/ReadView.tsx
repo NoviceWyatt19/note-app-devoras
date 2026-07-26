@@ -16,9 +16,20 @@ const markedParser = new Marked({ gfm: true, breaks: true });
 // ---------------------------------------------------------------------------
 
 /** Pre-process extended markdown before passing to `marked`.
- *  Handles ==highlight== → <mark>highlight</mark> (not in GFM spec). */
+ *  1. ==highlight== → <mark>highlight</mark> (not in GFM spec).
+ *  2. 3+ consecutive newlines → injects a spacer paragraph so that extra blank
+ *     lines typed in Write Mode produce proportionally more visual space in Read
+ *     Mode. Without this, `marked` collapses every run of blank lines to a
+ *     single paragraph break, making all spacing look identical regardless of
+ *     how many times the user pressed Enter. */
 function preprocessMd(md: string): string {
-  return md.replace(/==([\s\S]+?)==/g, '<mark>$1</mark>');
+  return md
+    .replace(/==([\s\S]+?)==/g, '<mark>$1</mark>')
+    // \n{3,} = the user pressed Enter 2+ extra times beyond the first blank line.
+    // Replace with a paragraph-break + a spacer <p class="rv-blank-spacer"> + another
+    // paragraph-break so marked emits an extra (near-invisible) paragraph element
+    // that preserves the visual gap. The spacer is styled to near-zero height in CSS.
+    .replace(/\n{3,}/g, '\n\n<p class="rv-blank-spacer">&nbsp;</p>\n\n');
 }
 
 /** Resolve relative asset image paths to Tauri's asset:// protocol for webview rendering.

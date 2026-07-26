@@ -1,0 +1,27 @@
+# ⚙️ [가공형] REFACTOR TICKET
+type: "REFACTOR_TICKET"
+id: "RFC-20260724-01"
+# ━━━
+update: "2026-07-24 17:48"
+# ━━━
+subject: "실서비스 수준 한글 IME 입력 호환성 개선"
+# ━━━
+goal: "macOS/Windows 한글 IME의 조합/확정/취소 흐름을 영문 입력과 동등한 1급 입력 방식으로 지원"
+# ━━━
+requirements:
+  - "조합 중 자모 단위 자연스러운 생성/삭제 및 미완성 글자 삭제 시 주변 공백/기호 보존"
+  - "Space 입력, Backspace, 커서 이동, Enter, Undo/Redo, 포커스 전환 시 텍스트 보존"
+  - "모든 Write Mode 데코레이터가 IME 조합 문자열을 숨기거나 Decoration.replace로 치환하지 않음"
+  - "macOS 한글 2벌식 및 Windows Microsoft IME 테스트 통과"
+# ━━━
+architecture_decisions:
+  ownership: "한글 조합(preedit)은 브라우저/CodeMirror native composition에 위임"
+  decorator_policy: "compositionstart ~ compositionend 구간 데코레이션 갱신 보류"
+  block_policy: "composition 중 H1/H2 경계 재분할 금지 및 확정 후 selection 복원"
+  keymap_policy: "view.composing 상태에서 커스텀 단축키 개입 차단"
+# ━━━
+action_plan:
+  - "CodeMirror update transaction 및 DOM composition 이벤트 계측"
+  - "데코레이터·블록 분할·키맵 공통 IME guard 추가"
+  - "수동 E2E 체크리스트 및 회귀 테스트 작성"
+  - "선행 버그(DBG-20260724-01) 해결 연계 및 반영"

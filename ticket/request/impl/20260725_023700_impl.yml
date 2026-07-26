@@ -1,0 +1,37 @@
+type: "IMPLEMENT_TICKET"
+id: "IMPL-20260725-02"
+# ━━━
+update: "2026-07-25 02:37"
+# ━━━
+project_ref: "Devoras"
+# ━━━
+subject: "파일 신규 생성 카테고리화 및 개발 설정/문서 파일 생성 지원"
+# ━━━
+goal: "파일 생성 모달을 4개 카테고리(노트/ERD/스케쥴/기타)로 개편하고 설정 파일 및 템플릿 주입 지원"
+# ━━━
+spec:
+categories:
+- name: "노트"
+ext: [".md"]
+- name: "ERD 파일"
+ext: [".erd", ".json"]
+- name: "스케쥴"
+ext: [".sched", ".yaml"]
+- name: "기타(Others)"
+ext: [".gitignore", ".gitattributes", ".env", ".env.example", ".editorconfig", "Dockerfile", ".dockerignore", "docker-compose.yml", ".yaml", ".json", ".toml", ".xml", ".sql", ".html", ".svg", ".csv", ".txt", ".log"]
+restrictions:
+- "순수 프로그래밍 코드 확장자(.js, .ts, .py, .java 등) 생성은 이번 마일스톤에서 보류"
+# ━━━
+architecture_fsd:
+ui: "features/create-file/ui/CreateFileModal.tsx"
+templates: "shared/lib/fileTemplates.ts"
+validation: "shared/lib/fileValidation.ts"
+store: "entities/document/model/store.ts"
+# ━━━
+tasks:
+pending:
+- "[ ] CreateFileModal.tsx 탭 버튼 및 Others 프리셋/사용자 지정 확장자 UI 구현"
+- "[ ] shared/lib/fileTemplates.ts 확장자별 기본 보일러플레이트 함수 작성"
+- "[ ] Dotfile(.gitignore, .env 등) Tauri fs 생성 및 경로 예외 처리 검증"
+- "[ ] 파일 생성 완료 후 에디터/뷰어 탭 자동 연결 및 탐색기 트리 리프레시"
+- "[ ] pnpm build 타입 체크 및 빌드 검증"

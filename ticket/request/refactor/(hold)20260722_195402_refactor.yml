@@ -1,0 +1,25 @@
+# ⚙️ [가공형] REFACTOR TICKET
+type: "REFACTOR_TICKET"
+id: "RFC-20260722-01"
+# ━━━
+update: "2026-07-22 19:54"
+# ━━━
+subject: "단일 블록 편집 모드(Single Block Mode) 옵션 및 상태 추가"
+# ━━━
+goal: "H1/H2 기반 블록 분할 편집을 선택적으로 비활성화하고 전체 본문을 단일 에디터로 편집하는 기능 제공"
+# ━━━
+status: "HOLD (Post-MVP)"
+target_release: "v0.2.9"
+# ━━━
+architecture_decisions:
+  persistence: ".devoras/spatial.json 내 filesConfig.<path>.disableBlockSlicing 영속화"
+  state_model: "documentStore에 disableBlockSlicingMap 및 toggleBlockSlicing 액션 추가"
+  block_store: "setBlocksFromContent 호출 시 disableBlockSlicing 참이면 전체를 단일 root 블록으로 변환"
+  mindview_sync: "단일 블록 모드에서도 MindView는 parseMarkdown 기반 실시간 렌더링 유지"
+# ━━━
+file_changes:
+  modified:
+    - "project/src/shared/api/fs.ts"
+    - "project/src/entities/document/model/store.ts"
+    - "project/src/entities/block/model/store.ts"
+    - "project/src/pages/WorkspacePage/WorkspacePage.tsx"

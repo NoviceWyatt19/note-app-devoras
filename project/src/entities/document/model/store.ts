@@ -11,12 +11,15 @@ interface DocumentState {
   isDirty: boolean;
   /** Current editor view mode. Resets to 'write' on every file load. */
   viewMode: 'write' | 'read';
+  /** Shared text size for the write editor and read preview, in pixels. */
+  fontSize: number;
   loadFile: (file: FileEntry) => Promise<void>;
   updateContent: (content: string) => void;
   updateNodeCoordinate: (nodeId: string, x: number, y: number) => void;
   saveFile: () => Promise<void>;
   setViewMode: (mode: 'write' | 'read') => void;
   toggleViewMode: () => void;
+  adjustFontSize: (delta: number) => void;
 }
 
 export const useDocumentStore = create<DocumentState>((set, get) => ({
@@ -26,9 +29,11 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   spatialData: {},
   isDirty: false,
   viewMode: 'write',
+  fontSize: 13,
 
   setViewMode: (mode) => set({ viewMode: mode }),
   toggleViewMode: () => set((s) => ({ viewMode: s.viewMode === 'write' ? 'read' : 'write' })),
+  adjustFontSize: (delta) => set((s) => ({ fontSize: Math.min(22, Math.max(11, s.fontSize + delta)) })),
 
   loadFile: async (file) => {
     try {
