@@ -1,0 +1,22 @@
+# 🎨 REFACTOR TICKET
+type: "REFACTOR_TICKET"
+id: "REF-20260726-01"
+# ━━━
+update: "2026-07-26 21:53"
+# ━━━
+subject: "MindView 노드 호버 팝업 크기, 위치 및 다중 상태 UX 개선"
+# ━━━
+goal: "마인드뷰 노드 호버 시 나타나는 본문 미리보기 팝업의 시인성과 위치 매핑을 개선하고, 핀 고정 상태에서도 다른 노드의 호버 정보 탐색이 가능하도록 UX 품질을 높인다."
+# ━━━
+problems:
+  - "팝업 크기가 지나치게 작아 마인드맵 노드 본문 요약을 파악하기 어려움"
+  - "팝업의 노출 위치가 노드의 실제 렌더링 위치나 마우스 호버 좌표와 일치하지 않고 어긋나 있음"
+  - "특정 노드 미리보기를 핀(Pin) 고정한 상태에서, 다른 노드에 마우스 호버 시 추가 팝업이 노출되지 않아 비교/탐색이 불가능함"
+# ━━━
+refactoring_steps:
+  - "Popup Size: 미리보기 본문 양 및 레이아웃을 감안하여 팝업 창의 기본 가로폭(Width)과 최대 세로폭(Max-Height)을 대폭 확장하고 내부 패딩 및 스크롤바 레이아웃 최적화"
+  - "Popup Positioning: 마인드맵 캔버스 내 노드의 DOM 절대 좌표(또는 호버된 마우스 screen/client 좌표)를 정밀 계산하여 노드의 바로 위/옆에 툴팁 형태로 팝업이 일관성 있게 정렬되도록 포지셔닝 로직 수정"
+  - "State Management (Pin & Hover Coexistence): 핀 고정된 팝업 상태(pinnedNodeId)와 현재 마우스 호버 중인 임시 팝업 상태(hoveredNodeId)를 독립적인 상태로 분리하여, 핀 고정 팝업이 유지된 상태에서도 다른 노드 위에 마우스를 올리면 임시 팝업이 추가로 정상 노출되도록 다중 상태 지원"
+# ━━━
+target_files:
+  - "widgets/MindView/ui/MindView.tsx"

@@ -10,7 +10,8 @@ import { oneDark } from '@codemirror/theme-one-dark';
 import { FileEdit } from 'lucide-react';
 import { FormatToolbar } from './FormatToolbar';
 import { ReadView } from './ReadView';
-import { setActiveEditorView } from '@/shared/lib/activeEditorView';
+import { setActiveEditorView, getActiveEditorView } from '@/shared/lib/activeEditorView';
+
 import { generateImageFileName } from '@/shared/lib/imageUtils';
 import { fileSystemRepository } from '@/shared/api/fs';
 import { createDecorationPlugin } from '@/shared/lib/editor/decorators/orchestrator';
@@ -88,6 +89,9 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
       {
         key: 'Backspace',
         run: (view) => {
+          // IME guard: never intercept during Korean/CJK composition —
+          // the browser handles preedit deletions natively.
+          if (view.composing) return false;
           const { from, empty } = view.state.selection.main;
           // Only intercept at the very start of the block to merge with previous
           if (empty && from === 0) {
@@ -100,6 +104,8 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
       {
         key: 'ArrowUp',
         run: (view) => {
+          // IME guard: arrow keys during composition commit/select candidates.
+          if (view.composing) return false;
           const { from } = view.state.selection.main;
           const line = view.state.doc.lineAt(from);
           if (line.number === 1) {
@@ -112,6 +118,8 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
       {
         key: 'ArrowDown',
         run: (view) => {
+          // IME guard: same as ArrowUp.
+          if (view.composing) return false;
           const { from } = view.state.selection.main;
           const line = view.state.doc.lineAt(from);
           const totalLines = view.state.doc.lines;
@@ -222,7 +230,12 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
           const isExternal = update.transactions.some(
             tr => tr.annotation(Transaction.userEvent) === 'external'
           );
-          if (update.docChanged && !isExternal) {
+          // IME guard: while the browser is composing preedit text (Korean syllable
+          // being built character by character), do NOT forward the intermediate
+          // character state to handleBlockUpdate. Doing so would trigger a reslice
+          // that destroys the in-progress composition. onUpdate is called once on
+          // compositionend when the final character is committed.
+          if (update.docChanged && !isExternal && !update.view.composing) {
             // Pass the cursor anchor so handleBlockUpdate can precisely restore
             // cursor position after a re-slice, instead of hardcoding headingLineEnd.
             callbacksRef.current.onUpdate(
@@ -376,8 +389,14 @@ export const BlockEditor: React.FC = () => {
     });
     if (headingCount === 0) headingCount = 1;
 
-    // Only re-slice when a heading was actually added or removed
-    if (headingCount !== state.blocks.length) {
+    // Only re-slice when a heading was actually added or removed.
+    // IME guard: skip reslice while any CodeMirror view is composing preedit text.
+    // Typing '# ' in Korean could briefly match a heading pattern mid-syllable;
+    // reslicing at that point would abort the composition and corrupt the text.
+    // The reslice will run on the next onUpdate call after compositionend.
+    const anyViewComposing = getActiveEditorView()?.composing === true;
+
+    if (headingCount !== state.blocks.length && !anyViewComposing) {
       state.setBlocksFromContent(merged);
 
       const nextBlocks = useBlockStore.getState().blocks;

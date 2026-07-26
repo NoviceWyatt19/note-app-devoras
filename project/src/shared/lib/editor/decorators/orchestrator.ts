@@ -23,20 +23,57 @@ import { SyntaxDecorator } from './types';
 class DecorationOrchestrator implements PluginValue {
   decorations: DecorationSet;
 
+  /**
+   * True while an IME composition session is in progress.
+   *
+   * During Korean (and other CJK) input on macOS/Windows the browser fires
+   * `compositionstart` before each syllable is confirmed and `compositionend`
+   * after the user commits (via Space, Enter, or arrow key). While composing
+   * we must NOT rebuild decorations because any `Decoration.replace` that
+   * overlaps the preedit text would erase the in-progress syllable.
+   */
+  private isComposing = false;
+
+  // We must track the DOM element so we can remove the listeners on destroy.
+  private contentDOM: HTMLElement | null = null;
+  private readonly onCompositionStart = () => { this.isComposing = true; };
+  private readonly onCompositionEnd   = () => { this.isComposing = false; };
+
   constructor(
     view: EditorView,
     private readonly decorators: readonly SyntaxDecorator[],
   ) {
     this.decorations = this.buildAll(view);
+    this.attachCompositionListeners(view);
   }
 
   update(upd: ViewUpdate): void {
+    // Skip rebuild during active IME composition.
+    // The decoration set stays unchanged — the preedit text is handled
+    // entirely by the browser native composition layer.
+    if (this.isComposing) return;
+
     // Rebuild on document edit, viewport change, or cursor move.
     // Cursor move is included so that bold/italic markers reveal themselves
     // when the user's caret enters the marked span.
     if (upd.docChanged || upd.viewportChanged || upd.selectionSet) {
       this.decorations = this.buildAll(upd.view);
     }
+  }
+
+  destroy(): void {
+    if (this.contentDOM) {
+      this.contentDOM.removeEventListener('compositionstart', this.onCompositionStart);
+      this.contentDOM.removeEventListener('compositionend',   this.onCompositionEnd);
+      this.contentDOM = null;
+    }
+  }
+
+  private attachCompositionListeners(view: EditorView): void {
+    // CodeMirror exposes the editable content element via `view.contentDOM`.
+    this.contentDOM = view.contentDOM;
+    this.contentDOM.addEventListener('compositionstart', this.onCompositionStart);
+    this.contentDOM.addEventListener('compositionend',   this.onCompositionEnd);
   }
 
   private buildAll(view: EditorView): DecorationSet {
