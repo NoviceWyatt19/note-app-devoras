@@ -4,7 +4,8 @@ import { useDocumentStore } from '@/entities/document/model/store';
 import { useWorkspaceStore } from '@/entities/workspace/model/store';
 import { EditorState, Transaction } from '@codemirror/state';
 import { EditorView, keymap, drawSelection } from '@codemirror/view';
-import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
+import { defaultKeymap, history, historyKeymap, indentMore, indentLess } from '@codemirror/commands';
+
 import { markdown } from '@codemirror/lang-markdown';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { FileEdit } from 'lucide-react';
@@ -129,6 +130,18 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
           }
           return false;
         },
+      },
+      {
+        // Tab: indent selected lines (or insert indentation at cursor).
+        // Capturing Tab in the keymap prevents the browser from moving
+        // focus to the next focusable element outside the editor.
+        key: 'Tab',
+        run: indentMore,
+      },
+      {
+        // Shift-Tab: dedent selected lines.
+        key: 'Shift-Tab',
+        run: indentLess,
       },
     ]);
 

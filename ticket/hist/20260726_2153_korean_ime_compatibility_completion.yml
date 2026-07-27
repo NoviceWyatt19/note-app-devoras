@@ -1,0 +1,19 @@
+# 📜 HISTORY TICKET  
+type: "HISTORY_TICKET"  
+id: "HIST-20260726-03"  
+# ━━━  
+update: "2026-07-26 21:53"  
+# ━━━  
+project_ref: "PRJ-DEVORAS-MVP"  
+# ━━━  
+cumulative_changes:  
+  - "v0.4.1: 에디터 데코레이터 오케스트레이터(orchestrator.ts) 내 compositionstart/end 리스너 바인딩을 통한 한글 CJK 입력 preedit 시 데코레이션 갱신 보류 로직 적용"  
+  - "v0.4.1: BlockEditor.tsx의 Backspace, ArrowUp, ArrowDown 키 바인딩 시 view.composing 상태를 검사하여 커스텀 단축키 개입 차단 및 브라우저 native composition에 위임"  
+  - "v0.4.1: updateListener 및 슬라이싱 업데이트 트리거에 update.view.composing 가드 처리를 추가하여 한글 입력 조합 도중 강제 블록 쪼개짐과 커서 이탈 버그 해결"  
+  - "v0.4.1: RFC-20260724-01 및 DBG-20260724-01 완료 처리"  
+# ━━━  
+technical_debt:  
+  - "KaTeX 렌더링 시 멀티라인 fence 수식이 뷰포트 밖에서 시작할 경우 일부 미렌더링되는 문제"  
+  - "블록 간 Arrow Up/Down 이동 시 Cursor 가로 Column 위치 리셋 현상 (DBG-20260724-02)"  
+# ━━━  
+next_session_start: "로컬 로드맵(AGENT_TICKET_EXECUTION_ROADMAP.yml)에 신규 등록된 'MindView 노드 호버 팝업 크기, 위치 및 다중 상태 UX 개선(REF-20260726-01)' 또는 '블록 간 방향키 가로 컬럼 위치 미보존(DBG-20260724-02)' 해결 개시"

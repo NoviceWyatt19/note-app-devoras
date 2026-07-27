@@ -1,0 +1,31 @@
+# 🛠 IMPLEMENT TICKET
+type: "IMPLEMENT_TICKET"
+id: "IMP-20260726-01"
+# ━━━
+update: "2026-07-26 21:58"
+# ━━━
+subject: "에디터 Tab 및 Shift+Tab 들여쓰기/내어쓰기 단축키 바인딩"
+# ━━━
+goal: "에디터 블록 내부에서 Tab 키 입력 시 다음 블록으로 포커스가 넘어가는 브라우저 기본 포커스 트랩 이탈 현상을 방지하고, Tab 및 Shift+Tab 키가 마크다운 표준 들여쓰기(Indent) 및 내어쓰기(Outdent) 동작으로 수행되도록 에디터 키맵을 확장한다."
+# ━━━
+requirements:
+  - "Tab 키 입력 시 현재 커서 위치 또는 선택된 영역의 줄들을 들여쓰기(Tab 문자 혹은 설정된 공백 수만큼 밀기) 처리"
+  - "Shift+Tab 키 입력 시 현재 줄들의 들여쓰기를 내어쓰기(앞쪽 공백 제거) 처리"
+  - "Tab 키가 브라우저 기본 포커스 이동 이벤트로 전파되지 않도록 preventDefault 및 keymap 핸들러 캡처 처리"
+# ━━━
+data_flow:
+  input: "CodeMirror 6 에디터 내 Tab / Shift+Tab 키보드 단축키 입력 이벤트"
+  output: "해당 행의 들여쓰기/내어쓰기 상태가 반영된 마크다운 문자열 변경 및 에디터 뷰 갱신"
+# ━━━
+logic:
+  steps:
+    - "CodeMirror 6의 @codemirror/commands 패키지에서 제공하는 내장 명령인 `indentMore` 및 `indentLess`를 임포트합니다."
+    - "BlockEditor.tsx L51 부근의 `blockKeymap` 혹은 에디터 extensions 내의 `keymap.of(...)` 바인딩 배열에 Tab과 Shift-Tab 매핑을 추가합니다."
+    - "바인딩 구성 예시: `{ key: 'Tab', run: indentMore }, { key: 'Shift-Tab', run: indentLess }`"
+    - "이 설정이 추가되면 CodeMirror가 내부적으로 Tab keydown 이벤트를 가로채서(preventDefault) 들여쓰기 명령을 수행하게 되므로 포커스가 다른 블록으로 전이되지 않습니다."
+  exceptions:
+    - "비포커스 상태이거나 에디터 내부가 아닌 UI 영역에서의 Tab 키는 브라우저 기본 포커스 이동을 방해하지 않도록 에디터 활성 영역 내에서만 동작함을 확인합니다."
+# ━━━
+next_steps:
+  - "project/src/widgets/BlockEditor/ui/BlockEditor.tsx 파일의 keymap 설정 수정 및 테스트"
+  - "멀티라인 선택 상태에서 Tab/Shift+Tab 작동 시 선택된 모든 행이 일괄 들여쓰기/내어쓰기 되는지 검증"

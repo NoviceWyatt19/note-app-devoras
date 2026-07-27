@@ -1,0 +1,21 @@
+# 🛠 PROJECT BLUEPRINT TICKET  
+type: "PROJECT_TICKET"  
+id: "PRJ-DEVORAS-MVP"  
+# ━━━  
+goal: "Tauri 2 기반 데스크톱 앱에서 사용자가 폴더 워크스페이스를 열고 Markdown 문서를 블록 에디터로 작성하면, 헤딩 구조가 마인드 뷰에 즉시 투영되는 MVP 구현"  
+# ━━━  
+tech_stack:  
+  language: "TypeScript (Strict Mode), Rust (2021 Edition)"  
+  framework: "React 18, Zustand, CodeMirror 6, marked (v18.0.7), Katex (v0.18.1), Tauri 2"  
+# ━━━  
+current_progress: "v0.4.1 마일스톤 달성. 한글 IME 및 마인드뷰 입력 충돌 해결. 데코레이션/블록분할/키맵 IME 가드 도입 완료."  
+# ━━━  
+pending_issues:  
+  - "MindView 노드 호버 팝업 크기, 위치 및 다중 상태 UX 개선 (REF-20260726-01)"  
+  - "블록 간 방향키(ArrowUp, ArrowDown) 이동 시 가로 컬럼 위치 미보존 (DBG-20260724-02)"  
+  - "파일 신규 생성 카테고리화 및 개발 설정/문서 파일 생성 지원 (IMPL-20260725-02)"  
+# ━━━  
+constraints:  
+  - "Markdown 원본을 유일 원본(SSOT)으로 보존하며, 공간 좌표는 <!-- devoras:spatial --> 주석으로 저장한다."  
+  - "H1은 최상위 루트 블록, H2는 실질적 카드 메인 에디터 블록, H3~H6은 마인드뷰 하위 노드로 계층화한다."  
+  - "성능 및 가독성을 위해 티켓은 YAML(.yml) 형식을 지키며 하네스 엔지니어링을 점진적으로 도입한다."
