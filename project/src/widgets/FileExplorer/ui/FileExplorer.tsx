@@ -17,7 +17,7 @@ export const FileExplorer: React.FC = () => {
     if (file.isDir) return; // Directory recursion is out of scope for MVP simple list
     
     // Check for unsaved changes before loading a new document
-    if (isDirty) {
+    if (isDirty && currentFile?.path !== file.path) {
       const confirmLeave = window.confirm('저장되지 않은 변경 사항이 있습니다. 무시하고 다른 파일을 여시겠습니까?');
       if (!confirmLeave) return;
     }
@@ -36,6 +36,11 @@ export const FileExplorer: React.FC = () => {
   const handleCreateFile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newFileName.trim() || !workspacePath) return;
+
+    if (isDirty) {
+      const confirmLeave = window.confirm('저장되지 않은 변경 사항이 있습니다. 저장하지 않고 새 문서를 만드시겠습니까?');
+      if (!confirmLeave) return;
+    }
 
     let sanitizedName = newFileName.trim();
     if (!sanitizedName.endsWith('.md')) {

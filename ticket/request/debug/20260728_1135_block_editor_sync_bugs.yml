@@ -1,0 +1,30 @@
+# 🎫 SESSION SNAPSHOT TICKET  
+type: "SESSION_SNAPSHOT"  
+id: "SESS-20260728-01"  
+# ━━━  
+update: "2026-07-28 11:35"  
+# ━━━  
+subject: "BlockEditor 상태 동기화 및 CodeMirror 렌더링 버그 종합"  
+# ━━━  
+context: "로컬 퍼스트 입력 상태 분리(CodeMirror) 적용 후 발생한 H태그 블록 분할 크래시, 고스트 텍스트, 저장 상태 불일치 버그 기록 및 이관"  
+# ━━━  
+decisions:  
+  - "H1/H2 헤딩 구조 변화 감지 시, OS IME 상태(composing)에 의존하지 않고 즉시 분할(Split) 강제"  
+  - "백스페이스 삭제 시 스토어 동기화 누락 문제 해결을 위해 isUserTyped 트랜잭션 필터링 로직 제거"  
+  - "저장 시 dirty check 로직을 폐기하고, 지연 없는 blockStore의 최신 텍스트를 즉시 덮어쓰도록 구조 변경"  
+# ━━━  
+tasks:  
+  completed:  
+    - "입력 상태 분리 및 150ms 디바운스 적용을 통한 렌더링 최적화 기본 구조 도입 (BlockEditor.tsx)"  
+  pending:  
+    - "H태그 분할 시 CodeMirror RangeError(에디터 굳음) 해결을 위한 Math.min 경계값 커서 매핑 로직 적용"  
+    - "빈 블록 삭제 시 이전 텍스트가 부활하는 Ghost Text 버그 수정 (updateListener 수정)"  
+    - "저장 액션(saveFile) 시 더티 체크 제거 및 실시간 blockStore 데이터 기반 저장 로직 구현"  
+# ━━━
+harness: 
+  path: "src/entities/block/__tests__/block_editor_harness.ts"
+  run_command: "pnpm ts-node block_editor_harness.ts"
+# ━━━  
+data:  
+  pr_url: "N/A"  
+  notes: "CodeMirror RangeError: Selection points outside of document 발생 이력 있음. 커서 오프셋 계산 시 절대 주의 요망."

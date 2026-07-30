@@ -6,7 +6,7 @@ import { extractSectionContent } from '@/entities/document/lib/extractSection';
 import { EyeOff, X, Pin, PinOff } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
-// Markdown renderer for the preview panel (reuse marked from ReadView)
+// Markdown renderer
 // ---------------------------------------------------------------------------
 const markedParser = new Marked({ gfm: true, breaks: true });
 
@@ -14,6 +14,161 @@ function renderPreview(md: string): string {
   if (!md) return '<p class="text-mutedText/40 text-xs italic">본문 내용이 없습니다.</p>';
   return markedParser.parse(md) as string;
 }
+
+// ---------------------------------------------------------------------------
+// Popup position helper
+//
+// Given a node in SVG-canvas space, compute where its popup should appear in
+// screen/viewport space. We convert the node's top-right corner (canvas coords)
+// through the current pan + zoom transform into the SVG element's client rect.
+// ---------------------------------------------------------------------------
+interface PopupPos { left: number; top: number }
+
+function computePopupPos(
+  node: MindNode,
+  nodeWidth: number,
+  nodeHeight: number,
+  pan: { x: number; y: number },
+  zoom: number,
+  svgRect: DOMRect,
+  popupW: number,
+  popupH: number,
+): PopupPos {
+  // Top-right corner of the node card in SVG canvas coords → screen coords
+  const screenX = svgRect.left + pan.x + (node.x + nodeWidth) * zoom;
+  // Vertically center the popup on the node
+  const screenY = svgRect.top  + pan.y + (node.y + nodeHeight / 2) * zoom - popupH / 2;
+
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const GAP = 12;
+
+  let left = screenX + GAP;
+  let top  = screenY;
+
+  // Flip to left side if not enough room on the right
+  if (left + popupW > vw - GAP) {
+    left = screenX - nodeWidth * zoom - popupW - GAP;
+  }
+  // Clamp to screen bottom / top
+  if (top + popupH > vh - GAP) top = vh - popupH - GAP;
+  top = Math.max(48, top);
+
+  return { left, top };
+}
+
+
+// ---------------------------------------------------------------------------
+// PreviewPanel — a positioned popup card
+// ---------------------------------------------------------------------------
+interface PreviewPanelProps {
+  node: MindNode;
+  content: string;
+  isPinned: boolean;
+  onPinToggle: () => void;
+  onClose?: () => void;
+  nodeWidth: number;
+  nodeHeight: number;
+  pan: { x: number; y: number };
+  zoom: number;
+  svgRef: React.RefObject<SVGSVGElement | null>;
+  /** z-index level so pinned panel stays on top */
+  zIndex?: number;
+  /** Keeps a transient hover popup open while the cursor is inside it. */
+  onHoverStart?: () => void;
+  onHoverEnd?: () => void;
+}
+
+const POPUP_W = 340;
+const POPUP_MAX_H = 480;
+
+const PreviewPanel: React.FC<PreviewPanelProps> = ({
+  node,
+  content,
+  isPinned,
+  onPinToggle,
+  onClose,
+  nodeWidth,
+  nodeHeight,
+  pan,
+  zoom,
+  svgRef,
+  zIndex = 20,
+  onHoverStart,
+  onHoverEnd,
+}) => {
+  const [pos, setPos] = useState<PopupPos>({ left: 0, top: 48 });
+
+  // Recalculate position whenever the node, pan, or zoom changes
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const rect = svg.getBoundingClientRect();
+    setPos(computePopupPos(node, nodeWidth, nodeHeight, pan, zoom, rect, POPUP_W, POPUP_MAX_H));
+  }, [node, pan, zoom, nodeWidth, nodeHeight, svgRef]);
+
+  return (
+    <div
+      className="fixed flex flex-col rounded-xl shadow-2xl border border-darkBorder/70
+        bg-darkPanel/97 backdrop-blur-sm overflow-hidden
+        transition-[opacity,transform] duration-150 ease-out"
+      onMouseEnter={onHoverStart}
+      onMouseLeave={onHoverEnd}
+      style={{
+        left: pos.left,
+        top:  pos.top,
+        width: POPUP_W,
+        maxHeight: POPUP_MAX_H,
+        zIndex,
+      }}
+    >
+      {/* Header */}
+      <div className="flex items-center gap-2 px-3.5 py-2.5 border-b border-darkBorder/50
+        bg-darkBg/50 flex-shrink-0">
+        {/* Heading level badge */}
+        <span className="flex-shrink-0 text-[9px] font-mono font-bold px-1.5 py-0.5 rounded
+          bg-indigo-500/15 text-indigo-400 border border-indigo-500/25">
+          H{node.level}
+        </span>
+        <span className="flex-1 text-xs font-semibold text-slate-200 truncate" title={node.label}>
+          {node.label}
+        </span>
+        {/* Pin toggle */}
+        <button
+          onClick={onPinToggle}
+          title={isPinned ? '고정 해제' : '미리보기 고정'}
+          className={[
+            'flex-shrink-0 p-1.5 rounded transition-colors',
+            isPinned
+              ? 'text-indigo-400 bg-indigo-900/40 hover:bg-indigo-900/60'
+              : 'text-mutedText/40 hover:text-slate-300 hover:bg-white/10',
+          ].join(' ')}
+        >
+          {isPinned ? <Pin size={12} /> : <PinOff size={12} />}
+        </button>
+        {/* Close (only for pinned panel) */}
+        {onClose && (
+          <button
+            onClick={onClose}
+            title="패널 닫기"
+            className="flex-shrink-0 p-1.5 rounded text-mutedText/40
+              hover:text-slate-300 hover:bg-white/10 transition-colors"
+          >
+            <X size={12} />
+          </button>
+        )}
+      </div>
+
+      {/* Markdown content — scrollable */}
+      <div
+        className="rv-content px-4 py-3 overflow-y-auto flex-1
+          text-[11.5px] leading-relaxed scrollbar-thin
+          scrollbar-thumb-darkBorder scrollbar-track-transparent"
+        dangerouslySetInnerHTML={{ __html: renderPreview(content) }}
+      />
+    </div>
+  );
+};
 
 // ---------------------------------------------------------------------------
 // Props
@@ -31,22 +186,28 @@ interface MindViewProps {
 export const MindView: React.FC<MindViewProps> = ({ onClose }) => {
   const { nodes, rawContent, updateNodeCoordinate, currentFile } = useDocumentStore();
 
-  const svgRef = useRef<SVGSVGElement>(null);
+  const svgRef = useRef<SVGSVGElement | null>(null);
   const [pan, setPan] = useState({ x: 50, y: 50 });
   const [zoom, setZoom] = useState(1);
   const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
   const [isPanning, setIsPanning] = useState(false);
 
-  // ── Preview state ──────────────────────────────────────────────────────────
+  // ── Preview state (fully independent) ─────────────────────────────────────
+  /** Node currently under the cursor (shown as transient popup) */
   const [hoveredNode, setHoveredNode] = useState<MindNode | null>(null);
+  /** Node the user has pinned (shown as persistent popup) */
   const [pinnedNode, setPinnedNode] = useState<MindNode | null>(null);
+
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  /** The node currently being previewed: pinned takes priority over hovered. */
-  const previewNode = pinnedNode ?? hoveredNode;
-  const previewContent = previewNode
-    ? extractSectionContent(rawContent, previewNode)
-    : '';
+  // Contents for each popup
+  const hoveredContent = hoveredNode ? extractSectionContent(rawContent, hoveredNode) : '';
+  const pinnedContent  = pinnedNode  ? extractSectionContent(rawContent, pinnedNode)  : '';
+
+  // Whether to show the hovered popup:
+  // – Never duplicate the pinned panel for the same node
+  // – But show it alongside the pinned panel for *different* nodes
+  const showHoverPopup = hoveredNode !== null && hoveredNode.id !== pinnedNode?.id;
 
   // ── Drag offset refs ───────────────────────────────────────────────────────
   const dragStartRef = useRef({
@@ -63,6 +224,9 @@ export const MindView: React.FC<MindViewProps> = ({ onClose }) => {
     startPanX: 0,
     startPanY: 0,
   });
+
+  const nodeWidth  = 200;
+  const nodeHeight = 64;
 
   // ── Zoom ───────────────────────────────────────────────────────────────────
   const handleWheel = (e: React.WheelEvent<SVGSVGElement>) => {
@@ -137,30 +301,34 @@ export const MindView: React.FC<MindViewProps> = ({ onClose }) => {
   }, [draggingNodeId, isPanning, zoom, updateNodeCoordinate]);
 
   // ── Hover handlers (debounced 200 ms) ─────────────────────────────────────
-
-  const handleNodeMouseEnter = useCallback(
-    (node: MindNode) => {
-      // Never change the preview if a node is pinned
-      if (pinnedNode) return;
-      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-      hoverTimerRef.current = setTimeout(() => setHoveredNode(node), 200);
-    },
-    [pinnedNode],
-  );
+  const handleNodeMouseEnter = useCallback((node: MindNode) => {
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    // Always show hover popup (even when a pin is active, just skip same node)
+    hoverTimerRef.current = setTimeout(() => setHoveredNode(node), 200);
+  }, []);
 
   const handleNodeMouseLeave = useCallback(() => {
-    if (pinnedNode) return;
     if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
     hoverTimerRef.current = setTimeout(() => setHoveredNode(null), 300);
-  }, [pinnedNode]);
+  }, []);
 
-  // Clean up hover timer on unmount
+  // The transient popup is part of the same hover target as its source node.
+  // Moving from the node to the popup must cancel the node's pending dismissal.
+  const handleHoverPopupMouseEnter = useCallback(() => {
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+  }, []);
+
+  // Clean up on unmount
   useEffect(() => () => { if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current); }, []);
 
   // ── Pin toggle ─────────────────────────────────────────────────────────────
   const handlePinToggle = () => {
-    setPinnedNode((prev) => (prev ? null : hoveredNode));
+    // Pin the currently hovered node (or the one being shown in the hover popup)
+    const target = hoveredNode ?? pinnedNode;
+    setPinnedNode((prev) => (prev?.id === target?.id ? null : target));
   };
+
+  const handlePinnedPanelClose = () => setPinnedNode(null);
 
   // ── Empty state ────────────────────────────────────────────────────────────
   if (!currentFile) {
@@ -171,7 +339,6 @@ export const MindView: React.FC<MindViewProps> = ({ onClose }) => {
         <p className="text-xs text-mutedText/30 max-w-xs leading-relaxed">
           마크다운 문서가 열려야 헤딩 계층 구조를 시각화할 수 있습니다.
         </p>
-        {/* Close button even in empty state */}
         <button
           onClick={onClose}
           title="마인드 뷰 닫기"
@@ -184,9 +351,6 @@ export const MindView: React.FC<MindViewProps> = ({ onClose }) => {
   }
 
   // ── Node colours ───────────────────────────────────────────────────────────
-  const nodeWidth = 200;
-  const nodeHeight = 64;
-
   const levelColors: Record<number, string> = {
     1: 'border-l-indigo-500 shadow-indigo-950/20 bg-indigo-950/20',
     2: 'border-l-teal-500 shadow-teal-950/10 bg-teal-950/20',
@@ -235,44 +399,39 @@ export const MindView: React.FC<MindViewProps> = ({ onClose }) => {
         </div>
       </div>
 
-      {/* ── Section preview panel ────────────────────────────────────────── */}
-      {previewNode && (
-        <div
-          className="absolute top-10 right-4 z-20 w-64
-            bg-darkPanel/95 border border-darkBorder/70 rounded-xl shadow-2xl
-            flex flex-col overflow-hidden backdrop-blur-sm
-            transition-opacity duration-150"
-          // Prevent hover on the panel itself from clearing the hovered node
-          onMouseEnter={() => { if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current); }}
-        >
-          {/* Panel header */}
-          <div className="flex items-center justify-between px-3 py-2
-            border-b border-darkBorder/50 bg-darkBg/40">
-            <span className="text-[10px] font-semibold text-slate-300 truncate flex-1 mr-2">
-              {previewNode.label}
-            </span>
-            {/* Pin toggle */}
-            <button
-              onClick={handlePinToggle}
-              title={pinnedNode ? '고정 해제' : '미리보기 고정'}
-              className={[
-                'flex-shrink-0 p-1 rounded transition-colors',
-                pinnedNode
-                  ? 'text-indigo-400 bg-indigo-900/40 hover:bg-indigo-900/60'
-                  : 'text-mutedText/40 hover:text-slate-300 hover:bg-white/10',
-              ].join(' ')}
-            >
-              {pinnedNode ? <Pin size={11} /> : <PinOff size={11} />}
-            </button>
-          </div>
+      {/* ── Hover popup (transient) ──────────────────────────────────────── */}
+      {showHoverPopup && hoveredNode && (
+        <PreviewPanel
+          node={hoveredNode}
+          content={hoveredContent}
+          isPinned={false}
+          onPinToggle={handlePinToggle}
+          nodeWidth={nodeWidth}
+          nodeHeight={nodeHeight}
+          pan={pan}
+          zoom={zoom}
+          svgRef={svgRef}
+          zIndex={21}
+          onHoverStart={handleHoverPopupMouseEnter}
+          onHoverEnd={handleNodeMouseLeave}
+        />
+      )}
 
-          {/* Markdown content (scrollable) */}
-          <div
-            className="rv-content px-3 py-2.5 overflow-y-auto max-h-72
-              text-[11px] leading-relaxed"
-            dangerouslySetInnerHTML={{ __html: renderPreview(previewContent) }}
-          />
-        </div>
+      {/* ── Pinned popup (persistent) ────────────────────────────────────── */}
+      {pinnedNode && (
+        <PreviewPanel
+          node={pinnedNode}
+          content={pinnedContent}
+          isPinned={true}
+          onPinToggle={handlePinToggle}
+          onClose={handlePinnedPanelClose}
+          nodeWidth={nodeWidth}
+          nodeHeight={nodeHeight}
+          pan={pan}
+          zoom={zoom}
+          svgRef={svgRef}
+          zIndex={22}
+        />
       )}
 
       {/* ── SVG Canvas ───────────────────────────────────────────────────── */}
@@ -309,8 +468,9 @@ export const MindView: React.FC<MindViewProps> = ({ onClose }) => {
 
           {/* Mind map nodes */}
           {nodes.map((node) => {
-            const isDragging = draggingNodeId === node.id;
-            const isPreviewed = previewNode?.id === node.id;
+            const isDragging  = draggingNodeId === node.id;
+            const isHovered   = hoveredNode?.id === node.id;
+            const isPinned    = pinnedNode?.id === node.id;
             return (
               <g
                 key={`node-${node.id}`}
@@ -329,9 +489,11 @@ export const MindView: React.FC<MindViewProps> = ({ onClose }) => {
                       levelColors[node.level] ?? 'border-l-indigo-400',
                       isDragging
                         ? 'scale-105 border-primary shadow-primary/20 ring-2 ring-primary/30 z-50 bg-darkPanel/100'
-                        : isPreviewed
-                          ? 'ring-1 ring-indigo-500/40 border-indigo-500/40'
-                          : 'hover:border-darkBorder/80 hover:shadow-xl',
+                        : isPinned
+                          ? 'ring-2 ring-indigo-500/50 border-indigo-500/50'
+                          : isHovered
+                            ? 'ring-1 ring-indigo-400/30 border-indigo-400/30'
+                            : 'hover:border-darkBorder/80 hover:shadow-xl',
                     ].join(' ')}
                   >
                     <div className="text-xs font-bold text-slate-100 truncate w-full" title={node.label}>

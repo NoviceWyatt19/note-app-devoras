@@ -1,12 +1,5 @@
-import { Extension } from '@codemirror/state';
-import { RangeSet } from '@codemirror/state';
-import {
-  DecorationSet,
-  EditorView,
-  PluginValue,
-  ViewPlugin,
-  ViewUpdate,
-} from '@codemirror/view';
+import { Extension, RangeSet } from '@codemirror/state';
+import { DecorationSet, EditorView, PluginValue, ViewPlugin, ViewUpdate } from '@codemirror/view';
 import { SyntaxDecorator } from './types';
 
 // ---------------------------------------------------------------------------
@@ -19,62 +12,92 @@ import { SyntaxDecorator } from './types';
  * On every view update it calls each decorator's `createDecorations` for the
  * current viewport range, then merges the results with `RangeSet.join` so that
  * CodeMirror receives a single, coherent DecorationSet.
+ *
+ * ## IME / Composition Policy
+ * A rebuild is blocked by two independent signals:
+ *
+ * - CodeMirror's `view.composing`, which protects the normal transaction path.
+ * - A DOM `compositionstart`/`compositionend` latch, which remains true through
+ *   WebKit's transient `view.composing === false` reports during Korean IME
+ *   preedit updates.
+ *
+ * The latch is deliberately cleared only after `compositionend`; rebuilding is
+ * then deferred one task so the final committed document and selection are both
+ * stable before any `Decoration.replace` or widget can be introduced.
  */
 class DecorationOrchestrator implements PluginValue {
   decorations: DecorationSet;
-
-  /**
-   * True while an IME composition session is in progress.
-   *
-   * During Korean (and other CJK) input on macOS/Windows the browser fires
-   * `compositionstart` before each syllable is confirmed and `compositionend`
-   * after the user commits (via Space, Enter, or arrow key). While composing
-   * we must NOT rebuild decorations because any `Decoration.replace` that
-   * overlaps the preedit text would erase the in-progress syllable.
-   */
-  private isComposing = false;
-
-  // We must track the DOM element so we can remove the listeners on destroy.
-  private contentDOM: HTMLElement | null = null;
-  private readonly onCompositionStart = () => { this.isComposing = true; };
-  private readonly onCompositionEnd   = () => { this.isComposing = false; };
+  private domComposing = false;
+  private rebuildPending = false;
+  private compositionEndTimer: ReturnType<typeof setTimeout> | null = null;
+  private destroyed = false;
+  private readonly editorView: EditorView;
 
   constructor(
     view: EditorView,
     private readonly decorators: readonly SyntaxDecorator[],
   ) {
+    this.editorView = view;
     this.decorations = this.buildAll(view);
-    this.attachCompositionListeners(view);
+    // Capture phase makes the DOM latch active before CodeMirror processes the
+    // same composition event and emits its ViewUpdate.
+    view.contentDOM.addEventListener('compositionstart', this.onCompositionStart, true);
+    view.contentDOM.addEventListener('compositionend', this.onCompositionEnd, true);
   }
 
   update(upd: ViewUpdate): void {
-    // Skip rebuild during active IME composition.
-    // The decoration set stays unchanged — the preedit text is handled
-    // entirely by the browser native composition layer.
-    if (this.isComposing) return;
+    // Do not let a selection/doc update toggle marker visibility while the DOM
+    // still owns a preedit string. `domComposing` covers WebKit's false-negative
+    // `view.composing` pulses; `view.composing` covers platforms that do not
+    // deliver DOM composition events in the expected order.
+    if (this.domComposing || upd.view.composing) {
+      this.rebuildPending = true;
+      return;
+    }
 
     // Rebuild on document edit, viewport change, or cursor move.
     // Cursor move is included so that bold/italic markers reveal themselves
     // when the user's caret enters the marked span.
-    if (upd.docChanged || upd.viewportChanged || upd.selectionSet) {
+    if (this.rebuildPending || upd.docChanged || upd.viewportChanged || upd.selectionSet) {
       this.decorations = this.buildAll(upd.view);
+      this.rebuildPending = false;
     }
   }
 
   destroy(): void {
-    if (this.contentDOM) {
-      this.contentDOM.removeEventListener('compositionstart', this.onCompositionStart);
-      this.contentDOM.removeEventListener('compositionend',   this.onCompositionEnd);
-      this.contentDOM = null;
-    }
+    this.destroyed = true;
+    if (this.compositionEndTimer !== null) clearTimeout(this.compositionEndTimer);
+    this.editorView.contentDOM.removeEventListener(
+      'compositionstart',
+      this.onCompositionStart,
+      true,
+    );
+    this.editorView.contentDOM.removeEventListener('compositionend', this.onCompositionEnd, true);
   }
 
-  private attachCompositionListeners(view: EditorView): void {
-    // CodeMirror exposes the editable content element via `view.contentDOM`.
-    this.contentDOM = view.contentDOM;
-    this.contentDOM.addEventListener('compositionstart', this.onCompositionStart);
-    this.contentDOM.addEventListener('compositionend',   this.onCompositionEnd);
-  }
+  private readonly onCompositionStart = (): void => {
+    this.domComposing = true;
+    if (this.compositionEndTimer !== null) {
+      clearTimeout(this.compositionEndTimer);
+      this.compositionEndTimer = null;
+    }
+  };
+
+  private readonly onCompositionEnd = (): void => {
+    this.rebuildPending = true;
+
+    // `compositionend` can precede CodeMirror's final input transaction. Run
+    // after that transaction. Keeping the latch set until this task also
+    // blocks the final event's selection/doc ViewUpdate from rebuilding early.
+    this.compositionEndTimer = setTimeout(() => {
+      this.compositionEndTimer = null;
+      if (this.destroyed) return;
+      this.domComposing = false;
+      // Force a no-op view update so the plugin performs exactly one rebuild
+      // with committed offsets.
+      this.editorView.dispatch({});
+    }, 0);
+  };
 
   private buildAll(view: EditorView): DecorationSet {
     if (this.decorators.length === 0) return RangeSet.empty;
@@ -210,9 +233,8 @@ const decorationBaseTheme = EditorView.baseTheme({
  * ```
  */
 export function createDecorationPlugin(decorators: SyntaxDecorator[]): Extension {
-  const plugin = ViewPlugin.define(
-    (view) => new DecorationOrchestrator(view, decorators),
-    { decorations: (p) => p.decorations },
-  );
+  const plugin = ViewPlugin.define((view) => new DecorationOrchestrator(view, decorators), {
+    decorations: (p) => p.decorations,
+  });
   return [plugin, decorationBaseTheme];
 }

@@ -1,0 +1,25 @@
+# 🛠 PROJECT BLUEPRINT TICKET  
+type: "PROJECT_TICKET"  
+id: "PRJ-LOCAL-FIRST-INPUT"  
+# ━━━  
+goal: "macOS IME / Mach Port 통신 에러 완벽 차단 및 0ms 입력 레이턴시 확보 (입력과 처리의 완벽한 디커플링)"  
+# ━━━  
+tech_stack:  
+  language: "TypeScript, React"  
+  framework: "CodeMirror, Zustand, Tauri(WKWebView)"  
+# ━━━  
+current_progress: "아키텍처 설계 완료 및 구현 요구사항 정의 상태"  
+# ━━━  
+pending_issues:  
+  - "BlockEditor.tsx 내부 handleBlockUpdate 로직을 Early Return / Conditional Flush 방식으로 리팩토링"  
+  - "텍스트 동기화용 Debounce 타이머를 기존 150ms에서 300ms~500ms 수준으로 연장하여 스케줄링 방어"  
+  - "React 동시성 기능(Concurrent mode, 지연 렌더링 등)을 활용한 상태 업데이트 전파 최적화"  
+# ━━━  
+constraints:  
+  - "[Flow A: 일반 텍스트] 구조적 변화가 없는 텍스트는 CodeMirror 로컬에서 즉시 렌더링하며, 300~500ms 유휴 시 스토어에 Debounce Flush 수행"
+  - "[Flow B: 구조적 변화] 헤딩(#) 감지, 블록 생성/병합 시 0ms 지연 없이 즉시 스토어 Flush, Re-slice 및 마인드맵 동기화 수행"
+  - "[Flow C: 강제 동기화] 포커스 이동(Blur) 또는 명시적 저장(Cmd+S) 액션 발생 시 남아있는 로컬 버퍼를 즉각 스토어에 Force Flush 하여 데이터 유실 방지"
+# ━━━
+harness: 
+  path: "src/entities/block/__tests__/input_isolation_harness.ts"
+  run_command: "pnpm ts-node input_isolation_harness.ts"

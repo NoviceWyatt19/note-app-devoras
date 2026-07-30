@@ -3,7 +3,7 @@ import { useBlockStore, EditorBlock } from '@/entities/block/model/store';
 import { useDocumentStore } from '@/entities/document/model/store';
 import { useWorkspaceStore } from '@/entities/workspace/model/store';
 import { EditorState, Transaction } from '@codemirror/state';
-import { EditorView, keymap, drawSelection } from '@codemirror/view';
+import { EditorView, keymap, drawSelection} from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap, indentMore, indentLess } from '@codemirror/commands';
 
 import { markdown } from '@codemirror/lang-markdown';
@@ -11,7 +11,7 @@ import { oneDark } from '@codemirror/theme-one-dark';
 import { FileEdit } from 'lucide-react';
 import { FormatToolbar } from './FormatToolbar';
 import { ReadView } from './ReadView';
-import { setActiveEditorView, getActiveEditorView } from '@/shared/lib/activeEditorView';
+import { setActiveEditorView } from '@/shared/lib/activeEditorView';
 
 import { generateImageFileName } from '@/shared/lib/imageUtils';
 import { fileSystemRepository } from '@/shared/api/fs';
@@ -54,6 +54,7 @@ interface CodeMirrorBlockProps {
 // Without memo, every keystroke in any block causes ALL CodeMirrorBlock
 // instances to re-render because BlockEditor's state update triggers a full
 // component tree reconciliation.
+// FIXME:
 const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBlock({
   block,
   index,
@@ -80,6 +81,7 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
   // Initialize CodeMirror instance
   useEffect(() => {
     if (!containerRef.current) return;
+
 
     // Define custom keybindings for block boundaries.
     // NOTE: Enter is intentionally NOT intercepted here.
@@ -149,6 +151,9 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
       doc: block.content,
       extensions: [
         markdown(),
+        // Long prose should wrap inside the editor instead of requiring a
+        // horizontal scroll. CodeMirror keeps the document offsets intact.
+        EditorView.lineWrapping,
         oneDark,
         history(),
         drawSelection(),
@@ -235,37 +240,49 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
             })();
             return true;
           },
+
+          // ── IME-safe store sync via InputEvent.isComposing ────────────────
+          // InputEvent.isComposing is maintained by the WebKit engine's own
+          // composing state tracker, entirely within the WKWebView process.
+          // It bypasses the Mach Port / IMKCFRunLoopWakeUpReliable channel that
+          // fails intermittently in Tauri, making it a more reliable signal for
+          // detecting "composition is truly finished" than view.composing.
+          //
+          // Only sync to the block store when isComposing is false (text is
+          // fully committed). Preedit-phase events (isComposing=true) are skipped.
+          // Non-typed changes (undo/redo/format/image insert) are handled by
+          // updateListener, which filters out user-input userEvent transactions.
+          input(event, view) {
+            const inputEvent = event as InputEvent;
+            if (inputEvent.isComposing) return; // preedit in progress — skip
+            callbacksRef.current.onUpdate(
+              view.state.doc.toString(),
+              view.state.selection.main.anchor,
+            );
+          },
         }),
         EditorView.updateListener.of((update) => {
-          // Only relay user-initiated changes, NOT external syncs dispatched
-          // with Transaction.userEvent 'external' (e.g. content sync from store re-slice).
-          // This prevents the feedback loop: external dispatch → docChanged → onUpdate → re-dispatch.
+          if (update.focusChanged && update.view.hasFocus) {
+            setActiveEditorView(update.view);
+            onSelect();
+          }
+
+          if (!update.docChanged) return;
+
           const isExternal = update.transactions.some(
             tr => tr.annotation(Transaction.userEvent) === 'external'
           );
-          // IME guard: while the browser is composing preedit text (Korean syllable
-          // being built character by character), do NOT forward the intermediate
-          // character state to handleBlockUpdate. Doing so would trigger a reslice
-          // that destroys the in-progress composition. onUpdate is called once on
-          // compositionend when the final character is committed.
-          if (update.docChanged && !isExternal && !update.view.composing) {
-            // Pass the cursor anchor so handleBlockUpdate can precisely restore
-            // cursor position after a re-slice, instead of hardcoding headingLineEnd.
-            callbacksRef.current.onUpdate(
-              update.state.doc.toString(),
-              update.state.selection.main.anchor
-            );
-          }
-          if (update.focusChanged) {
-            if (update.view.hasFocus) {
-              // Track this view globally so FormatToolbar can apply formatting
-              // to the correct block even after toolbar buttons steal focus.
-              setActiveEditorView(update.view);
-              onSelect();
-            }
-            // Do NOT clear on focus-lost: the toolbar uses onMouseDown+preventDefault
-            // to keep the editor focused — clearing here would break toolbar actions.
-          }
+          if (isExternal) return;
+
+          // [삭제됨]: isUserTyped로 input과 delete 이벤트를 필터링하던 로직 제거
+          
+          if (update.view.composing) return;
+
+          // 모든 텍스트 변경(삭제 포함)이 즉각적으로 스토어에 전달됨
+          callbacksRef.current.onUpdate(
+            update.state.doc.toString(),
+            update.state.selection.main.anchor,
+          );
         }),
         EditorView.theme({
           '&': {
@@ -276,10 +293,12 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
             fontFamily: 'JetBrains Mono, Fira Code, monospace',
             fontSize: 'var(--editor-font-size, 13px)',
             overflow: 'hidden',
+            minWidth: '0',
           },
           '.cm-content': {
             caretColor: '#6366f1',
             padding: '4px 0',
+            minWidth: '0',
           },
           '&.cm-focused .cm-cursor': {
             borderLeftColor: '#6366f1',
@@ -306,6 +325,7 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
       setActiveEditorView(null);
     };
   }, []);
+
 
   // Sync CodeMirror content when the block's content changes externally (e.g. re-slice)
   useEffect(() => {
@@ -367,78 +387,82 @@ export const BlockEditor: React.FC = () => {
   const mergeBlockWithPrevious = useBlockStore(s => s.mergeBlockWithPrevious);
   const focusBlock = useBlockStore(s => s.focusBlock);
 
+  // Debounce timer for non-structural document-store syncs.
+  // Kept at component level (ref) so it persists across handleBlockUpdate
+  // invocations without being reset by React re-renders.
+  const contentSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const handleBlockUpdate = (id: string, text: string, cursorOffset: number) => {
-    // Snapshot blocks BEFORE the update to compute the absolute cursor position
-    // in the merged document. This must happen before updateBlockContent mutates
-    // the store, since other blocks' lengths are used in the accumulation below.
-    const prevBlocksSnapshot = useBlockStore.getState().blocks;
-    const activeIndex = prevBlocksSnapshot.findIndex(b => b.id === id);
+      // 1. 텍스트 변경 즉시 150ms 디바운스 대기 없이 무조건 Dirty 상태로 마킹
+      useDocumentStore.getState().setDirty(true);
 
-    // Translate the CodeMirror-local cursor offset into an absolute offset inside
-    // the merged document (blocks joined by '\n').
-    // getMergedContent() = block[0] + '\n' + block[1] + '\n' + ...
-    // so each block boundary contributes +1 for the separator newline.
-    let absoluteCursorPos = cursorOffset;
-    for (let i = 0; i < activeIndex; i++) {
-      absoluteCursorPos += prevBlocksSnapshot[i].content.length + 1;
-    }
+      const prevBlocksSnapshot = useBlockStore.getState().blocks;
+      const activeIndex = prevBlocksSnapshot.findIndex(b => b.id === id);
+      if (activeIndex === -1) return;
 
-    // Always read from the store directly to avoid stale React closure values.
-    // Zustand set() is synchronous so getState() always reflects the latest state.
-    useBlockStore.getState().updateBlockContent(id, text);
-
-    // Re-read after the above synchronous update
-    const state = useBlockStore.getState();
-    const merged = state.getMergedContent();
-
-    // Count structural H1/H2 boundaries, skipping lines inside code fences —
-    // must be consistent with setBlocksFromContent's slicing logic.
-    const lines = merged.replace(/\r\n/g, '\n').split('\n');
-    let headingCount = 0;
-    let fenceActive = false;
-    lines.forEach((line) => {
-      if (/^(`{3,}|~{3,})/.test(line)) { fenceActive = !fenceActive; return; }
-      if (!fenceActive && (line.startsWith('# ') || line.startsWith('## '))) headingCount++;
-    });
-    if (headingCount === 0) headingCount = 1;
-
-    // Only re-slice when a heading was actually added or removed.
-    // IME guard: skip reslice while any CodeMirror view is composing preedit text.
-    // Typing '# ' in Korean could briefly match a heading pattern mid-syllable;
-    // reslicing at that point would abort the composition and corrupt the text.
-    // The reslice will run on the next onUpdate call after compositionend.
-    const anyViewComposing = getActiveEditorView()?.composing === true;
-
-    if (headingCount !== state.blocks.length && !anyViewComposing) {
-      state.setBlocksFromContent(merged);
-
-      const nextBlocks = useBlockStore.getState().blocks;
-
-      // Always map absoluteCursorPos to the precise target block + relative offset.
-      // This unifies cursor restoration for both promotion (new block created) and
-      // demotion (block absorbed) cases. Previously the demotion path was delegated to
-      // setBlocksFromContent's internal Case A heuristic (junction-point offset),
-      // which discarded the user's actual typing position in favour of an approximation.
-      let accumulated = 0;
-      let targetId = nextBlocks[nextBlocks.length - 1].id;
-      let targetOffset = 0;
-
-      for (let i = 0; i < nextBlocks.length; i++) {
-        const len = nextBlocks[i].content.length;
-        if (absoluteCursorPos <= accumulated + len) {
-          targetId = nextBlocks[i].id;
-          targetOffset = Math.min(Math.max(0, absoluteCursorPos - accumulated), len);
-          break;
-        }
-        accumulated += len + 1; // +1 for the '\n' separator
+      // 절대 커서 위치 계산
+      let absoluteCursorPos = cursorOffset;
+      for (let i = 0; i < activeIndex; i++) {
+        absoluteCursorPos += prevBlocksSnapshot[i].content.length + 1;
       }
 
-      // Defer one tick so any newly mounted CodeMirror instance is in the DOM before focusing
-      setTimeout(() => useBlockStore.getState().focusBlock(targetId, targetOffset), 0);
-    }
+      // 상태 동기화
+      useBlockStore.getState().updateBlockContent(id, text);
+      const state = useBlockStore.getState();
+      const merged = state.getMergedContent();
 
-    updateContent(merged);
-  };
+      // H1/H2 블록 분할 기준 개수 계산 (setBlocksFromContent와 100% 동일한 로직)
+      const lines = merged.replace(/\r\n/g, '\n').split('\n');
+      let headingCount = 0;
+      let fenceActive = false;
+      lines.forEach((line) => {
+        if (/^(`{3,}|~{3,})/.test(line)) { fenceActive = !fenceActive; return; }
+        if (!fenceActive && (line.startsWith('# ') || line.startsWith('## '))) headingCount++;
+      });
+      if (headingCount === 0) headingCount = 1;
+
+      // 분할 트리거: H1/H2 개수가 기존 블록 수와 다르면 무조건 구조 변화 발생!
+      // (anyViewComposing 상태에 의존하지 않고 즉시 분할하여 딜레이 제거)
+      if (headingCount !== state.blocks.length) {
+        state.setBlocksFromContent(merged);
+        const nextBlocks = useBlockStore.getState().blocks;
+
+        // 분할 후 커서 위치 정밀 매핑
+        let accumulated = 0;
+        let targetId = nextBlocks[nextBlocks.length - 1].id;
+        let targetOffset = 0;
+
+        for (let i = 0; i < nextBlocks.length; i++) {
+          const len = nextBlocks[i].content.length;
+          const isLastBlock = i === nextBlocks.length - 1;
+
+          // 커서가 해당 블록 내부에 있거나, 마지막 블록인 경우
+          if (absoluteCursorPos < accumulated + len || isLastBlock) {
+            targetId = nextBlocks[i].id;
+            // [핵심 Fix] Math.min을 다시 적용하여 CodeMirror RangeError(에디터 굳음 현상) 완벽 차단
+            targetOffset = Math.min(Math.max(0, absoluteCursorPos - accumulated), len);
+            break;
+          }
+          // 커서가 정확히 분할 경계선(개행 문자)에 위치한 경우 -> 분할된 다음 블록의 맨 앞(0)으로 안착
+          else if (absoluteCursorPos === accumulated + len) {
+            targetId = nextBlocks[i + 1].id;
+            targetOffset = 0;
+            break;
+          }
+          accumulated += len + 1;
+        }
+
+        setTimeout(() => useBlockStore.getState().focusBlock(targetId, targetOffset), 0);
+        updateContent(merged);
+      } else {
+        // 일반 텍스트 입력의 경우에만 150ms 디바운스 적용
+        if (contentSyncTimerRef.current !== null) clearTimeout(contentSyncTimerRef.current);
+        contentSyncTimerRef.current = setTimeout(() => {
+          contentSyncTimerRef.current = null;
+          updateContent(useBlockStore.getState().getMergedContent());
+        }, 150);
+      }
+    };
 
   const handleMerge = (id: string) => {
     mergeBlockWithPrevious(id);
@@ -446,7 +470,6 @@ export const BlockEditor: React.FC = () => {
       updateContent(useBlockStore.getState().getMergedContent());
     }, 0);
   };
-
 
   if (!currentFile) {
     return (
@@ -467,7 +490,7 @@ export const BlockEditor: React.FC = () => {
     >
       {/* Sticky formatting toolbar — visible in both modes */}
       <div className="sticky top-0 z-10 bg-darkBg/95 backdrop-blur-sm">
-        <div className="max-w-3xl mx-auto">
+        <div className=" mx-auto">
           <FormatToolbar />
         </div>
       </div>
@@ -477,7 +500,7 @@ export const BlockEditor: React.FC = () => {
         <ReadView />
       ) : (
         /* Write mode: CodeMirror block editors */
-        <div className="py-6 max-w-3xl mx-auto w-full flex-1 flex flex-col">
+        <div className="w-full min-w-0 px-4 sm:px-6 lg:px-8 py-6 pb-24 flex-1 flex flex-col">
           <div className="space-y-3 flex-1">
             {blocks.map((block, index) => (
               <CodeMirrorBlock
@@ -502,4 +525,4 @@ export const BlockEditor: React.FC = () => {
       )}
     </div>
   );
-};
+}

@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import { FileEntry, fileSystemRepository } from '@/shared/api/fs';
-import { MindNode, parseMarkdown } from '../lib/parser';
+import { MindNode, parseMarkdown } from '@/entities/document/lib/parser';
 import { useWorkspaceStore } from '@/entities/workspace/model/store';
+import { useBlockStore } from '@/entities/block/model/store';
 
 interface DocumentState {
   currentFile: FileEntry | null;
@@ -16,6 +17,8 @@ interface DocumentState {
   loadFile: (file: FileEntry) => Promise<void>;
   updateContent: (content: string) => void;
   updateNodeCoordinate: (nodeId: string, x: number, y: number) => void;
+  /** Marks a pending editor change before its debounced document projection completes. */
+  setDirty: (isDirty: boolean) => void;
   saveFile: () => Promise<void>;
   setViewMode: (mode: 'write' | 'read') => void;
   toggleViewMode: () => void;
@@ -34,6 +37,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   setViewMode: (mode) => set({ viewMode: mode }),
   toggleViewMode: () => set((s) => ({ viewMode: s.viewMode === 'write' ? 'read' : 'write' })),
   adjustFontSize: (delta) => set((s) => ({ fontSize: Math.min(22, Math.max(11, s.fontSize + delta)) })),
+  setDirty: (isDirty) => set({ isDirty }),
 
   loadFile: async (file) => {
     try {
@@ -136,30 +140,31 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   },
 
   saveFile: async () => {
-    const { currentFile, rawContent, spatialData, isDirty } = get();
-    if (!currentFile || !isDirty) return;
+    // rawContent는 여기서 가져오지 않습니다.
+    const { currentFile, spatialData } = get();
+    if (!currentFile) return;
 
     const workspacePath = useWorkspaceStore.getState().workspacePath;
     if (!workspacePath) return;
 
+    // 1. blockStore에서 디바운스 대기 없는 100% 최신 텍스트 추출
+    const latestContent = useBlockStore.getState().getMergedContent();
+
     try {
-      // 1. Write the clean markdown file (without comments)
-      await fileSystemRepository.writeFile(currentFile.path, rawContent);
+      // 2. 무조건 최신 텍스트 파일 쓰기
+      await fileSystemRepository.writeFile(currentFile.path, latestContent);
 
-      // 2. Read all existing workspace metadata
       const allMetadata = await fileSystemRepository.readSpatialMetadata(workspacePath);
-
-      // 3. Update metadata for the current file path
       const updatedMetadata = {
         ...allMetadata,
         [currentFile.path]: spatialData,
       };
-
-      // 4. Save metadata file
       await fileSystemRepository.writeSpatialMetadata(workspacePath, updatedMetadata);
 
+      // 3. 저장 완료 후 상태 동기화 (rawContent도 최신 상태로 갱신)
       set({
         isDirty: false,
+        rawContent: latestContent,
       });
     } catch (e) {
       console.error(`Failed to save file ${currentFile.path}:`, e);

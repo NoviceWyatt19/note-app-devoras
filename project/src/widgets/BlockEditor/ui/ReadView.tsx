@@ -235,7 +235,7 @@ export const ReadView: React.FC = () => {
 
   return (
     <div className="flex-1 overflow-y-auto" onMouseUp={handleMouseUp}>
-      <div className="py-6 max-w-3xl mx-auto w-full px-4">
+      <div className="w-full min-w-0 px-4 sm:px-6 lg:px-8 py-6 pb-24">
 
         {/* ── Floating format toolbar (fixed to viewport, above selection) ── */}
         {floatingBar && (

@@ -1,0 +1,19 @@
+# 📜 HISTORY TICKET  
+type: "HISTORY_TICKET"  
+id: "HIST-20260727-01"  
+# ━━━  
+update: "2026-07-27 20:45"  
+# ━━━  
+project_ref: "PRJ-DEVORAS-MVP"  
+# ━━━  
+cumulative_changes:  
+  - "v0.4.2: CodeMirror 6 blockKeymap에 Tab 및 Shift-Tab 단축키 매핑 추가로 브라우저 포커스 강제 탈출 방지"  
+  - "v0.4.2: @codemirror/commands의 indentMore/indentLess 함수 연동을 통해 탭 들여쓰기 및 내어쓰기(Outdent) 동작 구현"  
+  - "v0.4.2: blockKeymap을 defaultKeymap보다 상위에 배치하여 에디터 밖 영역에서의 포커스 전환 기본 기능 유지 및 포커싱 상태 내 탭 입력 우선 선점 적용"  
+  - "v0.4.2: IMP-20260726-01 완료 처리 및 20260720_032225_debug.yml 티켓 보류(hold) 상태 업데이트"  
+# ━━━  
+technical_debt:  
+  - "KaTeX 렌더링 시 멀티라인 fence 수식이 뷰포트 밖에서 시작할 경우 일부 미렌더링되는 문제"  
+  - "블록 간 Arrow Up/Down 이동 시 Cursor 가로 Column 위치 리셋 현상 (DBG-20260724-02)"  
+# ━━━  
+next_session_start: "로컬 로드맵(AGENT_TICKET_EXECUTION_ROADMAP.yml) Phase 2에 명시된 'MindView 노드 호버 팝업 크기, 위치 및 다중 상태 UX 개선(REF-20260726-01)' 또는 '블록 간 방향키 가로 컬럼 위치 미보존(DBG-20260724-02)' 해결 개시"

@@ -1,0 +1,71 @@
+# 🛠 PROJECT BLUEPRINT TICKET  
+type: "PROJECT_TICKET"  
+id: "PRJ-DEVORAS-ROADMAP"  
+# ━━━  
+goal: "Tauri 2 기반 데스크톱 앱에서 사용자가 폴더 워크스페이스를 열고 Markdown 문서를 블록 에디터로 작성하면, 헤딩 구조가 마인드 뷰에 즉시 투영되는 MVP 구현 및 데스크톱 노트앱 핵심 피처 점진적 통합"  
+# ━━━  
+tech_stack:  
+  language: "TypeScript (Strict Mode), Rust (2021 Edition)"  
+  framework: "React 18, Zustand, CodeMirror 6, marked (v18.0.7), Katex (v0.18.1), Tauri 2"  
+# ━━━  
+current_progress: "v0.4.2 마일스톤 달성. 한글 CJK IME 안정화 및 Tab 단축키 들여쓰기 바인딩 완료. Phase 2 (에디터 정밀화 & 슬라이싱 개편) 착수 시점."  
+# ━━━  
+execution_roadmap:  
+  phase_1:  
+    name: "에디터 정밀화 & 슬라이싱 개편 (Milestone v0.5.0)"  
+    steps:  
+      - step: 1  
+        ticket_id: "REF-20260726-01"  
+        subject: "MindView 노드 호버 팝업 크기, 위치 및 다중 상태 UX 개선"  
+        file: "ticket/request/refactor/20260726_2153_mindview_popup_ux_improvement.yml"  
+      - step: 2  
+        ticket_id: "RFC-20260725-01"  
+        subject: "H1~H6 헤딩별 블록 슬라이싱 역할 설정화 및 H3 블록 과분할 방지"  
+        file: "ticket/request/refactor/20260725_180200_refactor.yml"  
+      - step: 3  
+        ticket_id: "RFC-20260724-02"  
+        subject: "Write Mode 마크다운 의미 렌더링 및 테마 확장"  
+        file: "ticket/request/refactor/20260724_180000_refactor.yml"  
+      - step: 4  
+        ticket_id: "IMPL-20260725-03"  
+        subject: "유동 노트 캔버스 폭 및 정렬 제어"  
+        file: "ticket/request/impl/20260724_181119_impl.yml"  
+  phase_2:  
+    name: "내비게이션 & 파일 생성 확장 (Milestone v0.6.0)"  
+    steps:  
+      - step: 5  
+        ticket_id: "IMPL-20260725-04"  
+        subject: "블록 기반 문서 인덱스(TOC) 사이드 탭 뷰 및 인라인 인덱스 블록 구현"  
+        file: "ticket/request/impl/20260725_180400_impl.yml"  
+      - step: 6  
+        ticket_id: "IMPL-20260725-02"  
+        subject: "파일 신규 생성 카테고리화 및 개발 설정/문서 파일 생성 지원"  
+        file: "ticket/request/impl/20260725_023700_impl.yml"  
+  phase_3:  
+    name: "다중 작업 및 중첩 마인드뷰 통합 (Milestone v0.7.0 ~ v0.9.0)"  
+    steps:  
+      - step: 7  
+        function_id: "FUNCTIONS-03"  
+        subject: "다중 파일 탭 지원 및 스플릿 뷰 (가로/세로)"  
+        file: "functions/3_tabs_and_split_view.md"  
+      - step: 8  
+        function_id: "FUNCTIONS-04"  
+        subject: "전역 검색"  
+        file: "functions/4_global_search.md"  
+      - step: 9  
+        function_id: "FUNCTIONS-09"  
+        subject: "H1 루트 계층 파싱 및 중첩 컨테이너(Nested Box) 마인드 뷰"  
+        file: "functions/9_mind_view_nested_container.md"  
+      - step: 10  
+        function_id: "FUNCTIONS-05"  
+        subject: "앱 설정 관리 및 테마 YAML 커스텀"  
+        file: "functions/5_app_settings.md, functions/6_theme_yaml_custom.md"  
+      - step: 11  
+        function_id: "FUNCTIONS-07"  
+        subject: "탭 분리 새 창 렌더링 및 스타트업 런처"  
+        file: "functions/7_tab_tearoff_new_window.md, functions/8_launcher_on_startup.md"  
+# ━━━  
+constraints:  
+  - "Markdown 원본을 유일 원본(SSOT)으로 보존하며, 공간 좌표는 <!-- devoras:spatial --> 주석으로 저장한다."  
+  - "H1은 최상위 루트 블록, H2는 실질적 카드 메인 에디터 블록, H3~H6은 마인드뷰 하위 노드로 계층화한다."  
+  - "성능 및 가독성을 위해 티켓은 YAML(.yml) 형식을 지키며 하네스 엔지니어링을 점진적으로 도입한다."

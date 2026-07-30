@@ -107,7 +107,12 @@ const tools: ToolDef[] = [
 // ---------------------------------------------------------------------------
 
 export const FormatToolbar: React.FC = () => {
-  const { viewMode, toggleViewMode, fontSize, adjustFontSize } = useDocumentStore();
+  const {
+    viewMode,
+    toggleViewMode,
+    fontSize,
+    adjustFontSize,
+  } = useDocumentStore();
 
   return (
     <div

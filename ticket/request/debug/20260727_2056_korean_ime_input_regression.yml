@@ -1,0 +1,26 @@
+# 🚨 DEBUG TICKET
+type: "DEBUG_TICKET"
+id: "DBG-20260727-01"
+# ━━━
+update: "2026-07-27 20:56"
+# ━━━
+subject: "한글 CJK IME 입력 조합 도중 마인드 뷰 동기화 렉 및 포커스 이탈 재발"
+# ━━━
+symptom:
+  - "한글 자모음 조합 중(글자 조립 중) 특정 액션(블록 분할, 글자 삭제, 혹은 화면 포커스 이탈) 발생 시 조립 중인 마지막 글자가 사라지는 현상(마지막 글자 실종 버그) 재발"
+  - "한글 입력 도중 우측 마인드맵 캔버스(MindView)가 불필요하게 실시간으로 동기화되어 타이핑 랙(Input Lag)이 심하게 발생하고 입력 흐름이 자주 끊어짐"
+  - "글자 조합(preedit) 도중 데코레이션 가드가 오작동하여, 인라인 렌더링 데코레이터가 조립 중인 자모를 교체하거나 지워버리는 이중 편집 상태가 나타남"
+# ━━━
+root_cause_analysis:
+  - "CodeMirror 6의 `update.view.composing` 체크 및 `compositionstart`/`compositionend` 이벤트를 통한 가드가 일부 상태 변화(예: 마우스 클릭, 포커스 아웃, 빠른 타이핑) 시 무력화되거나 타이밍 이슈로 인해 composition 상태가 누락됨"
+  - "에디터 내용 변경 핸들러(handleBlockUpdate)에서 `docChanged` 트랜잭션이 composition 도중에도 외부 디스패치(Transaction.userEvent('external'))나 기타 업데이트에 의해 비동기적으로 중첩 실행되어 composition preedit DOM을 훼손함"
+  - "특히 compositionend 이벤트 수신 후 최종 문자가 커밋되는 시점에 `docChanged` 트랜잭션이 새로 트리거되지 않는 경우, 마지막 글자가 스토어 상태에 전달되지 않아 동기화에서 누락되는 현상 발생 가능"
+# ━━━
+resolution_steps:
+  - "Composition State Guard 정밀화: `compositionend` 이벤트 핸들러가 트리거될 때, 에디터의 최신 텍스트 상태를 강제로 읽어 스토어(onUpdate)에 동기화 전달하도록 보완"
+  - "Decoration Guard 보완: DecorationOrchestrator 및 각 개별 SyntaxDecorator 내에서 `view.composing` 또는 `isComposing` 상태를 이중으로 확인하여, 조합 문자열 영역(Selection range 주변)에 `Decoration.replace`나 `Decoration.widget`이 침범하지 못하도록 차단 범위(Safe Zone) 확보"
+  - "Debounce/Defer Sync: 한글 조합 중에는 마인드맵 뷰(MindView)의 동기화 빈도를 제한하거나 디바운싱(Debounce)을 더 길게 가져가도록 연동하여 타이핑 입력 속도와 캔버스 렌더링 간 병목 해소"
+# ━━━
+target_files:
+  - "widgets/BlockEditor/ui/BlockEditor.tsx"
+  - "shared/lib/editor/decorators/orchestrator.ts"
