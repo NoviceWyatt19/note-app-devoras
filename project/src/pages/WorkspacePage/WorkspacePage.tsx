@@ -2,33 +2,47 @@ import React, { useState, useEffect } from 'react';
 import { FileExplorer } from '@/widgets/FileExplorer';
 import { BlockEditor } from '@/widgets/BlockEditor';
 import { MindView } from '@/widgets/MindView';
-import { useDocumentStore } from '@/entities/document/model/store';
-// 1. PanelLeftIcon (또는 SidebarIcon) 등의 Lucide 아이콘 추가 import
-import { LayoutPanelTop, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { useDocumentStore, TabItem, SplitPane } from '@/entities/document/model/store';
+import {
+  LayoutPanelTop,
+  PanelLeftClose,
+  PanelLeftOpen,
+  X,
+  FileText,
+  Network,
+  Columns,
+} from 'lucide-react';
 
 export const WorkspacePage: React.FC = () => {
   const [sidebarWidth, setSidebarWidth] = useState(250);
   const [mindViewWidth, setMindViewWidth] = useState(550);
   const [isResizingSidebar, setIsResizingSidebar] = useState(false);
   const [isResizingMindView, setIsResizingMindView] = useState(false);
-
-  // [추가 1] 사이드바 토글 상태 관리
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isMindViewOpen, setIsMindViewOpen] = useState(false);
 
-  /** Whether the right MindView panel is visible */
-  const [isMindViewOpen, setIsMindViewOpen] = useState(true);
+  const {
+    panes,
+    activePaneId,
+    openTab,
+    closeTab,
+    setActiveTab,
+    setActivePane,
+    splitPane,
+    saveFile,
+    isDirty,
+    getCurrentFile,
+  } = useDocumentStore();
 
-  const { isDirty, saveFile, currentFile } = useDocumentStore();
+  const currentFile = getCurrentFile();
 
-  // [추가 2] Cmd+\ (Ctrl+\) 키보드 단축키로 사이드바 토글 지원
+  // Cmd+\ 사이드바 토글 및 저장 단축키
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Cmd + S 저장 단축키
       if ((e.metaKey || e.ctrlKey) && e.key === 's') {
         e.preventDefault();
         saveFile();
       }
-      // Cmd + \ (또는 Ctrl + \) 사이드바 토글 단축키
       if ((e.metaKey || e.ctrlKey) && e.key === '\\') {
         e.preventDefault();
         setIsSidebarOpen((prev) => !prev);
@@ -38,17 +52,20 @@ export const WorkspacePage: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [saveFile]);
 
-  // Sidebar drag-resize
+  // Sidebar resizer
   useEffect(() => {
     if (!isResizingSidebar) return;
     const onMove = (e: MouseEvent) => setSidebarWidth(Math.max(180, Math.min(400, e.clientX)));
     const onUp = () => setIsResizingSidebar(false);
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
-    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
   }, [isResizingSidebar]);
 
-  // MindView drag-resize (only active while panel is open)
+  // MindView resizer
   useEffect(() => {
     if (!isResizingMindView) return;
     const onMove = (e: MouseEvent) => {
@@ -57,24 +74,23 @@ export const WorkspacePage: React.FC = () => {
     const onUp = () => setIsResizingMindView(false);
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
-    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
   }, [isResizingMindView]);
 
   return (
     <div className="absolute inset-0 flex min-h-0 bg-darkBg text-slate-200">
-
-      {/* [추가 3] isSidebarOpen이 true일 때만 사이드바 렌더링 (애니메이션이 필요하면 CSS 너비 조절 사용 가능) */}
+      {/* 1. File Explorer Sidebar */}
       {isSidebarOpen && (
         <>
-          {/* 1. Left Sidebar: File Explorer */}
           <div
             style={{ width: `${sidebarWidth}px` }}
-            className="flex-shrink-0 min-w-0 h-full flex flex-col bg-darkPanel border-r border-darkBorder transition-all"
+            className="flex-shrink-0 min-w-0 h-full flex flex-col bg-darkPanel border-r border-darkBorder"
           >
             <FileExplorer />
           </div>
-
-          {/* Sidebar resizer */}
           <div
             className={`w-1 cursor-col-resize hover:bg-primary/40 active:bg-primary transition-colors flex-shrink-0 h-full ${
               isResizingSidebar ? 'bg-primary' : ''
@@ -84,48 +100,46 @@ export const WorkspacePage: React.FC = () => {
         </>
       )}
 
-      {/* 2. Center: Block Editor */}
-      <div className="flex-1 min-w-0 h-full flex flex-col bg-darkBg relative">
-
-        {/* Editor title bar (also Tauri drag region) */}
+      {/* 2. Main Center Area (Split Panes) */}
+      <div className="flex-1 min-w-0 h-full flex flex-col bg-darkBg relative overflow-hidden">
+        {/* Workspace Title Bar */}
         <div
           data-tauri-drag-region
-          className="h-10 border-b border-darkBorder flex items-center justify-between px-4 flex-shrink-0"
+          className="h-10 border-b border-darkBorder flex items-center justify-between px-4 flex-shrink-0 bg-darkPanel/50"
         >
-          {/* Left side: Sidebar Toggle Button + File name */}
-          <div className="flex items-center gap-2 truncate max-w-sm">
-            {/* [추가 4] 사이드바 열기/닫기 토글 버튼 */}
+          <div className="flex items-center gap-2">
             <button
               onClick={() => setIsSidebarOpen((prev) => !prev)}
-              title={isSidebarOpen ? "사이드바 닫기 (Cmd+\\)" : "사이드바 열기 (Cmd+\\)"}
+              title={isSidebarOpen ? '사이드바 닫기 (Cmd+\\)' : '사이드바 열기 (Cmd+\\)'}
               className="p-1 rounded text-mutedText hover:text-slate-200 hover:bg-white/10 transition-colors"
             >
               {isSidebarOpen ? <PanelLeftClose size={15} /> : <PanelLeftOpen size={15} />}
             </button>
-
-            <span className="text-xs font-semibold text-slate-300 truncate">
-              {currentFile ? currentFile.name : '문서가 열리지 않음'}
-            </span>
-            {isDirty && (
-              <span
-                className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0"
-                title="저장되지 않음"
-              />
-            )}
+            <span className="text-xs font-semibold text-slate-300">Workspace</span>
           </div>
 
-          {/* Right-side actions */}
           <div className="flex items-center gap-2">
+            {/* 독립 탭 마인드뷰 열기 버튼 */}
+            <button
+              onClick={() => openTab({ type: 'mindmap-global' })}
+              title="독립 탭으로 마인드뷰 열기"
+              className="flex items-center gap-1.5 text-[10px] px-2 py-1 rounded
+                text-mutedText hover:text-slate-200 hover:bg-white/10 transition-colors border border-darkBorder/40"
+            >
+              <Network size={12} className="text-indigo-400" />
+              <span>독립 마인드맵</span>
+            </button>
+
+            {/* 우측 사이드 팝업 마인드뷰 열기 버튼 */}
             {!isMindViewOpen && (
               <button
                 onClick={() => setIsMindViewOpen(true)}
-                title="마인드 뷰 열기"
+                title="사이드 마인드뷰 패널 열기"
                 className="flex items-center gap-1.5 text-[10px] px-2 py-1 rounded
-                  text-mutedText hover:text-slate-200 hover:bg-white/10
-                  transition-colors border border-transparent hover:border-darkBorder/60"
+                  text-mutedText hover:text-slate-200 hover:bg-white/10 transition-colors border border-darkBorder/40"
               >
                 <LayoutPanelTop size={11} />
-                <span>마인드 뷰</span>
+                <span>사이드 뷰</span>
               </button>
             )}
 
@@ -144,13 +158,15 @@ export const WorkspacePage: React.FC = () => {
           </div>
         </div>
 
-        {/* Editor content */}
-        <div className="flex-1 min-h-0 overflow-y-auto">
-          <BlockEditor />
+        {/* Panes Area */}
+        <div className="flex-1 min-h-0 flex overflow-hidden">
+          {panes.map((pane) => (
+            <PaneContainer key={pane.id} pane={pane} isSingle={panes.length === 1} />
+          ))}
         </div>
       </div>
 
-      {/* MindView resizer + panel — only rendered when open */}
+      {/* 3. Right Side MindView Panel */}
       {isMindViewOpen && (
         <>
           <div
@@ -163,10 +179,93 @@ export const WorkspacePage: React.FC = () => {
             style={{ width: `${mindViewWidth}px` }}
             className="flex-shrink-0 min-w-0 h-full bg-[#111216]/60 border-l border-darkBorder relative"
           >
-            <MindView onClose={() => setIsMindViewOpen(false)} />
+            <MindView onClose={() => setIsMindViewOpen(false)} isStandalone={false} />
           </div>
         </>
       )}
+    </div>
+  );
+};
+
+// ── 패널 전용 렌더러 컴포넌트 ──────────────────────────────────────────
+const PaneContainer: React.FC<{ pane: SplitPane; isSingle: boolean }> = ({ pane, isSingle }) => {
+  const { activePaneId, setActivePane, setActiveTab, closeTab, splitPane } = useDocumentStore();
+  const isActivePane = pane.id === activePaneId;
+  const activeTab = pane.tabs.find((t) => t.id === pane.activeTabId);
+
+  return (
+    <div
+      onClick={() => setActivePane(pane.id)}
+      className={`flex-1 min-w-0 h-full flex flex-col border-r border-darkBorder last:border-r-0 ${
+        isActivePane ? 'ring-1 ring-primary/20 z-10' : 'opacity-85'
+      }`}
+    >
+      {/* Tab Bar */}
+      <div className="h-9 bg-darkPanel border-b border-darkBorder flex items-center justify-between px-2 overflow-x-auto scrollbar-none flex-shrink-0">
+        <div className="flex items-center gap-1 min-w-0">
+          {pane.tabs.map((tab) => {
+            const isTabActive = tab.id === pane.activeTabId;
+            return (
+              <div
+                key={tab.id}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveTab(pane.id, tab.id);
+                }}
+                className={`group flex items-center gap-1.5 px-3 py-1 rounded-t border-t-2 text-xs font-medium cursor-pointer transition-colors max-w-[160px] truncate ${
+                  isTabActive
+                    ? 'bg-darkBg border-primary text-slate-100'
+                    : 'border-transparent text-mutedText hover:bg-white/5 hover:text-slate-300'
+                }`}
+              >
+                {tab.type === 'mindmap-global' ? (
+                  <Network size={12} className="text-indigo-400 flex-shrink-0" />
+                ) : (
+                  <FileText size={12} className="text-slate-400 flex-shrink-0" />
+                )}
+                <span className="truncate">{tab.title}</span>
+                {tab.isDirty && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0" />
+                )}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    closeTab(pane.id, tab.id);
+                  }}
+                  className="p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-white/20 text-mutedText hover:text-slate-100 ml-auto transition-all"
+                >
+                  <X size={11} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Split Action */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            splitPane(pane.id, 'horizontal');
+          }}
+          title="화면 좌우 분할"
+          className="p-1.5 rounded text-mutedText hover:text-slate-200 hover:bg-white/10 transition-colors ml-2 flex-shrink-0"
+        >
+          <Columns size={13} />
+        </button>
+      </div>
+
+      {/* Pane Content Viewer */}
+      <div className="flex-1 min-h-0 relative overflow-y-auto">
+        {!activeTab ? (
+          <div className="h-full flex items-center justify-center text-xs text-mutedText/40 select-none">
+            열린 문서가 없습니다.
+          </div>
+        ) : activeTab.type === 'mindmap-global' ? (
+          <MindView isStandalone={true} />
+        ) : (
+          <BlockEditor />
+        )}
+      </div>
     </div>
   );
 };

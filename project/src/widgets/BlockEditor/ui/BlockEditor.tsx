@@ -377,7 +377,9 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
 
 // Main BlockEditor Widget Component
 export const BlockEditor: React.FC = () => {
-  const { currentFile, updateContent, viewMode, fontSize } = useDocumentStore();
+  const { getCurrentFile, rawContent, updateContent, viewMode, fontSize } = useDocumentStore();
+
+  const currentFile = getCurrentFile();
 
   // Narrow Zustand selectors — each subscription only triggers a re-render
   // when its specific slice of the store changes, not on every store write.
@@ -391,6 +393,12 @@ export const BlockEditor: React.FC = () => {
   // Kept at component level (ref) so it persists across handleBlockUpdate
   // invocations without being reset by React re-renders.
   const contentSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (currentFile && rawContent !== undefined) {
+      useBlockStore.getState().setBlocksFromContent(rawContent);
+    }
+  }, [currentFile?.path, rawContent]);
 
   const handleBlockUpdate = (id: string, text: string, cursorOffset: number) => {
       // 1. 텍스트 변경 즉시 150ms 디바운스 대기 없이 무조건 Dirty 상태로 마킹

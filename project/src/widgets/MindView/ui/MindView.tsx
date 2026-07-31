@@ -177,13 +177,15 @@ const PreviewPanel: React.FC<PreviewPanelProps> = ({
 interface MindViewProps {
   /** Called when the user clicks the close (X) button inside the panel. */
   onClose: () => void;
+  /** Whether the MindView is rendered inside a standalone tab. */
+  isStandalone?: boolean;
 }
 
 // ---------------------------------------------------------------------------
 // MindView Component
 // ---------------------------------------------------------------------------
 
-export const MindView: React.FC<MindViewProps> = ({ onClose }) => {
+export const MindView: React.FC<MindViewProps> = ({ onClose, isStandalone }) => {
   const { nodes, rawContent, updateNodeCoordinate, currentFile } = useDocumentStore();
 
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -372,16 +374,18 @@ export const MindView: React.FC<MindViewProps> = ({ onClose }) => {
   return (
     <div className="absolute inset-0 select-none overflow-hidden h-full w-full">
 
-      {/* ── Close button (top-right) ─────────────────────────────────────── */}
-      <button
-        onClick={onClose}
-        title="마인드 뷰 닫기"
-        className="absolute top-3 right-3 z-20 p-1.5 rounded
-          hover:bg-white/10 text-mutedText/40 hover:text-slate-300
-          transition-colors"
-      >
-        <X size={13} />
-      </button>
+      {/* ── Standalone 탭이 아닐 때만 Close button 노출 ─────────────────────────── */}
+      {!isStandalone && onClose && (
+        <button
+          onClick={onClose}
+          title="마인드 뷰 닫기"
+          className="absolute top-3 right-3 z-20 p-1.5 rounded
+            hover:bg-white/10 text-mutedText/40 hover:text-slate-300
+            transition-colors"
+        >
+          <X size={13} />
+        </button>
+      )}
 
       {/* ── Zoom / help controls (bottom-left) ──────────────────────────── */}
       <div className="absolute bottom-4 left-4 z-10 bg-darkPanel/90 border border-darkBorder/60
