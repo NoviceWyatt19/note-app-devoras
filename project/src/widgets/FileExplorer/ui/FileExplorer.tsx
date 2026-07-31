@@ -7,7 +7,8 @@ import { fileSystemRepository } from '@/shared/api/fs';
 
 export const FileExplorer: React.FC = () => {
   const { workspacePath, files, isLoading, openWorkspace, scanWorkspace } = useWorkspaceStore();
-  const { currentFile, loadFile, isDirty } = useDocumentStore();
+  const { getCurrentFile, loadFile, isDirty } = useDocumentStore();
+  const currentFile = getCurrentFile();
   const { setBlocksFromContent } = useBlockStore();
 
   const [newFileName, setNewFileName] = useState('');

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FileExplorer } from '@/widgets/FileExplorer';
 import { BlockEditor } from '@/widgets/BlockEditor';
 import { MindView } from '@/widgets/MindView';
-import { useDocumentStore, TabItem, SplitPane } from '@/entities/document/model/store';
+import { useDocumentStore, SplitPane } from '@/entities/document/model/store';
 import {
   LayoutPanelTop,
   PanelLeftClose,
@@ -23,12 +23,7 @@ export const WorkspacePage: React.FC = () => {
 
   const {
     panes,
-    activePaneId,
     openTab,
-    closeTab,
-    setActiveTab,
-    setActivePane,
-    splitPane,
     saveFile,
     isDirty,
     getCurrentFile,
@@ -161,7 +156,7 @@ export const WorkspacePage: React.FC = () => {
         {/* Panes Area */}
         <div className="flex-1 min-h-0 flex overflow-hidden">
           {panes.map((pane) => (
-            <PaneContainer key={pane.id} pane={pane} isSingle={panes.length === 1} />
+            <PaneContainer key={pane.id} pane={pane} />
           ))}
         </div>
       </div>
@@ -188,7 +183,7 @@ export const WorkspacePage: React.FC = () => {
 };
 
 // ── 패널 전용 렌더러 컴포넌트 ──────────────────────────────────────────
-const PaneContainer: React.FC<{ pane: SplitPane; isSingle: boolean }> = ({ pane, isSingle }) => {
+const PaneContainer: React.FC<{ pane: SplitPane;}> = ({ pane }) => {
   const { activePaneId, setActivePane, setActiveTab, closeTab, splitPane } = useDocumentStore();
   const isActivePane = pane.id === activePaneId;
   const activeTab = pane.tabs.find((t) => t.id === pane.activeTabId);

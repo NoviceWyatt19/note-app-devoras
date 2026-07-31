@@ -253,7 +253,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
 
   setActivePane: (paneId) => set({ activePaneId: paneId }),
 
-  splitPane: (sourcePaneId, direction) => {
+  splitPane: (sourcePaneId, _direction) => {
     const { panes } = get();
     const sourcePane = panes.find((p) => p.id === sourcePaneId);
     if (!sourcePane) return;

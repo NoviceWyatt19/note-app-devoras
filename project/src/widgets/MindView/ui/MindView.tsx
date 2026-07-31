@@ -176,7 +176,7 @@ const PreviewPanel: React.FC<PreviewPanelProps> = ({
 
 interface MindViewProps {
   /** Called when the user clicks the close (X) button inside the panel. */
-  onClose: () => void;
+  onClose?: () => void; // 👈 옵셔널(?)로 변경
   /** Whether the MindView is rendered inside a standalone tab. */
   isStandalone?: boolean;
 }
@@ -186,8 +186,9 @@ interface MindViewProps {
 // ---------------------------------------------------------------------------
 
 export const MindView: React.FC<MindViewProps> = ({ onClose, isStandalone }) => {
-  const { nodes, rawContent, updateNodeCoordinate, currentFile } = useDocumentStore();
+  const { nodes, rawContent, updateNodeCoordinate, getCurrentFile } = useDocumentStore();
 
+  const currentFile = getCurrentFile(); 
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [pan, setPan] = useState({ x: 50, y: 50 });
   const [zoom, setZoom] = useState(1);
