@@ -61,16 +61,15 @@ export async function saveImageAssetWithPolicy(
 
     // ── 3. 사용자 지정 커스텀 폴더 ─────────────────────────────────────────
     // 저장: {customImageFolder}/{fileName}
-    // 마크다운 경로: 절대 경로 그대로 삽입 (Tauri asset:// 프로토콜에서 처리)
+    // 마크다운 경로: {customImageFolder}/{fileName} (절대 경로)
+    // ReadView의 resolveAssetPaths가 절대 경로도 asset:// 로 변환하므로 정상 작동.
     case 'custom-folder': {
       const targetDir = config.customImageFolder ?? `${workspacePath}/assets/images`;
-      const relativePath = await fileSystemRepository.saveImageAsset(
-        targetDir,
-        data,
-        fileName,
-        '',
-      );
-      return relativePath;
+      // subDir='' 로 호출하면 파일명만 반환되므로, 절대 경로를 직접 조립한다.
+      const fileName2 = generateImageFileName(mimeType);
+      await fileSystemRepository.saveImageAsset(targetDir, data, fileName2, '');
+      // 마크다운에 삽입할 경로: 절대 경로 (ReadView에서 asset:// 변환 처리)
+      return `${targetDir}/${fileName2}`;
     }
 
     default: {

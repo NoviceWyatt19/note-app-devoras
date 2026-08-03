@@ -37,15 +37,21 @@ function preprocessMd(md: string): string {
  *  - `assets/images/{file}` (workspace-root-hidden 기본 폴백 경로)
  *  - `.devoras/images/{file}` (workspace-root-hidden 정책)
  *  - `_assets/{file}` (current-file-relative 정책)
+ *  - `/absolute/path/{file}` (custom-folder 정책 — 절대 경로)
  *  See: https://tauri.app/v2/references/webview-formats/#asset-protocol */
 function resolveAssetPaths(html: string, workspacePath: string | null): string {
   if (!workspacePath) return html;
-  // Match any src="<relative-path>" where the path does NOT start with http/https/asset/data
-  // and replace with asset://localhost/{workspacePath}/{relativePath}
+  // Match any src="<path>" where the path does NOT start with http/https/asset/data
   return html.replace(
     /src="(?!https?:\/\/|asset:\/\/|data:)([^"]+)"/g,
-    (_match, relativePath: string) =>
-      `src="asset://localhost${workspacePath}/${relativePath}"`,
+    (_match: string, imgPath: string) => {
+      // 절대 경로(/로 시작)는 workspacePath 없이 바로 asset:// 변환
+      if (imgPath.startsWith('/')) {
+        return `src="asset://localhost${imgPath}"`;
+      }
+      // 상대 경로는 workspacePath를 앞에 붙여 절대 경로로 변환
+      return `src="asset://localhost${workspacePath}/${imgPath}"`;
+    },
   );
 }
 

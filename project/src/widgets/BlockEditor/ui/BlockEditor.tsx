@@ -36,6 +36,39 @@ const markdownDecorationPlugin = createDecorationPlugin([
   new HyperlinkDecorator(),
 ]);
 
+// ---------------------------------------------------------------------------
+// Image detection helper
+// macOS Finder에서 드래그 시 File.type이 ""(빈 문자열)으로 전달되는 경우가 있어
+// file.type.startsWith('image/')만으로는 이미지를 감지하지 못함.
+// 파일명 확장자 기반 폴백을 추가하여 해결.
+// ---------------------------------------------------------------------------
+const IMAGE_EXTENSIONS = new Set([
+  'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'ico', 'avif', 'tiff',
+]);
+
+function isImageFile(file: File): boolean {
+  if (file.type.startsWith('image/')) return true;
+  // macOS Finder 드래그 폴백: 파일명 확장자로 이미지 여부 판별
+  if (file.type === '') {
+    const ext = (file.name.split('.').pop() ?? '').toLowerCase();
+    return IMAGE_EXTENSIONS.has(ext);
+  }
+  return false;
+}
+
+/** file.type이 빈 문자열인 경우 파일명 확장자로 MIME 타입을 추론한다. */
+function resolveMimeType(file: File): string {
+  if (file.type !== '') return file.type;
+  const ext = (file.name.split('.').pop() ?? '').toLowerCase();
+  const MIME_MAP: Record<string, string> = {
+    png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
+    gif: 'image/gif', webp: 'image/webp', bmp: 'image/bmp',
+    svg: 'image/svg+xml', ico: 'image/x-icon', avif: 'image/avif',
+    tiff: 'image/tiff',
+  };
+  return MIME_MAP[ext] ?? 'image/png';
+}
+
 // Single CodeMirror block component
 interface CodeMirrorBlockProps {
   block: EditorBlock;
@@ -207,15 +240,17 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
             return true;
           },
 
-                    // Image drag-and-drop: copy external image files into the configured
+          // Image drag-and-drop: copy external image files into the configured
           // assets directory and insert a markdown link at the drop position.
+          // macOS Fix: File.type can be "" when dragging from Finder.
+          // isImageFile() falls back to extension-based detection in that case.
           drop(event, view) {
             const e = event as DragEvent;
             const files = e.dataTransfer?.files;
             if (!files || files.length === 0) return false;
             let imageFile: File | null = null;
             for (const file of Array.from(files)) {
-              if (file.type.startsWith('image/')) { imageFile = file; break; }
+              if (isImageFile(file)) { imageFile = file; break; }
             }
             if (!imageFile) return false;
 
@@ -229,11 +264,13 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
                 if (!workspacePath) return;
                 const { getCurrentFile } = useDocumentStore.getState();
                 const currentFilePath = getCurrentFile()?.path ?? null;
+                // macOS Fix: file.type이 "" 이면 확장자로 MIME 타입 추론
+                const mimeType = resolveMimeType(captured);
                 const relativePath = await saveImageAssetWithPolicy(
                   workspacePath,
                   currentFilePath,
                   new Uint8Array(await captured.arrayBuffer()),
-                  captured.type,
+                  mimeType,
                   config,
                 );
                 const md = `![이미지](${relativePath})`;

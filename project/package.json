@@ -8,6 +8,7 @@
     "build": "tsc && vite build",
     "tauri:dev": "pnpm tauri dev",
     "tauri:build": "pnpm tauri build",
+    "test:image": "node --experimental-strip-types src/shared/lib/fs/__tests__/image_asset_harness.ts",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "format": "prettier --write \"src/**/*.{ts,tsx,css,md}\"",
     "prepare": "cd .. && husky project/.husky"
