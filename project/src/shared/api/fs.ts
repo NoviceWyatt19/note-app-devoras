@@ -12,11 +12,16 @@ export interface FileSystemRepository {
   readSpatialMetadata(workspacePath: string): Promise<Record<string, any>>;
   writeSpatialMetadata(workspacePath: string, metadata: Record<string, any>): Promise<void>;
   /**
-   * Saves a binary image blob to `{workspacePath}/assets/images/{fileName}`,
-   * auto-creating the directory if absent.
-   * Returns the relative markdown-ready path: `assets/images/{fileName}`.
+   * Saves a binary image blob to `{basePath}/{subDir}/{fileName}`,
+   * auto-creating all intermediate directories if absent.
+   *
+   * @param basePath  루트 경로 (워크스페이스 루트, 현재 파일 디렉터리, 또는 커스텀 절대 경로)
+   * @param data      저장할 이미지 바이너리
+   * @param fileName  저장할 파일명 (확장자 포함)
+   * @param subDir    basePath 아래의 하위 디렉터리 경로 (예: 'assets/images', '.devoras/images', '_assets', '')
+   * @returns         마크다운에 삽입할 상대 경로 (`{subDir}/{fileName}` 또는 `{fileName}`)
    */
-  saveImageAsset(workspacePath: string, data: Uint8Array, fileName: string): Promise<string>;
+  saveImageAsset(basePath: string, data: Uint8Array, fileName: string, subDir: string): Promise<string>;
 }
 
 // ----------------------------------------------------
@@ -107,14 +112,16 @@ export class MockFileSystem implements FileSystemRepository {
   }
 
   async saveImageAsset(
-    _workspacePath: string,
+    _basePath: string,
     _data: Uint8Array,
     fileName: string,
+    subDir: string,
   ): Promise<string> {
     // Browser mock: no real file I/O — return the relative path so the
     // markdown link is still syntactically correct for testing.
-    console.info(`[Mock] Image save skipped for: assets/images/${fileName}`);
-    return `assets/images/${fileName}`;
+    const relativePath = subDir ? `${subDir}/${fileName}` : fileName;
+    console.info(`[Mock] Image save skipped for: ${relativePath}`);
+    return relativePath;
   }
 }
 
@@ -203,20 +210,35 @@ export class TauriFileSystem implements FileSystemRepository {
   }
 
   async saveImageAsset(
-    workspacePath: string,
+    basePath: string,
     data: Uint8Array,
     fileName: string,
+    subDir: string,
   ): Promise<string> {
     try {
       const { writeFile, mkdir, exists } = await import('@tauri-apps/plugin-fs');
-      // Ensure assets/ and assets/images/ directories exist
-      const assetsDir = `${workspacePath}/assets`;
-      const imagesDir = `${workspacePath}/assets/images`;
-      if (!await exists(assetsDir)) await mkdir(assetsDir);
-      if (!await exists(imagesDir)) await mkdir(imagesDir);
-      const filePath = `${imagesDir}/${fileName}`;
+
+      // subDir이 비어 있으면 basePath에 직접 저장, 그렇지 않으면 subDir의 각 세그먼트를 순차적으로 생성
+      const targetDir = subDir ? `${basePath}/${subDir}` : basePath;
+
+      // 중간 디렉터리 세그먼트를 순서대로 생성 (mkdir -p 역할)
+      if (subDir) {
+        const segments = subDir.split('/');
+        let accumulated = basePath;
+        for (const seg of segments) {
+          if (!seg) continue;
+          accumulated = `${accumulated}/${seg}`;
+          if (!await exists(accumulated)) await mkdir(accumulated);
+        }
+      } else {
+        if (!await exists(targetDir)) await mkdir(targetDir);
+      }
+
+      const filePath = `${targetDir}/${fileName}`;
       await writeFile(filePath, data);
-      return `assets/images/${fileName}`;
+
+      // 마크다운에 삽입할 상대 경로 반환
+      return subDir ? `${subDir}/${fileName}` : fileName;
     } catch (e) {
       console.error('Tauri saveImageAsset error:', e);
       throw e;

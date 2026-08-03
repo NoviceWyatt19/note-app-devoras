@@ -33,14 +33,19 @@ function preprocessMd(md: string): string {
 }
 
 /** Resolve relative asset image paths to Tauri's asset:// protocol for webview rendering.
+ *  Handles all three ImageSavePolicy path patterns:
+ *  - `assets/images/{file}` (workspace-root-hidden 기본 폴백 경로)
+ *  - `.devoras/images/{file}` (workspace-root-hidden 정책)
+ *  - `_assets/{file}` (current-file-relative 정책)
  *  See: https://tauri.app/v2/references/webview-formats/#asset-protocol */
 function resolveAssetPaths(html: string, workspacePath: string | null): string {
   if (!workspacePath) return html;
-  // Replace:  src="assets/images/foo.png"
-  // With:     src="asset://localhost/abs/path/assets/images/foo.png"
+  // Match any src="<relative-path>" where the path does NOT start with http/https/asset/data
+  // and replace with asset://localhost/{workspacePath}/{relativePath}
   return html.replace(
-    /src="assets\/images\//g,
-    `src="asset://localhost${workspacePath}/assets/images/`,
+    /src="(?!https?:\/\/|asset:\/\/|data:)([^"]+)"/g,
+    (_match, relativePath: string) =>
+      `src="asset://localhost${workspacePath}/${relativePath}"`,
   );
 }
 

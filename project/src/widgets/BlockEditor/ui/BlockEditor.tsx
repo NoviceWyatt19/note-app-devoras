@@ -13,8 +13,7 @@ import { FormatToolbar } from './FormatToolbar';
 import { ReadView } from './ReadView';
 import { setActiveEditorView } from '@/shared/lib/activeEditorView';
 
-import { generateImageFileName } from '@/shared/lib/imageUtils';
-import { fileSystemRepository } from '@/shared/api/fs';
+import { saveImageAssetWithPolicy } from '@/shared/lib/fs/imageAsset';
 import { createDecorationPlugin } from '@/shared/lib/editor/decorators/orchestrator';
 import { BoldItalicDecorator } from '@/shared/lib/editor/decorators/impl/BoldItalicDecorator';
 import { StrikethroughDecorator } from '@/shared/lib/editor/decorators/impl/StrikethroughDecorator';
@@ -167,7 +166,7 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
         // to assets/images/ and insert a markdown image link at the cursor.
         // Non-image paste falls through to CodeMirror's default handler.
         EditorView.domEventHandlers({
-          paste(event, view) {
+                      paste(event, view) {
             const e = event as ClipboardEvent;
             const items = e.clipboardData?.items;
             if (!items) return false;
@@ -184,12 +183,16 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
             // Async save + insert (fire-and-forget; view.dispatch triggers onUpdate)
             void (async () => {
               try {
-                const workspacePath = useWorkspaceStore.getState().workspacePath;
+                const { workspacePath, config } = useWorkspaceStore.getState();
                 if (!workspacePath) return;
-                const fileName = generateImageFileName(blob.type);
-                const buffer = await blob.arrayBuffer();
-                const relativePath = await fileSystemRepository.saveImageAsset(
-                  workspacePath, new Uint8Array(buffer), fileName,
+                const { getCurrentFile } = useDocumentStore.getState();
+                const currentFilePath = getCurrentFile()?.path ?? null;
+                const relativePath = await saveImageAssetWithPolicy(
+                  workspacePath,
+                  currentFilePath,
+                  new Uint8Array(await blob.arrayBuffer()),
+                  blob.type,
+                  config,
                 );
                 const md = `![이미지](${relativePath})`;
                 const { from, to } = view.state.selection.main;
@@ -204,8 +207,8 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
             return true;
           },
 
-          // Image drag-and-drop: copy external image files into assets/images/
-          // and insert a markdown link at the drop position.
+                    // Image drag-and-drop: copy external image files into the configured
+          // assets directory and insert a markdown link at the drop position.
           drop(event, view) {
             const e = event as DragEvent;
             const files = e.dataTransfer?.files;
@@ -222,12 +225,16 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
 
             void (async () => {
               try {
-                const workspacePath = useWorkspaceStore.getState().workspacePath;
+                const { workspacePath, config } = useWorkspaceStore.getState();
                 if (!workspacePath) return;
-                const fileName = generateImageFileName(captured.type);
-                const buffer = await captured.arrayBuffer();
-                const relativePath = await fileSystemRepository.saveImageAsset(
-                  workspacePath, new Uint8Array(buffer), fileName,
+                const { getCurrentFile } = useDocumentStore.getState();
+                const currentFilePath = getCurrentFile()?.path ?? null;
+                const relativePath = await saveImageAssetWithPolicy(
+                  workspacePath,
+                  currentFilePath,
+                  new Uint8Array(await captured.arrayBuffer()),
+                  captured.type,
+                  config,
                 );
                 const md = `![이미지](${relativePath})`;
                 view.dispatch({
