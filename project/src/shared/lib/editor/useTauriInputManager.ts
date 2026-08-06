@@ -160,6 +160,7 @@ export function useTauriInputManager({
     // ─────────────────────────────────────────────────────────────────────
     let unlistenDrop: (() => void) | null = null;
     let unlistenDragEnter: (() => void) | null = null;
+    let isMounted = true;
 
     if (isTauriEnv()) {
       import('@tauri-apps/api/event').then(({ listen }) => {
@@ -183,12 +184,18 @@ export function useTauriInputManager({
               }
             }
           },
-        ).then((u) => { unlistenDrop = u; }).catch(console.error);
+        ).then((u) => { 
+            if (!isMounted) u(); // 컴포넌트가 사라졌다면 즉시 해제
+            else unlistenDrop = u; 
+        }).catch(console.error);
 
         // drag-enter: 드래그가 앱 창에 들어왔을 때 (시각적 피드백용)
         listen('tauri://drag-enter', (event) => {
           console.log('[TAURI-INPUT] tauri://drag-enter', event.payload);
-        }).then((u) => { unlistenDragEnter = u; }).catch(console.error);
+        }).then((u) => { 
+            if (!isMounted) u(); // 컴포넌트가 사라졌다면 즉시 해제
+            else unlistenDragEnter = u; 
+        }).catch(console.error);
 
         console.log('[TAURI-INPUT] Tauri drag-drop listener registered');
       });
@@ -266,9 +273,10 @@ export function useTauriInputManager({
 
     // ── Cleanup ────────────────────────────────────────────────────────────
     return () => {
+      isMounted = false; // Unmount 마킹 추가
       document.removeEventListener('paste', handleDocumentPaste);
-      unlistenDrop?.();
-      unlistenDragEnter?.();
+      if (unlistenDrop) unlistenDrop();
+      if (unlistenDragEnter) unlistenDragEnter();
       console.log('[TAURI-INPUT] all listeners unregistered');
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps

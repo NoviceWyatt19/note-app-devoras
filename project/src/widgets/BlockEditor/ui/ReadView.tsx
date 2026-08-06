@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Marked } from 'marked';
+import { invoke } from '@tauri-apps/api/core';
 import { Bold, Italic, Strikethrough, Highlighter, GripVertical } from 'lucide-react';
 import { useBlockStore } from '@/entities/block/model/store';
 import { useDocumentStore } from '@/entities/document/model/store';
@@ -37,18 +38,6 @@ function preprocessMd(md: string): string {
  *  convertFileSrc는 Tauri가 공식 지원하는 변환 API로 올바른 URL을 보장. */
 let _convertFileSrc: ((path: string, protocol?: string) => string) | null = null;
 
-async function getConvertFileSrc() {
-  if (_convertFileSrc) return _convertFileSrc;
-  try {
-    const mod = await import('@tauri-apps/api/core');
-    _convertFileSrc = mod.convertFileSrc;
-  } catch {
-    // 웹 브라우저 환경 fallback
-    _convertFileSrc = (path: string) => path;
-  }
-  return _convertFileSrc;
-}
-
 /** 동기 버전 — 초기화 전에는 직접 조합 방식으로 폴백 (첫 렌더 시에만 발생). */
 function fileSrcSync(path: string): string {
   if (_convertFileSrc) return _convertFileSrc(path);
@@ -63,23 +52,20 @@ function fileSrcSync(path: string): string {
  *  - `_assets/{file}` (current-file-relative 정책)
  *  - `/absolute/path/{file}` (custom-folder 정책 — 절대 경로)
  *  See: https://tauri.app/v2/references/webview-formats/#asset-protocol */
+// 2. resolveAssetPaths 함수를 데이터 속성 치환용으로 변경
 function resolveAssetPaths(html: string, workspacePath: string | null): string {
   if (!workspacePath) return html;
   return html.replace(
-    /src="(?!https?:\/\/|asset:\/\/|data:)([^"]+)"/g,
+    /src="(?!https?:\/\/|data:)([^"]+)"/g,
     (_match: string, imgPath: string) => {
       const absPath = imgPath.startsWith('/')
         ? imgPath
         : `${workspacePath}/${imgPath}`;
-      return `src="${fileSrcSync(absPath)}"`;
+      // 브라우저 에러를 막기 위해 초기 src는 투명 픽셀로 둡니다.
+      return `src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" data-src="${absPath}"`;
     },
   );
 }
-
-/** 비동기로 convertFileSrc를 초기화 (앱 시작 시 1회 실행). */
-getConvertFileSrc().catch(() => {/* ignore */});
-
-
 
 function renderBlockToHtml(content: string, workspacePath: string | null): string {
   const html = markedParser.parse(preprocessMd(content)) as string;
@@ -147,6 +133,29 @@ export const ReadView: React.FC = () => {
     document.addEventListener('mousedown', handleOutsideDown);
     return () => document.removeEventListener('mousedown', handleOutsideDown);
   }, []);
+
+  useEffect(() => {
+  const fetchImages = async () => {
+    // data-src를 가지고 있으면서 아직 로드되지 않은 이미지들 찾기
+    const imgs = document.querySelectorAll('.rv-content img[data-src]:not([data-loaded="true"])');
+    
+    for (const imgEl of imgs) {
+      const img = imgEl as HTMLImageElement;
+      const absPath = img.getAttribute('data-src');
+      if (!absPath) continue;
+
+      try {
+        const dataUrl = await invoke<string>('read_image_base64', { path: absPath });
+        img.src = dataUrl;
+        img.dataset.loaded = "true";
+      } catch (err) {
+        console.error('[ReadView] 이미지 로드 실패:', err);
+      }
+    }
+  };
+
+  fetchImages();
+}, [blocks, workspacePath]); // 블록이 렌더링된 이후마다 실행
 
   // ── Selection → floating toolbar ───────────────────────────────────────────
 

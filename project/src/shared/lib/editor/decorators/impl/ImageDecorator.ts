@@ -2,30 +2,10 @@ import { Decoration, DecorationSet, EditorView, WidgetType } from '@codemirror/v
 import { RangeSetBuilder } from '@codemirror/state';
 import { SyntaxDecorator } from '../types';
 import { useWorkspaceStore } from '@/entities/workspace/model/store';
+import { invoke } from '@tauri-apps/api/core';
 
-// ![alt](src) — 이미지 마크다운 패턴 (단일 라인)
 const IMG_RE = /!\[([^\]\n]*)\]\(([^)\n]+)\)/g;
 
-// ── convertFileSrc 캐시 ─────────────────────────────────────────────────────
-let _convertFileSrc: ((path: string) => string) | null = null;
-
-function getFileSrc(absPath: string): string {
-  if (_convertFileSrc) return _convertFileSrc(absPath);
-  // 비동기 초기화 전 폴백
-  return `asset://localhost${encodeURI(absPath)}`;
-}
-
-// 앱 시작 시 비동기 초기화
-(async () => {
-  try {
-    const { convertFileSrc } = await import('@tauri-apps/api/core');
-    _convertFileSrc = convertFileSrc;
-  } catch {
-    _convertFileSrc = (p) => p;
-  }
-})();
-
-// ── 이미지 위젯 ────────────────────────────────────────────────────────────
 class ImageWidget extends WidgetType {
   constructor(
     private readonly src: string,
@@ -40,74 +20,52 @@ class ImageWidget extends WidgetType {
 
   toDOM(): HTMLElement {
     const workspacePath = useWorkspaceStore.getState().workspacePath;
-
-    // 절대 경로 결정
-    let absPath: string;
-    if (this.src.startsWith('http://') || this.src.startsWith('https://') || this.src.startsWith('data:')) {
-      // 외부 URL 또는 data URL — 그대로 사용
-      const wrap = document.createElement('span');
-      wrap.className = 'cm-image-widget';
-      const img = document.createElement('img');
-      img.src = this.src;
-      img.alt = this.alt;
-      img.className = 'cm-image-preview';
-      img.style.cssText = 'max-width:100%;max-height:300px;border-radius:4px;margin:4px 0;display:block;';
-      img.onerror = () => { wrap.style.display = 'none'; };
-      wrap.appendChild(img);
-      return wrap;
-    } else if (this.src.startsWith('/')) {
-      absPath = this.src;
-    } else if (workspacePath) {
-      absPath = `${workspacePath}/${this.src}`;
-    } else {
-      absPath = this.src;
-    }
-
-    const url = getFileSrc(absPath);
-
     const wrap = document.createElement('span');
     wrap.className = 'cm-image-widget';
 
     const img = document.createElement('img');
-    img.src = url;
+    // 로딩 중일 때는 투명 픽셀을 렌더링하여 UI 찌그러짐 방지
+    img.src = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
     img.alt = this.alt;
-    img.className = 'cm-image-preview';
+    img.className = 'cm-image-preview transition-opacity duration-200 opacity-0';
     img.style.cssText = 'max-width:100%;max-height:300px;border-radius:4px;margin:4px 0;display:block;cursor:default;';
     img.draggable = false;
-
-    // 로드 실패 시 alt 텍스트 표시
-    img.onerror = () => {
-      const fallback = document.createElement('span');
-      fallback.className = 'cm-image-fallback';
-      fallback.textContent = `🖼 ${this.alt || '이미지'}`;
-      fallback.style.cssText = 'color:#888;font-size:0.85em;display:inline-block;padding:2px 6px;background:#333;border-radius:3px;';
-      if (wrap.contains(img)) wrap.replaceChild(fallback, img);
-    };
-
     wrap.appendChild(img);
+
+    // 외부 URL이면 그대로 사용, 로컬이면 Rust 커맨드로 Base64 요청
+    if (this.src.startsWith('http://') || this.src.startsWith('https://') || this.src.startsWith('data:')) {
+      img.src = this.src;
+      img.classList.remove('opacity-0');
+    } else {
+      const absPath = this.src.startsWith('/') ? this.src : `${workspacePath}/${this.src}`;
+      
+      invoke<string>('read_image_base64', { path: absPath })
+        .then((dataUrl) => {
+          img.src = dataUrl;
+          img.classList.remove('opacity-0');
+        })
+        .catch((err) => {
+          console.error('[ImageDecorator] 렌더링 실패:', err);
+          const fallback = document.createElement('span');
+          fallback.className = 'cm-image-fallback';
+          fallback.textContent = `🖼 ${this.alt || '이미지'}`;
+          fallback.style.cssText = 'color:#888;font-size:0.85em;display:inline-block;padding:2px 6px;background:#1e1e1e;border-radius:3px;';
+          if (wrap.contains(img)) wrap.replaceChild(fallback, img);
+        });
+    }
+
     return wrap;
   }
 
-  ignoreEvent(): boolean {
-    return false;
-  }
+  ignoreEvent(): boolean { return false; }
 }
 
-// ── 데코레이터 구현 ────────────────────────────────────────────────────────
-/**
- * CodeMirror 쓰기 모드에서 `![alt](src)` 마크다운을 실제 이미지 위젯으로 렌더링.
- *
- * - 커서가 이미지 마크다운 범위 밖에 있을 때: 인라인 이미지 위젯으로 대체
- * - 커서가 범위 안에 있을 때: 원본 마크다운 텍스트 그대로 표시 (편집 가능)
- */
 export class ImageDecorator implements SyntaxDecorator {
   readonly name = 'image';
-
   createDecorations(view: EditorView, from: number, to: number): DecorationSet {
     const { doc } = view.state;
     const cursorHead = view.state.selection.main.head;
     const builder = new RangeSetBuilder<Decoration>();
-
     const ranges: Array<{ from: number; to: number; deco: Decoration }> = [];
 
     let pos = from;
@@ -125,13 +83,10 @@ export class ImageDecorator implements SyntaxDecorator {
         const alt = m[1];
         const src = m[2];
 
-        // 커서가 이미지 마크다운 내부에 있으면 위젯을 보여주지 않음 (편집 모드)
         if (cursorHead >= matchStart && cursorHead <= matchEnd) {
           pos = line.to + 1;
           continue;
         }
-
-        // 마크다운 텍스트 전체를 이미지 위젯으로 대체
         ranges.push({
           from: matchStart,
           to: matchEnd,
@@ -141,13 +96,9 @@ export class ImageDecorator implements SyntaxDecorator {
           }),
         });
       }
-
       pos = line.to + 1;
     }
-
-    // from 기준 정렬 (RangeSetBuilder 요구사항)
     ranges.sort((a, b) => a.from !== b.from ? a.from - b.from : a.to - b.to);
-
     let lastTo = -1;
     for (const r of ranges) {
       if (r.from >= lastTo) {
@@ -155,7 +106,6 @@ export class ImageDecorator implements SyntaxDecorator {
         lastTo = r.to;
       }
     }
-
     return builder.finish();
   }
 }

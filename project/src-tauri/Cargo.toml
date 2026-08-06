@@ -1,6 +1,6 @@
 [package]
 name = "devoras"
-version = "0.4.7"
+version = "0.4.8"
 description = "Devoras - Markdown Mind Map Note App"
 authors = ["Devoras Team"]
 license = ""
@@ -26,3 +26,4 @@ tauri-plugin-log = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-shell = "2"
+base64 = "0.23.1"
