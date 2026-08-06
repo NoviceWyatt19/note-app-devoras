@@ -32,6 +32,30 @@ function preprocessMd(md: string): string {
     .replace(/\n{3,}/g, '\n\n<p class="rv-blank-spacer">&nbsp;</p>\n\n');
 }
 
+/** Tauri convertFileSrc — 로컬 절대 경로를 webview에서 로드 가능한 URL로 변환.
+ *  Tauri v2에서는 asset://localhost/<path> 를 직접 조합하면 403이 날 수 있음.
+ *  convertFileSrc는 Tauri가 공식 지원하는 변환 API로 올바른 URL을 보장. */
+let _convertFileSrc: ((path: string, protocol?: string) => string) | null = null;
+
+async function getConvertFileSrc() {
+  if (_convertFileSrc) return _convertFileSrc;
+  try {
+    const mod = await import('@tauri-apps/api/core');
+    _convertFileSrc = mod.convertFileSrc;
+  } catch {
+    // 웹 브라우저 환경 fallback
+    _convertFileSrc = (path: string) => path;
+  }
+  return _convertFileSrc;
+}
+
+/** 동기 버전 — 초기화 전에는 직접 조합 방식으로 폴백 (첫 렌더 시에만 발생). */
+function fileSrcSync(path: string): string {
+  if (_convertFileSrc) return _convertFileSrc(path);
+  // 최초 렌더 전 폴백: 직접 조합 (이후 비동기 초기화 후 re-render로 수정됨)
+  return `asset://localhost${encodeURI(path)}`;
+}
+
 /** Resolve relative asset image paths to Tauri's asset:// protocol for webview rendering.
  *  Handles all three ImageSavePolicy path patterns:
  *  - `assets/images/{file}` (workspace-root-hidden 기본 폴백 경로)
@@ -41,19 +65,21 @@ function preprocessMd(md: string): string {
  *  See: https://tauri.app/v2/references/webview-formats/#asset-protocol */
 function resolveAssetPaths(html: string, workspacePath: string | null): string {
   if (!workspacePath) return html;
-  // Match any src="<path>" where the path does NOT start with http/https/asset/data
   return html.replace(
     /src="(?!https?:\/\/|asset:\/\/|data:)([^"]+)"/g,
     (_match: string, imgPath: string) => {
-      // 절대 경로(/로 시작)는 workspacePath 없이 바로 asset:// 변환
-      if (imgPath.startsWith('/')) {
-        return `src="asset://localhost${imgPath}"`;
-      }
-      // 상대 경로는 workspacePath를 앞에 붙여 절대 경로로 변환
-      return `src="asset://localhost${workspacePath}/${imgPath}"`;
+      const absPath = imgPath.startsWith('/')
+        ? imgPath
+        : `${workspacePath}/${imgPath}`;
+      return `src="${fileSrcSync(absPath)}"`;
     },
   );
 }
+
+/** 비동기로 convertFileSrc를 초기화 (앱 시작 시 1회 실행). */
+getConvertFileSrc().catch(() => {/* ignore */});
+
+
 
 function renderBlockToHtml(content: string, workspacePath: string | null): string {
   const html = markedParser.parse(preprocessMd(content)) as string;

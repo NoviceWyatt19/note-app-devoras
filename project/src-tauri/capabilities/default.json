@@ -79,6 +79,14 @@
         { "path": "$DOCUMENT/**" }
       ]
     },
+    {
+      "identifier": "core:asset-protocol:allow-fetch",
+      "allow": [
+        { "path": "$HOME/**" },
+        { "path": "$DESKTOP/**" },
+        { "path": "$DOCUMENT/**" }
+      ]
+    },
     "dialog:default",
     "dialog:allow-open",
     "dialog:allow-save",

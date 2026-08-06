@@ -22,6 +22,7 @@ import { CheckboxDecorator } from '@/shared/lib/editor/decorators/impl/CheckboxD
 import { CodeBlockDecorator } from '@/shared/lib/editor/decorators/impl/CodeBlockDecorator';
 import { LatexDecorator } from '@/shared/lib/editor/decorators/impl/LatexDecorator';
 import { HyperlinkDecorator } from '@/shared/lib/editor/decorators/impl/HyperlinkDecorator';
+import { ImageDecorator } from '@/shared/lib/editor/decorators/impl/ImageDecorator';
 
 // ---------------------------------------------------------------------------
 // Module-level decoration plugin
@@ -35,6 +36,7 @@ const markdownDecorationPlugin = createDecorationPlugin([
   new CodeBlockDecorator(),
   new LatexDecorator(),
   new HyperlinkDecorator(),
+  new ImageDecorator(),
 ]);
 
 // [REMOVED] IMAGE_EXTENSIONS, isImageFile, resolveMimeType
