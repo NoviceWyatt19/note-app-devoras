@@ -12,6 +12,7 @@ import { FileEdit } from 'lucide-react';
 import { FormatToolbar } from './FormatToolbar';
 import { ReadView } from './ReadView';
 import { setActiveEditorView, getActiveEditorView } from '@/shared/lib/activeEditorView';
+import { useTauriInputManager } from '@/shared/lib/editor/useTauriInputManager';
 
 import { saveImageAssetWithPolicy } from '@/shared/lib/fs/imageAsset';
 import { createDecorationPlugin } from '@/shared/lib/editor/decorators/orchestrator';
@@ -36,38 +37,8 @@ const markdownDecorationPlugin = createDecorationPlugin([
   new HyperlinkDecorator(),
 ]);
 
-// ---------------------------------------------------------------------------
-// Image detection helper
-// macOS Finder에서 드래그 시 File.type이 ""(빈 문자열)으로 전달되는 경우가 있어
-// file.type.startsWith('image/')만으로는 이미지를 감지하지 못함.
-// 파일명 확장자 기반 폴백을 추가하여 해결.
-// ---------------------------------------------------------------------------
-const IMAGE_EXTENSIONS = new Set([
-  'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'ico', 'avif', 'tiff',
-]);
-
-function isImageFile(file: File): boolean {
-  if (file.type.startsWith('image/')) return true;
-  // macOS Finder 드래그 폴백: 파일명 확장자로 이미지 여부 판별
-  if (file.type === '') {
-    const ext = (file.name.split('.').pop() ?? '').toLowerCase();
-    return IMAGE_EXTENSIONS.has(ext);
-  }
-  return false;
-}
-
-/** file.type이 빈 문자열인 경우 파일명 확장자로 MIME 타입을 추론한다. */
-function resolveMimeType(file: File): string {
-  if (file.type !== '') return file.type;
-  const ext = (file.name.split('.').pop() ?? '').toLowerCase();
-  const MIME_MAP: Record<string, string> = {
-    png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
-    gif: 'image/gif', webp: 'image/webp', bmp: 'image/bmp',
-    svg: 'image/svg+xml', ico: 'image/x-icon', avif: 'image/avif',
-    tiff: 'image/tiff',
-  };
-  return MIME_MAP[ext] ?? 'image/png';
-}
+// [REMOVED] IMAGE_EXTENSIONS, isImageFile, resolveMimeType
+// → useTauriInputManager 훅 내부로 이동 (Layer 1 수신 계층)
 
 // Single CodeMirror block component
 interface CodeMirrorBlockProps {
@@ -352,166 +323,47 @@ export const BlockEditor: React.FC = () => {
     }
   }, [currentFile?.path, rawContent]);
 
-  // ───────────────────────────────────────────────────────────────────────
-  // 이미지 체더해 등록 전략:
-  //  A. document-level paste 리스너
-  //     - macOS에서 Cmd+V 시 ClipboardEvent가 document에 발화됨
-  //     - CodeMirror DOM 핸들러를 우회하여 항상 도달
-  //  B. Tauri tauri://drag-drop 이벤트
-  //     - dragDropEnabled:true(기본값)일 때 Tauri가 OS 내 드래그를 잡아 파일 경로 전달
-  //     - 파일 경로를 받아 Tauri fs.readFile로 직접 읽음
-  //  두 경우 모두 getActiveEditorView()로 현재 포커스된 CM 인스턴스에 삽입
-  // ───────────────────────────────────────────────────────────────────────
-  useEffect(() => {
-    // 이미지를 현재 포커스된 CM 에디터에 삽입하는 공통 핀퍼
-    async function insertImageIntoEditor(data: Uint8Array, mimeType: string): Promise<void> {
+  // ── Layer 1 연결: 이미지 입력 이벤트 수신 계층 ───────────────────────────
+  // useTauriInputManager가 tauri://drag-drop + document paste 두 채널을 모두
+  // 처리하고 정규화된 INSERT_IMAGE 커맨드를 onCommand 콜백으로 전달한다.
+  // BlockEditor(Layer 2)는 커맨드 출처를 알 필요 없이 삽입 로직만 실행한다.
+  useTauriInputManager({
+    enabled: () => !!getActiveEditorView(),
+    onCommand: async (cmd) => {
+      if (cmd.type !== 'INSERT_IMAGE') return;
+      const { data, mimeType } = cmd.payload;
+
       const view = getActiveEditorView();
       if (!view) {
-        console.warn('[IMG] insertImageIntoEditor: no active editor view');
+        console.warn('[BlockEditor] INSERT_IMAGE: no active editor view');
         return;
       }
       const { workspacePath, config } = useWorkspaceStore.getState();
       if (!workspacePath) {
-        console.warn('[IMG] insertImageIntoEditor: workspacePath is null');
+        console.warn('[BlockEditor] INSERT_IMAGE: workspacePath is null');
         return;
       }
       const { getCurrentFile: getCF } = useDocumentStore.getState();
       const currentFilePath = getCF()?.path ?? null;
-      const resolvedMime = mimeType || 'image/png';
-      console.log('[IMG] saving image:', { mimeType: resolvedMime, size: data.length });
-      const relativePath = await saveImageAssetWithPolicy(
-        workspacePath, currentFilePath, data, resolvedMime, config,
-      );
-      console.log('[IMG] saved:', relativePath);
-      const md = `![이미지](${relativePath})`;
-      const { from, to } = view.state.selection.main;
-      view.dispatch({
-        changes: { from, to, insert: md },
-        selection: { anchor: from + md.length },
-      });
-    }
 
-    // ── A. document-level paste 리스너 ───────────────────────────
-    async function handleDocumentPaste(e: ClipboardEvent) {
-      // 포커스가 에디터 영역 밖에 있을 때는 실행하지 않음
-      if (!getActiveEditorView()) return;
-
-      const items = e.clipboardData?.items;
-      console.log('[IMG] document paste fired', {
-        items: items ? Array.from(items).map(i => ({ kind: i.kind, type: i.type })) : 'none',
-        types: e.clipboardData?.types,
-      });
-      if (!items) return;
-
-      // Pass 1: image/* MIME 직접 일치
-      for (const item of Array.from(items)) {
-        if (item.type.startsWith('image/')) {
-          const blob = item.getAsFile();
-          if (!blob) continue;
-          console.log('[IMG] paste Pass1 image MIME:', item.type);
-          e.preventDefault();
-          e.stopPropagation();
-          try {
-            await insertImageIntoEditor(new Uint8Array(await blob.arrayBuffer()), blob.type);
-          } catch (err) { console.error('[IMG] paste Pass1 failed:', err); }
-          return;
-        }
-      }
-
-      // Pass 2: kind='file' 폴백 (macOS Finder Cmd+C)
-      for (const item of Array.from(items)) {
-        if (item.kind === 'file') {
-          const f = item.getAsFile();
-          console.log('[IMG] paste Pass2 file item:', item.type, f?.name, f?.type);
-          if (f && isImageFile(f)) {
-            e.preventDefault();
-            e.stopPropagation();
-            const mimeType = resolveMimeType(f);
-            try {
-              await insertImageIntoEditor(new Uint8Array(await f.arrayBuffer()), mimeType);
-            } catch (err) { console.error('[IMG] paste Pass2 failed:', err); }
-            return;
-          }
-        }
-      }
-
-      // Pass 3: text/uri-list (file:// URL) 폴백
-      const uriItem = Array.from(items).find(i => i.type === 'text/uri-list');
-      if (uriItem) {
-        console.log('[IMG] paste Pass3: text/uri-list found');
-        uriItem.getAsString(async (uriList) => {
-          console.log('[IMG] paste Pass3 uriList:', uriList);
-          const uris = uriList.split('\n').map(s => s.trim()).filter(Boolean);
-          for (const uri of uris) {
-            if (!uri.startsWith('file://')) continue;
-            const absPath = decodeURIComponent(uri.replace('file://', ''));
-            const ext = (absPath.split('.').pop() ?? '').toLowerCase();
-            if (!IMAGE_EXTENSIONS.has(ext)) continue;
-            console.log('[IMG] paste Pass3 path:', absPath);
-            try {
-              const { readFile } = await import('@tauri-apps/plugin-fs');
-              const data = await readFile(absPath);
-              const mimeType = `image/${ext === 'jpg' ? 'jpeg' : ext}`;
-              await insertImageIntoEditor(data, mimeType);
-            } catch (err) { console.error('[IMG] paste Pass3 failed:', err); }
-            break;
-          }
+      try {
+        const relativePath = await saveImageAssetWithPolicy(
+          workspacePath, currentFilePath, data, mimeType, config,
+        );
+        console.log('[BlockEditor] image saved:', relativePath);
+        const md = `![이미지](${relativePath})`;
+        const { from, to } = view.state.selection.main;
+        view.dispatch({
+          changes: { from, to, insert: md },
+          selection: { anchor: from + md.length },
         });
-        e.preventDefault();
-        return;
+      } catch (err) {
+        console.error('[BlockEditor] INSERT_IMAGE: saveImageAssetWithPolicy failed', err);
       }
-      console.log('[IMG] paste: no image data, passing through');
-    }
+    },
+  });
 
-    document.addEventListener('paste', handleDocumentPaste);
-    console.log('[IMG] document paste listener registered');
 
-    // ── B. Tauri tauri://drag-drop 이벤트 ───────────────────────
-    // dragDropEnabled:true(기본값) 상태에서 Tauri가 Finder 드래그를 잡아
-    // 파일 경로(event.payload.paths)를 전달해줌.
-    let unlistenDrop: (() => void) | null = null;
-    const isTauri =
-      typeof window !== 'undefined' &&
-      ((window as unknown as Record<string, unknown>).__TAURI__ !== undefined ||
-        (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ !== undefined);
-
-    if (isTauri) {
-      import('@tauri-apps/api/event').then(({ listen }) => {
-        listen<{ paths: string[]; position?: { x: number; y: number } }>(
-          'tauri://drag-drop',
-          async (event) => {
-            console.log('[IMG] tauri://drag-drop received', event.payload);
-            const paths: string[] = event.payload.paths ?? [];
-            for (const absPath of paths) {
-              const ext = (absPath.split('.').pop() ?? '').toLowerCase();
-              if (!IMAGE_EXTENSIONS.has(ext)) continue;
-              console.log('[IMG] drag-drop processing:', absPath);
-              try {
-                const { readFile } = await import('@tauri-apps/plugin-fs');
-                const data = await readFile(absPath);
-                const mimeType = `image/${ext === 'jpg' ? 'jpeg' : ext}`;
-                await insertImageIntoEditor(data, mimeType);
-              } catch (err) {
-                console.error('[IMG] drag-drop read/insert failed:', err, absPath);
-              }
-              break; // 첫 번째 이미지만 처리
-            }
-          },
-        ).then((unlisten) => {
-          unlistenDrop = unlisten;
-          console.log('[IMG] tauri://drag-drop listener registered');
-        }).catch((err) => {
-          console.error('[IMG] Failed to register drag-drop listener:', err);
-        });
-      });
-    }
-
-    return () => {
-      document.removeEventListener('paste', handleDocumentPaste);
-      unlistenDrop?.();
-      console.log('[IMG] image attach handlers unregistered');
-    };
-  }, []); // 마운트 시 한 번만 등록
 
   const handleBlockUpdate = (id: string, text: string, cursorOffset: number) => {
       // 1. 텍스트 변경 즉시 150ms 디바운스 대기 없이 무조건 Dirty 상태로 마킹
