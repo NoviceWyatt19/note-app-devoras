@@ -216,28 +216,21 @@ export class TauriFileSystem implements FileSystemRepository {
     subDir: string,
   ): Promise<string> {
     try {
-      const { writeFile, mkdir, exists } = await import('@tauri-apps/plugin-fs');
-
-      // subDir이 비어 있으면 basePath에 직접 저장, 그렇지 않으면 subDir의 각 세그먼트를 순차적으로 생성
+      // ── Rust 네이티브 커맨드로 직접 파일 저장 ──────────────────────────
+      // Tauri plugin-fs는 WebView 샌드박스 scope 제한으로 인해 사용자가
+      // 선택한 임의 경로에 파일을 쓸 수 없는 문제(forbidden path)가 있음.
+      // save_image_file Rust 커맨드(std::fs)는 OS 레벨 접근이라 제한 없음.
+      const { invoke } = await import('@tauri-apps/api/core');
       const targetDir = subDir ? `${basePath}/${subDir}` : basePath;
-
-      // 중간 디렉터리 세그먼트를 순서대로 생성 (mkdir -p 역할)
-      if (subDir) {
-        const segments = subDir.split('/');
-        let accumulated = basePath;
-        for (const seg of segments) {
-          if (!seg) continue;
-          accumulated = `${accumulated}/${seg}`;
-          if (!await exists(accumulated)) await mkdir(accumulated);
-        }
-      } else {
-        if (!await exists(targetDir)) await mkdir(targetDir);
-      }
-
       const filePath = `${targetDir}/${fileName}`;
-      await writeFile(filePath, data);
 
-      // 마크다운에 삽입할 상대 경로 반환
+      console.log('[TauriFS] save_image_file invoking:', filePath);
+      await invoke('save_image_file', {
+        path: filePath,
+        data: Array.from(data),   // Uint8Array → number[] (Rust Vec<u8>)
+      });
+      console.log('[TauriFS] save_image_file OK:', filePath);
+
       return subDir ? `${subDir}/${fileName}` : fileName;
     } catch (e) {
       console.error('Tauri saveImageAsset error:', e);
