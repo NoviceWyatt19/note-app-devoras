@@ -195,38 +195,132 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
         // checkbox, code block, LaTeX math). New syntaxes: add a SyntaxDecorator
         // to the markdownDecorationPlugin array at the top of this file.
         markdownDecorationPlugin,
-        // Image paste: intercept clipboard items that are images, save them
-        // to assets/images/ and insert a markdown image link at the cursor.
-        // Non-image paste falls through to CodeMirror's default handler.
+        // Image paste / drop handlers:
+        //  - paste: 클립보드에서 이미지 바이너리 또는 Finder 파일 참조 추출
+        //  - drop:  dragDropEnabled:false 설정 후 DOM level에서 파일 수신
+        // DEBUG 로그는 이벤트 흐름 확인 후 제거 예정
         EditorView.domEventHandlers({
-                      paste(event, view) {
+          paste(event, view) {
             const e = event as ClipboardEvent;
+            // ── [DEBUG] paste 이벤트 도달 확인 ────────────────────────────
+            console.log('[IMG-DEBUG] paste event fired', {
+              items: e.clipboardData?.items ? Array.from(e.clipboardData.items).map(i => ({ kind: i.kind, type: i.type })) : 'none',
+              types: e.clipboardData?.types,
+            });
+
             const items = e.clipboardData?.items;
-            if (!items) return false;
-            let imageItem: DataTransferItem | null = null;
-            for (const item of Array.from(items)) {
-              if (item.type.startsWith('image/')) { imageItem = item; break; }
+            if (!items) {
+              console.log('[IMG-DEBUG] paste: no clipboardData items — skipping');
+              return false;
             }
-            if (!imageItem) return false; // let CodeMirror handle normal text paste
+
+            let imageItem: DataTransferItem | null = null;
+
+            // ── Pass 1: image/* MIME 타입으로 직접 일치 ─────────────────
+            for (const item of Array.from(items)) {
+              if (item.type.startsWith('image/')) {
+                imageItem = item;
+                console.log('[IMG-DEBUG] paste Pass1 matched image MIME:', item.type);
+                break;
+              }
+            }
+
+            // ── Pass 2: macOS Finder Cmd+C 케이스 (kind='file' 폴백) ────
+            // Finder에서 복사한 파일은 kind='file' + type='' 또는
+            // type='public.file-url' 등 비표준 타입으로 들어옴.
+            if (!imageItem) {
+              for (const item of Array.from(items)) {
+                if (item.kind === 'file') {
+                  const f = item.getAsFile();
+                  console.log('[IMG-DEBUG] paste Pass2 file kind item:', item.type, 'file:', f?.name, f?.type);
+                  if (f && isImageFile(f)) {
+                    imageItem = item;
+                    console.log('[IMG-DEBUG] paste Pass2 matched via isImageFile:', f.name);
+                    break;
+                  }
+                }
+              }
+            }
+
+            // ── Pass 3: text/uri-list 폴백 (file:// URL → Tauri fs 직접 읽기) ─
+            // WKWebView에서 Finder 복사 시 items가 비어있고 text/uri-list만 있는 경우.
+            // e.g. "file:///Users/wyattkim/Desktop/photo.png"
+            if (!imageItem) {
+              const uriListItem = Array.from(items).find(i => i.type === 'text/uri-list');
+              if (uriListItem) {
+                console.log('[IMG-DEBUG] paste Pass3: text/uri-list found, attempting file:// extraction');
+                e.preventDefault();
+                uriListItem.getAsString(async (uriList) => {
+                  console.log('[IMG-DEBUG] paste Pass3 uriList:', uriList);
+                  const uris = uriList.split('\n').map(s => s.trim()).filter(Boolean);
+                  for (const uri of uris) {
+                    if (!uri.startsWith('file://')) continue;
+                    // file:///path/to/img.png → /path/to/img.png
+                    const absPath = decodeURIComponent(uri.replace('file://', ''));
+                    const ext = (absPath.split('.').pop() ?? '').toLowerCase();
+                    if (!IMAGE_EXTENSIONS.has(ext)) continue;
+                    console.log('[IMG-DEBUG] paste Pass3 file path:', absPath);
+                    try {
+                      const { readFile: readBinaryFile } = await import('@tauri-apps/plugin-fs');
+                      const data = await readBinaryFile(absPath);
+                      const mimeType = `image/${ext === 'jpg' ? 'jpeg' : ext}`;
+                      const { workspacePath, config } = useWorkspaceStore.getState();
+                      if (!workspacePath) return;
+                      const { getCurrentFile } = useDocumentStore.getState();
+                      const currentFilePath = getCurrentFile()?.path ?? null;
+                      const relativePath = await saveImageAssetWithPolicy(
+                        workspacePath, currentFilePath, data, mimeType, config,
+                      );
+                      console.log('[IMG-DEBUG] paste Pass3 saved:', relativePath);
+                      const md = `![이미지](${relativePath})`;
+                      const { from, to } = view.state.selection.main;
+                      view.dispatch({
+                        changes: { from, to, insert: md },
+                        selection: { anchor: from + md.length },
+                      });
+                    } catch (err) {
+                      console.error('[IMG-DEBUG] paste Pass3 failed:', err);
+                    }
+                    break;
+                  }
+                });
+                return true;
+              }
+            }
+
+            if (!imageItem) {
+              console.log('[IMG-DEBUG] paste: no image item found — passing to CodeMirror');
+              return false; // let CodeMirror handle normal text paste
+            }
 
             e.preventDefault();
             const blob = imageItem.getAsFile();
-            if (!blob) return true;
+            if (!blob) {
+              console.warn('[IMG-DEBUG] paste: imageItem.getAsFile() returned null');
+              return true;
+            }
 
-            // Async save + insert (fire-and-forget; view.dispatch triggers onUpdate)
+            console.log('[IMG-DEBUG] paste: saving blob', { name: blob.name, type: blob.type, size: blob.size });
+
             void (async () => {
               try {
                 const { workspacePath, config } = useWorkspaceStore.getState();
-                if (!workspacePath) return;
+                if (!workspacePath) {
+                  console.warn('[IMG-DEBUG] paste: workspacePath is null — aborting');
+                  return;
+                }
                 const { getCurrentFile } = useDocumentStore.getState();
                 const currentFilePath = getCurrentFile()?.path ?? null;
+                const mimeType = resolveMimeType(blob);
+                console.log('[IMG-DEBUG] paste: resolved mimeType:', mimeType);
                 const relativePath = await saveImageAssetWithPolicy(
                   workspacePath,
                   currentFilePath,
                   new Uint8Array(await blob.arrayBuffer()),
-                  blob.type,
+                  mimeType,
                   config,
                 );
+                console.log('[IMG-DEBUG] paste: saved, relativePath:', relativePath);
                 const md = `![이미지](${relativePath})`;
                 const { from, to } = view.state.selection.main;
                 view.dispatch({
@@ -234,55 +328,164 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
                   selection: { anchor: from + md.length },
                 });
               } catch (err) {
-                console.error('Image paste failed:', err);
+                console.error('[IMG-DEBUG] paste: save failed', err);
               }
             })();
             return true;
           },
 
-          // Image drag-and-drop: copy external image files into the configured
-          // assets directory and insert a markdown link at the drop position.
+          // dragenter / dragover: drop 이벤트 수신을 위한 필수 사전 조건.
+          // 이 두 핸들러에서 preventDefault()를 호출하지 않으면 브라우저/WKWebView가
+          // drop을 거부하여 drop 이벤트 자체가 발생하지 않음.
+          dragenter(event) {
+            const e = event as DragEvent;
+            const types = Array.from(e.dataTransfer?.types ?? []);
+            console.log('[IMG-DEBUG] dragenter types:', types);
+            // 파일 또는 URI 타입이 있을 때만 기본 동작 차단
+            if (types.includes('Files') || types.includes('text/uri-list') || types.some(t => t.startsWith('public.'))) {
+              e.preventDefault();
+              if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+            }
+          },
+
+          dragover(event) {
+            const e = event as DragEvent;
+            const types = Array.from(e.dataTransfer?.types ?? []);
+            // dragover마다 호출되므로 로그는 최소화
+            if (types.includes('Files') || types.includes('text/uri-list') || types.some(t => t.startsWith('public.'))) {
+              e.preventDefault();
+              if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+            }
+          },
+
+          // Image drag-and-drop:
+          // Requires `dragDropEnabled: false` in tauri.conf.json so that Tauri's
+          // OS-level handler does NOT swallow the DOM drop event before it reaches
+          // CodeMirror. Without that setting the drop handler is NEVER called.
+          //
           // macOS Fix: File.type can be "" when dragging from Finder.
           // isImageFile() falls back to extension-based detection in that case.
           drop(event, view) {
             const e = event as DragEvent;
+            // ── [DEBUG] drop 이벤트 도달 확인 ─────────────────────────────
+            const dtTypes = Array.from(e.dataTransfer?.types ?? []);
+            console.log('[IMG-DEBUG] drop event fired', {
+              fileCount: e.dataTransfer?.files?.length,
+              types: dtTypes,
+              files: e.dataTransfer?.files
+                ? Array.from(e.dataTransfer.files).map(f => ({ name: f.name, type: f.type, size: f.size }))
+                : 'none',
+            });
+
+            e.preventDefault(); // 반드시 먼저 차단 (기본 브라우저 파일 열기 방지)
+
+            // ── Path A: dataTransfer.files 에서 이미지 추출 (표준 케이스) ──
             const files = e.dataTransfer?.files;
-            if (!files || files.length === 0) return false;
             let imageFile: File | null = null;
-            for (const file of Array.from(files)) {
-              if (isImageFile(file)) { imageFile = file; break; }
-            }
-            if (!imageFile) return false;
-
-            e.preventDefault();
-            const dropPos = view.posAtCoords({ x: e.clientX, y: e.clientY }) ?? view.state.doc.length;
-            const captured = imageFile; // capture before async closure
-
-            void (async () => {
-              try {
-                const { workspacePath, config } = useWorkspaceStore.getState();
-                if (!workspacePath) return;
-                const { getCurrentFile } = useDocumentStore.getState();
-                const currentFilePath = getCurrentFile()?.path ?? null;
-                // macOS Fix: file.type이 "" 이면 확장자로 MIME 타입 추론
-                const mimeType = resolveMimeType(captured);
-                const relativePath = await saveImageAssetWithPolicy(
-                  workspacePath,
-                  currentFilePath,
-                  new Uint8Array(await captured.arrayBuffer()),
-                  mimeType,
-                  config,
-                );
-                const md = `![이미지](${relativePath})`;
-                view.dispatch({
-                  changes: { from: dropPos, to: dropPos, insert: md },
-                  selection: { anchor: dropPos + md.length },
-                });
-              } catch (err) {
-                console.error('Image drop failed:', err);
+            if (files && files.length > 0) {
+              for (const file of Array.from(files)) {
+                console.log('[IMG-DEBUG] drop PathA: checking file', { name: file.name, type: file.type });
+                if (isImageFile(file)) { imageFile = file; break; }
               }
-            })();
-            return true;
+            }
+
+            // ── Path B: dataTransfer.items 에서 kind='file' 항목 추출 ─────
+            // WKWebView에서 files가 비어있고 items에만 데이터가 있는 경우
+            if (!imageFile && e.dataTransfer?.items) {
+              for (const item of Array.from(e.dataTransfer.items)) {
+                if (item.kind === 'file') {
+                  const f = item.getAsFile();
+                  console.log('[IMG-DEBUG] drop PathB item:', item.type, 'file:', f?.name, f?.type);
+                  if (f && isImageFile(f)) { imageFile = f; break; }
+                }
+              }
+            }
+
+            if (imageFile) {
+              // ── Path A/B: File 객체 있음 → arrayBuffer로 직접 읽기 ──────
+              const dropPos = view.posAtCoords({ x: e.clientX, y: e.clientY }) ?? view.state.doc.length;
+              const captured = imageFile;
+              console.log('[IMG-DEBUG] drop PathA/B: processing image', { name: captured.name, type: captured.type, dropPos });
+
+              void (async () => {
+                try {
+                  const { workspacePath, config } = useWorkspaceStore.getState();
+                  if (!workspacePath) {
+                    console.warn('[IMG-DEBUG] drop: workspacePath is null — aborting');
+                    return;
+                  }
+                  const { getCurrentFile } = useDocumentStore.getState();
+                  const currentFilePath = getCurrentFile()?.path ?? null;
+                  const mimeType = resolveMimeType(captured);
+                  console.log('[IMG-DEBUG] drop: resolved mimeType:', mimeType);
+                  const relativePath = await saveImageAssetWithPolicy(
+                    workspacePath,
+                    currentFilePath,
+                    new Uint8Array(await captured.arrayBuffer()),
+                    mimeType,
+                    config,
+                  );
+                  console.log('[IMG-DEBUG] drop: saved, relativePath:', relativePath);
+                  const md = `![이미지](${relativePath})`;
+                  view.dispatch({
+                    changes: { from: dropPos, to: dropPos, insert: md },
+                    selection: { anchor: dropPos + md.length },
+                  });
+                } catch (err) {
+                  console.error('[IMG-DEBUG] drop PathA/B: save failed', err);
+                }
+              })();
+              return true;
+            }
+
+            // ── Path C: text/uri-list (file:// URL) → Tauri fs 직접 읽기 ─
+            // WKWebView에서 files와 items 모두 비어있고 URI만 넘어오는 경우
+            if (dtTypes.includes('text/uri-list') || dtTypes.some(t => t.startsWith('public.'))) {
+              const dropPos = view.posAtCoords({ x: e.clientX, y: e.clientY }) ?? view.state.doc.length;
+              // getText는 비동기 불가 — items에서 text/uri-list 추출
+              const uriItem = e.dataTransfer?.items
+                ? Array.from(e.dataTransfer.items).find(i => i.type === 'text/uri-list' || i.type === 'public.file-url')
+                : null;
+              if (uriItem) {
+                console.log('[IMG-DEBUG] drop PathC: extracting URI list');
+                uriItem.getAsString(async (uriList) => {
+                  console.log('[IMG-DEBUG] drop PathC uriList:', uriList);
+                  const uris = uriList.split('\n').map(s => s.trim()).filter(Boolean);
+                  for (const uri of uris) {
+                    if (!uri.startsWith('file://')) continue;
+                    const absPath = decodeURIComponent(uri.replace('file://', ''));
+                    const ext = (absPath.split('.').pop() ?? '').toLowerCase();
+                    if (!IMAGE_EXTENSIONS.has(ext)) continue;
+                    console.log('[IMG-DEBUG] drop PathC absPath:', absPath);
+                    try {
+                      const { readFile } = await import('@tauri-apps/plugin-fs');
+                      const data = await readFile(absPath);
+                      const mimeType = `image/${ext === 'jpg' ? 'jpeg' : ext}`;
+                      const { workspacePath, config } = useWorkspaceStore.getState();
+                      if (!workspacePath) return;
+                      const { getCurrentFile } = useDocumentStore.getState();
+                      const currentFilePath = getCurrentFile()?.path ?? null;
+                      const relativePath = await saveImageAssetWithPolicy(
+                        workspacePath, currentFilePath, data, mimeType, config,
+                      );
+                      console.log('[IMG-DEBUG] drop PathC saved:', relativePath);
+                      const md = `![이미지](${relativePath})`;
+                      view.dispatch({
+                        changes: { from: dropPos, to: dropPos, insert: md },
+                        selection: { anchor: dropPos + md.length },
+                      });
+                    } catch (err) {
+                      console.error('[IMG-DEBUG] drop PathC failed:', err);
+                    }
+                    break;
+                  }
+                });
+                return true;
+              }
+            }
+
+            console.log('[IMG-DEBUG] drop: no usable image data found in any path');
+            return false;
           },
 
           // ── IME-safe store sync via InputEvent.isComposing ────────────────
