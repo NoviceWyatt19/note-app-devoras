@@ -152,3 +152,43 @@
   padding: 0.05em 0.3em;
   border-radius: 3px;
 }
+
+/* Custom CodeMirror WYSIWYG Decorators */
+.cm-heading { font-weight: bold; color: #f1f5f9; }
+.cm-h1 { font-size: 1.5em; }
+.cm-h2 { font-size: 1.25em; }
+.cm-h3 { font-size: 1.1em; color: #e2e8f0; }
+.cm-h4, .cm-h5, .cm-h6 { font-size: 1em; color: #cbd5e1; }
+
+.cm-blockquote {
+  border-left: 3px solid #6366f1;
+  padding-left: 0.75rem;
+  color: #94a3b8;
+  background: rgba(99, 102, 241, 0.05);
+  border-radius: 0 4px 4px 0;
+  box-shadow: inset 2px 0 10px rgba(99, 102, 241, 0.1);
+}
+
+.cm-list-bullet {
+  color: #6366f1;
+  font-weight: bold;
+  display: inline-block;
+  width: 1.2em;
+  text-align: right;
+  margin-right: 0.25em;
+  text-shadow: 0 0 5px rgba(99, 102, 241, 0.5);
+}
+
+.cm-list-item {
+  color: #e2e8f0;
+}
+
+.cm-hr-widget {
+  display: block;
+  padding: 0.5rem 0;
+}
+.cm-hr-line {
+  height: 1px;
+  background: #334155;
+  width: 100%;
+}

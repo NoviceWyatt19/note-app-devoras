@@ -25,6 +25,10 @@ import { CodeBlockDecorator } from '@/shared/lib/editor/decorators/impl/CodeBloc
 import { LatexDecorator } from '@/shared/lib/editor/decorators/impl/LatexDecorator';
 import { HyperlinkDecorator } from '@/shared/lib/editor/decorators/impl/HyperlinkDecorator';
 import { ImageDecorator } from '@/shared/lib/editor/decorators/impl/ImageDecorator';
+import { HeadingDecorator } from '@/shared/lib/editor/decorators/impl/HeadingDecorator';
+import { ListDecorator } from '@/shared/lib/editor/decorators/impl/ListDecorator';
+import { BlockquoteDecorator } from '@/shared/lib/editor/decorators/impl/BlockquoteDecorator';
+import { HorizontalRuleDecorator } from '@/shared/lib/editor/decorators/impl/HorizontalRuleDecorator';
 
 // ---------------------------------------------------------------------------
 // Module-level decoration plugin
@@ -39,6 +43,10 @@ const markdownDecorationPlugin = createDecorationPlugin([
   new LatexDecorator(),
   new HyperlinkDecorator(),
   new ImageDecorator(),
+  new HeadingDecorator(),
+  new ListDecorator(),
+  new BlockquoteDecorator(),
+  new HorizontalRuleDecorator(),
 ]);
 
 // [REMOVED] IMAGE_EXTENSIONS, isImageFile, resolveMimeType
