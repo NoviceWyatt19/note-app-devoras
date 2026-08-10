@@ -38,7 +38,9 @@ export class StrikethroughDecorator implements SyntaxDecorator {
         const s = lineFrom + m.index;
         const e = s + m[0].length;
 
-        // Cursor inside span → reveal raw markdown
+        // BUG-20260810-05: same-line guard — Decoration.replace must not span newlines.
+        if (e > doc.lineAt(s).to) continue;
+        // BUG-20260810-04: cursor inside span → reveal raw markdown
         if (cursorHead >= s && cursorHead <= e) continue;
 
         ranges.push({ from: s,     to: s + 2, deco: HIDE_DECO   }); // hide ~~

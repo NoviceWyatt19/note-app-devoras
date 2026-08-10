@@ -67,7 +67,9 @@ export class BoldItalicDecorator implements SyntaxDecorator {
       while ((m = BOLD_RE.exec(text)) !== null) {
         const s = lineFrom + m.index;
         const e = s + m[0].length;
-        // If the cursor is anywhere inside the span, reveal raw markers
+        // BUG-20260810-05: same-line guard — Decoration.replace must not span newlines.
+        if (e > line.to) continue;
+        // BUG-20260810-04: cursor inside span → reveal raw markers
         if (cursorHead >= s && cursorHead <= e) continue;
 
         ranges.push({ from: s,     to: s + 2, deco: HIDE_DECO });   // hide **
@@ -80,6 +82,8 @@ export class BoldItalicDecorator implements SyntaxDecorator {
       while ((m = ITALIC_RE.exec(text)) !== null) {
         const s = lineFrom + m.index;
         const e = s + m[0].length;
+        // BUG-20260810-05: same-line guard
+        if (e > line.to) continue;
         if (cursorHead >= s && cursorHead <= e) continue;
 
         ranges.push({ from: s,     to: s + 1, deco: HIDE_DECO });   // hide *

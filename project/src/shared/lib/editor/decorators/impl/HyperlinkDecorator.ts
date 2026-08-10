@@ -42,16 +42,18 @@ export class HyperlinkDecorator implements SyntaxDecorator {
       let m: RegExpExecArray | null;
       while ((m = LINK_RE.exec(text)) !== null) {
         // Absolute positions in the document
-        const matchStart = lineFrom + m.index;           // '['
-        const textEnd = matchStart + 1 + m[1].length;   // position just after link text
-        const matchEnd = matchStart + m[0].length;       // ')' end
+        const matchStart = lineFrom + m.index;
+        const textEnd    = matchStart + 1 + m[1].length;
+        const matchEnd   = matchStart + m[0].length;
 
-        // Reveal raw markdown when cursor is anywhere inside the link span
+        // BUG-20260810-05: same-line guard — Decoration.replace must not span newlines.
+        if (matchEnd > doc.lineAt(matchStart).to) continue;
+        // BUG-20260810-04: reveal raw markdown when cursor is anywhere inside the link span
         if (cursorHead >= matchStart && cursorHead <= matchEnd) continue;
 
-        ranges.push({ from: matchStart, to: matchStart + 1, deco: HIDE_DECO }); // hide '['
-        ranges.push({ from: matchStart + 1, to: textEnd,    deco: LINK_MARK }); // style text
-        ranges.push({ from: textEnd,        to: matchEnd,   deco: HIDE_DECO }); // hide '](url)'
+        ranges.push({ from: matchStart,    to: matchStart + 1, deco: HIDE_DECO }); // hide '['
+        ranges.push({ from: matchStart + 1, to: textEnd,       deco: LINK_MARK }); // style text
+        ranges.push({ from: textEnd,        to: matchEnd,      deco: HIDE_DECO }); // hide '](url)'
       }
 
       pos = line.to + 1;

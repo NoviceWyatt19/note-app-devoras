@@ -87,9 +87,14 @@ export class CheckboxDecorator implements SyntaxDecorator {
         }
 
         const checked = match[2] === 'x';
-        // "- [" → '[' is at index 2 relative to line start
         const bracketFrom = line.from + 2;
         const matchEnd = line.from + match[1].length;
+
+        // BUG-20260810-05: same-line guard — Decoration.replace must not span newlines.
+        if (matchEnd > line.to) {
+          pos = line.to + 1;
+          continue;
+        }
 
         builder.add(
           line.from,
