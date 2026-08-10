@@ -51,6 +51,14 @@ class DecorationOrchestrator implements PluginValue {
     // `view.composing` pulses; `view.composing` covers platforms that do not
     // deliver DOM composition events in the expected order.
     if (this.domComposing || upd.view.composing) {
+      // BUG-20260810-06: Even while composing, if the document changed we MUST
+      // map existing decorations to the new coordinates via upd.changes.
+      // Without this, stale offsets from the previous doc layout remain and
+      // cause "Decorations that replace line breaks" RangeErrors when CodeMirror
+      // tries to apply them against the updated document.
+      if (upd.docChanged) {
+        this.decorations = this.decorations.map(upd.changes);
+      }
       this.rebuildPending = true;
       return;
     }
