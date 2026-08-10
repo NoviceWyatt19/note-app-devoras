@@ -8,6 +8,10 @@ ticket_board.md# Ticket Board (티켓 보드)
 - [ ] `FEATURE-CONFIG-UI`: WorkspaceConfig(이미지 저장 정책 등) 설정 UI 노출 및 영속성 연동
 
 ## ✅ Completed (최근 완료 항목)
+- [x] `BUG-20260810-04`: Cursor-aware Decorators 전면 적용 — 인라인코드/볼드/이탤릭/취소선/체크박스/하이퍼링크 커서 트래핑 및 오프셋 어긋남 수정 (v0.5.2)
+- [x] `BUG-20260810-03`: 초기 로딩 윈도우 무한 숨김 버그 수정 — startWindowDrag 제거 (v0.5.1)
+- [x] `FEAT-20260810-03`: White Flash 제거 — Start Hidden & Reveal 패턴 (v0.5.1)
+- [x] `BUG-20260810-02`: IME 텍스트 증식 버그 수정 — True Pass-through, dispatchImeCommit 완전 제거 (v0.5.0)
 - [x] `BUG-20260803-01`: tauri build 네이티브 환경 한글 IME 합성 딜레이 해결을 위한 텍스트 입력 스레드/Raw Input 격리 (BlockEditor / Thread)
 - [x] `RFC-20260810-01`: IME 스레드 분리 및 Raw Input 격리 파이프라인 3계층 구현 (useImeInputManager + ImeIsolationExtension + BlockEditor 연동, v0.5.0)
 - [x] `BUG-20260803-01`: 한글 IME 합성 딥레이 해결 → RFC-20260810-01로 통합 완료
