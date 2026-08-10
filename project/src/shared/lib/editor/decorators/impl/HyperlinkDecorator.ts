@@ -6,7 +6,9 @@ import { SyntaxDecorator } from '../types';
 const LINK_RE = /\[([^\]\n]+)\]\(([^)\n]+)\)/g;
 
 const HIDE_DECO = Decoration.replace({});
-const LINK_MARK = Decoration.mark({ class: 'cm-md-link-text' });
+// inclusive: false prevents edge-typing from expanding the link text mark.
+// BUG-20260810-04: Added to fix cursor-trapping at span boundaries.
+const LINK_MARK = Decoration.mark({ class: 'cm-md-link-text', inclusive: false });
 
 interface DR {
   from: number;

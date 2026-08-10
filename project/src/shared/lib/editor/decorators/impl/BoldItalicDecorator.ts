@@ -17,9 +17,11 @@ const ITALIC_RE = /(?<!\*)\*([^*\n]+?)\*(?!\*)/g;
 // Reusable decoration instances (immutable — safe to reuse across ranges)
 // ---------------------------------------------------------------------------
 
-const HIDE_DECO = Decoration.replace({});
-const BOLD_MARK = Decoration.mark({ class: 'cm-strong' });
-const ITALIC_MARK = Decoration.mark({ class: 'cm-em' });
+// inclusive: false prevents typing at span edges from being absorbed into the mark.
+// BUG-20260810-04: Added to fix edge-typing cursor trap.
+const HIDE_DECO  = Decoration.replace({});
+const BOLD_MARK  = Decoration.mark({ class: 'cm-strong',  inclusive: false });
+const ITALIC_MARK = Decoration.mark({ class: 'cm-em',     inclusive: false });
 
 // ---------------------------------------------------------------------------
 // Internal range accumulator

@@ -58,12 +58,19 @@ class CheckboxWidget extends WidgetType {
 /**
  * Replaces `- [ ]` / `- [x]` list items with an interactive HTML checkbox.
  * Clicking the checkbox in the editor toggles the `[x]` / `[ ]` in-place.
+ *
+ * BUG-20260810-04: Cursor-aware — when the cursor is on the checkbox line,
+ * the replace decoration is skipped so the user can edit raw markdown.
  */
 export class CheckboxDecorator implements SyntaxDecorator {
   readonly name = 'checkbox';
 
   createDecorations(view: EditorView, from: number, to: number): DecorationSet {
     const { doc } = view.state;
+    // Active line: the line that contains the cursor head.
+    const cursorHead = view.state.selection.main.head;
+    const activeLine = doc.lineAt(cursorHead).number;
+
     const builder = new RangeSetBuilder<Decoration>();
 
     let pos = from;
@@ -73,6 +80,12 @@ export class CheckboxDecorator implements SyntaxDecorator {
       const match = CHECKBOX_RE.exec(lineText);
 
       if (match) {
+        // BUG-20260810-04: Cursor on this line → reveal raw markdown for editing.
+        if (line.number === activeLine) {
+          pos = line.to + 1;
+          continue;
+        }
+
         const checked = match[2] === 'x';
         // "- [" → '[' is at index 2 relative to line start
         const bracketFrom = line.from + 2;
