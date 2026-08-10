@@ -1,9 +1,18 @@
-import { Decoration, DecorationSet, EditorView } from '@codemirror/view';
+import { Decoration, DecorationSet, EditorView, WidgetType } from '@codemirror/view';
 import { RangeSetBuilder } from '@codemirror/state';
 import { SyntaxDecorator } from '../types';
 
 const HEADING_RE = /^(#{1,6})\s+(.*)$/;
-const HIDE_DECO = Decoration.replace({});
+
+class HeadingBadgeWidget extends WidgetType {
+  constructor(public level: number) { super(); }
+  toDOM() {
+    const badge = document.createElement('span');
+    badge.className = `cm-heading-badge cm-heading-badge-${this.level}`;
+    badge.textContent = `H${this.level}`;
+    return badge;
+  }
+}
 
 export class HeadingDecorator implements SyntaxDecorator {
   readonly name = 'heading';
@@ -31,7 +40,8 @@ export class HeadingDecorator implements SyntaxDecorator {
         } else {
             // BUG-20260810-05: same-line guard
             if (markerEnd <= line.to) {
-                builder.add(line.from, markerEnd, HIDE_DECO);
+                const badgeDeco = Decoration.replace({ widget: new HeadingBadgeWidget(level) });
+                builder.add(line.from, markerEnd, badgeDeco);
                 builder.add(markerEnd, line.to, mark);
             } else {
                 builder.add(line.from, line.to, mark);

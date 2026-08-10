@@ -1,5 +1,4 @@
 import { Decoration, DecorationSet, EditorView } from '@codemirror/view';
-import { RangeSetBuilder } from '@codemirror/state';
 import { SyntaxDecorator } from '../types';
 
 const BLOCKQUOTE_RE = /^>\s+(.*)$/;
@@ -45,15 +44,7 @@ export class BlockquoteDecorator implements SyntaxDecorator {
       pos = line.to + 1;
     }
 
-    ranges.sort((a, b) => {
-      if (a.from !== b.from) return a.from - b.from;
-      return b.to - a.to; // decreasing 'to'
-    });
-
-    const builder = new RangeSetBuilder<Decoration>();
-    for (const r of ranges) {
-      builder.add(r.from, r.to, r.deco);
-    }
-    return builder.finish();
+    // Let CodeMirror handle the complex sorting (from, to, startSide) automatically
+    return Decoration.set(ranges.map(r => r.deco.range(r.from, r.to)), true);
   }
 }
