@@ -174,14 +174,42 @@
 
 .cm-blockquote-line {
   border-left: 3px solid #6366f1;
-  padding-left: 0.75rem;
+  padding-left: 1rem;
   background: rgba(99, 102, 241, 0.05);
-  border-radius: 0 4px 4px 0;
   box-shadow: inset 2px 0 10px rgba(99, 102, 241, 0.1);
+}
+
+.cm-blockquote-single {
+  padding-top: 0.6rem;
+  padding-bottom: 0.6rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+  border-top-right-radius: 6px;
+  border-bottom-right-radius: 6px;
+}
+
+.cm-blockquote-top {
+  padding-top: 0.6rem;
+  padding-bottom: 0.1rem;
+  margin-top: 0.5rem;
+  border-top-right-radius: 6px;
+}
+
+.cm-blockquote-middle {
+  padding-top: 0.1rem;
+  padding-bottom: 0.1rem;
+}
+
+.cm-blockquote-bottom {
+  padding-top: 0.1rem;
+  padding-bottom: 0.6rem;
+  margin-bottom: 0.5rem;
+  border-bottom-right-radius: 6px;
 }
 
 .cm-blockquote-text {
   color: #94a3b8;
+  line-height: 1.6;
 }
 
 .cm-list-bullet {

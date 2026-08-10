@@ -21,13 +21,28 @@ export class BlockquoteDecorator implements SyntaxDecorator {
       const match = BLOCKQUOTE_RE.exec(lineText);
 
       if (match) {
+        let isPrevBq = false;
+        if (line.number > 1) {
+            isPrevBq = BLOCKQUOTE_RE.test(doc.line(line.number - 1).text);
+        }
+
+        let isNextBq = false;
+        if (line.number < doc.lines) {
+            isNextBq = BLOCKQUOTE_RE.test(doc.line(line.number + 1).text);
+        }
+
+        let blockClass = 'cm-blockquote-single';
+        if (isPrevBq && isNextBq) blockClass = 'cm-blockquote-middle';
+        else if (isPrevBq) blockClass = 'cm-blockquote-bottom';
+        else if (isNextBq) blockClass = 'cm-blockquote-top';
+
         const markerEnd = line.from + 2; // "> "
 
         // Add line decoration to style the entire block
         ranges.push({ 
           from: line.from, 
           to: line.from, 
-          deco: Decoration.line({ class: 'cm-blockquote-line' }) 
+          deco: Decoration.line({ class: `cm-blockquote-line ${blockClass}` }) 
         });
 
         // Cursor-aware: if cursor is on this line, don't hide marker
