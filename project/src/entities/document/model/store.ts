@@ -43,6 +43,7 @@ interface DocumentState {
   loadFile: (file: FileEntry) => Promise<void>;
   openTab: (file: FileEntry | { type: 'mindmap-global' }) => Promise<void>;
   closeTab: (paneId: string, tabId: string) => void;
+  closePane: (paneId: string) => void;
   setActiveTab: (paneId: string, tabId: string) => void;
   setActivePane: (paneId: string) => void;
   splitPane: (sourcePaneId: string, direction: 'horizontal' | 'vertical') => void;
@@ -228,7 +229,8 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   },
 
   closeTab: (paneId, tabId) => {
-    const { panes } = get();
+    const { panes, activePaneId } = get();
+
     const updatedPanes = panes.map((p) => {
       if (p.id !== paneId) return p;
 
@@ -241,14 +243,51 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
         newActiveTabId = nextTab ? nextTab.id : '';
       }
 
-      return {
-        ...p,
-        tabs: filteredTabs,
-        activeTabId: newActiveTabId,
-      };
+      return { ...p, tabs: filteredTabs, activeTabId: newActiveTabId };
     });
 
-    set({ panes: updatedPanes });
+    // REF-20260810-01: 빈 패널 자동 GC — 최소 1개 패널은 상시 유지.
+    const cleaned = updatedPanes.filter((p) => p.tabs.length > 0);
+    const finalPanes = cleaned.length > 0 ? cleaned : updatedPanes.slice(0, 1);
+
+    // 활성 패널이 GC되었다면 남은 첫 패널로 포커스 이동
+    const activeStillExists = finalPanes.some((p) => p.id === activePaneId);
+    const newActivePaneId = activeStillExists ? activePaneId : (finalPanes[0]?.id ?? activePaneId);
+
+    set({ panes: finalPanes, activePaneId: newActivePaneId });
+  },
+
+  // REF-20260810-01: 특정 패널 닫기 — 탭은 인접 패널로 병합
+  closePane: (paneId) => {
+    const { panes, activePaneId } = get();
+    if (panes.length <= 1) return; // 최소 1개 패널 보장
+
+    const targetIndex = panes.findIndex((p) => p.id === paneId);
+    if (targetIndex === -1) return;
+
+    const targetPane = panes[targetIndex];
+
+    // 병합 대상: 왼쪽 패널 우선, 없으면 오른쪽 패널
+    const mergeTarget = panes[targetIndex - 1] ?? panes[targetIndex + 1];
+
+    // 닫히는 패널의 탭을 병합 대상으로 이동 (중복 탭 제거)
+    const existingIds = new Set(mergeTarget.tabs.map((t) => t.id));
+    const tabsToMerge = targetPane.tabs.filter((t) => !existingIds.has(t.id));
+    const mergedTabs = [...mergeTarget.tabs, ...tabsToMerge];
+    const mergedActiveTabId = mergeTarget.activeTabId || (mergedTabs[0]?.id ?? '');
+
+    const remaining = panes
+      .filter((p) => p.id !== paneId)
+      .map((p) =>
+        p.id === mergeTarget.id
+          ? { ...p, tabs: mergedTabs, activeTabId: mergedActiveTabId }
+          : p
+      );
+
+    const newActivePaneId =
+      activePaneId === paneId ? mergeTarget.id : activePaneId;
+
+    set({ panes: remaining, activePaneId: newActivePaneId });
   },
 
   setActivePane: (paneId) => set({ activePaneId: paneId }),

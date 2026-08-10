@@ -25,6 +25,7 @@ export const WorkspacePage: React.FC = () => {
     panes,
     openTab,
     saveFile,
+    closePane,
     isDirty,
     getCurrentFile,
   } = useDocumentStore();
@@ -156,7 +157,12 @@ export const WorkspacePage: React.FC = () => {
         {/* Panes Area */}
         <div className="flex-1 min-h-0 flex overflow-hidden">
           {panes.map((pane) => (
-            <PaneContainer key={pane.id} pane={pane} />
+            <PaneContainer
+              key={pane.id}
+              pane={pane}
+              canClose={panes.length >= 2}
+              onClose={() => closePane(pane.id)}
+            />
           ))}
         </div>
       </div>
@@ -183,7 +189,11 @@ export const WorkspacePage: React.FC = () => {
 };
 
 // ── 패널 전용 렌더러 컴포넌트 ──────────────────────────────────────────
-const PaneContainer: React.FC<{ pane: SplitPane;}> = ({ pane }) => {
+const PaneContainer: React.FC<{
+  pane: SplitPane;
+  canClose: boolean;
+  onClose: () => void;
+}> = ({ pane, canClose, onClose }) => {
   const { activePaneId, setActivePane, setActiveTab, closeTab, splitPane } = useDocumentStore();
   const isActivePane = pane.id === activePaneId;
   const activeTab = pane.tabs.find((t) => t.id === pane.activeTabId);
@@ -236,17 +246,33 @@ const PaneContainer: React.FC<{ pane: SplitPane;}> = ({ pane }) => {
           })}
         </div>
 
-        {/* Split Action */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            splitPane(pane.id, 'horizontal');
-          }}
-          title="화면 좌우 분할"
-          className="p-1.5 rounded text-mutedText hover:text-slate-200 hover:bg-white/10 transition-colors ml-2 flex-shrink-0"
-        >
-          <Columns size={13} />
-        </button>
+        {/* Tab Bar actions: Split + Close Pane */}
+        <div className="flex items-center gap-1 flex-shrink-0 ml-1">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              splitPane(pane.id, 'horizontal');
+            }}
+            title="화면 좌우 분할"
+            className="p-1.5 rounded text-mutedText hover:text-slate-200 hover:bg-white/10 transition-colors flex-shrink-0"
+          >
+            <Columns size={13} />
+          </button>
+
+          {/* REF-20260810-01: 패널 닫기 버튼 — 패널이 2개 이상일 때만 노출 */}
+          {canClose && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onClose();
+              }}
+              title="이 패널 닫기 (탭은 옆 패널로 병합)"
+              className="p-1.5 rounded text-mutedText hover:text-red-400 hover:bg-red-500/10 transition-colors flex-shrink-0"
+            >
+              <X size={13} />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Pane Content Viewer */}
