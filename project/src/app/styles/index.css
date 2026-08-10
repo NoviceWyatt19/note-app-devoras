@@ -176,7 +176,6 @@
   border-left: 3px solid #6366f1;
   padding-left: 1rem;
   background: rgba(99, 102, 241, 0.05);
-  box-shadow: inset 2px 0 10px rgba(99, 102, 241, 0.1);
 }
 
 .cm-blockquote-single {
