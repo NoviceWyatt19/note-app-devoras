@@ -14,11 +14,7 @@ import { ReadView } from './ReadView';
 import { setActiveEditorView, getActiveEditorView } from '@/shared/lib/activeEditorView';
 import { useTauriInputManager } from '@/shared/lib/editor/useTauriInputManager';
 import { useImeInputManager } from '@/shared/lib/editor/useImeInputManager';
-import {
-  createImeIsolationExtension,
-  imeAnnotation,
-  dispatchImeCommit,
-} from '@/shared/lib/editor/extensions/ImeIsolation';
+import { createImeIsolationExtension } from '@/shared/lib/editor/extensions/ImeIsolation';
 
 import { saveImageAssetWithPolicy } from '@/shared/lib/fs/imageAsset';
 import { createDecorationPlugin } from '@/shared/lib/editor/decorators/orchestrator';
@@ -88,6 +84,12 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
   useEffect(() => {
     callbacksRef.current = { onFocusPrev, onFocusNext, onMerge, onUpdate };
   });
+
+  // ── IME Latch: capture phase에서 compositionstart/end를 감지하여 ref 관리 ────────
+  // True Pass-through 원칙: DOM에 절대 개입하지 않음.
+  // updateListener에서 isImeComposingRef.current || update.view.composing으로
+  // WKWebView의 간헐적 view.composing === false 버그를 이중으로 차단한다.
+  const isImeComposingRef = useImeInputManager();
 
   // Initialize CodeMirror instance
   useEffect(() => {
@@ -204,22 +206,18 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
 
           if (!update.docChanged) return;
 
-          // ── IME 출처 트랜잭션 무시 가드 ──────────────────────────────────
-          // imeAnnotation으로 마킹된 트랜잭션은 Layer 2(ImeIsolationExtension)가
-          // 이미 처리했거나 preedit 중간값이므로 스토어에 반영하지 않는다.
-          // 이로써 WKWebView의 view.composing 간헐적 false 보고에 의한
-          // preedit 이중 커밋을 방지한다.
-          const isIme = update.transactions.some(
-            tr => tr.annotation(imeAnnotation) === 'ime'
-          );
-          if (isIme) return;
+          // ── IME Latch + WKWebView composing 이중 가드 ────────────────────
+          // isImeComposingRef: capture phase DOM 이벤트 기반 래치
+          //   WKWebView가 compositionupdate 사이에 view.composing을 간헐적으로
+          //   false로 보고하는 버그를 DOM 이벤트로 직접 보완한다.
+          // update.view.composing: CodeMirror 내부 IME 상태 (추가 안전망)
+          // 두 조건 중 하나라도 true면 preedit 중간값 → 스토어 반영 차단.
+          if (isImeComposingRef.current || update.view.composing) return;
 
           const isExternal = update.transactions.some(
             tr => tr.annotation(Transaction.userEvent) === 'external'
           );
           if (isExternal) return;
-
-          if (update.view.composing) return;
 
           // 모든 텍스트 변경(삭제 포함)이 즉각적으로 스토어에 전달됨
           callbacksRef.current.onUpdate(
@@ -380,28 +378,6 @@ export const BlockEditor: React.FC = () => {
       } catch (err) {
         console.error('[BlockEditor] INSERT_IMAGE: saveImageAssetWithPolicy failed', err);
       }
-    },
-  });
-
-  // ── Layer 1 연결: IME 입력 이벤트 수신 계층 ──────────────────────────────
-  // useImeInputManager가 document capture phase에서 compositionstart/update/end를
-  // 수신하고 정규화된 ImeCommand를 onCommand 콜백으로 전달한다.
-  // COMPOSITION_COMMIT 수신 시 dispatchImeCommit()으로 StateField를 초기화하여
-  // updateListener의 이중 커밋을 방지한다.
-  useImeInputManager({
-    enabled: () => !!getActiveEditorView(),
-    onCommand: (cmd) => {
-      const view = getActiveEditorView();
-      if (!view) return;
-
-      if (cmd.type === 'COMPOSITION_COMMIT') {
-        // 조합 확정: ImeIsolationExtension StateField를 composing=false로 전환.
-        // 실제 텍스트 삽입은 WKWebView → CodeMirror contenteditable 경로가 처리.
-        dispatchImeCommit(view, cmd.data);
-        console.log('[BlockEditor] COMPOSITION_COMMIT:', cmd.data);
-      }
-      // COMPOSITION_START / COMPOSITION_UPDATE / TEXT_INSERT 는
-      // CodeMirror 자체 처리에 위임하므로 별도 dispatch 불필요.
     },
   });
 
