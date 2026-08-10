@@ -53,6 +53,19 @@ async fn read_image_base64(path: String) -> Result<String, String> {
     Ok(format!("data:{};base64,{}", mime, b64))
 }
 
+/// React 프론트엔드에서 초기 렌더링 완료 후 호출하여 숨겨진 윈도우를 표시.
+///
+/// Start Hidden & Reveal 패턴:
+///   tauri.conf.json의 visible: false 로 시작하여 White Flash를 차단하고,
+///   React DOM 렌더링 + 테마 적용이 끝난 뒤 이 커맨드를 invoke()하여
+///   완성된 상태의 윈도우를 부드럽게 노출한다.
+#[tauri::command]
+fn show_main_window(window: tauri::Window) -> Result<(), String> {
+    window
+        .show()
+        .map_err(|e| format!("윈도우 표시 실패: {}", e))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
@@ -60,7 +73,7 @@ pub fn run() {
     .plugin(tauri_plugin_dialog::init())
     .plugin(tauri_plugin_shell::init())
     // 기존 배열에 read_image_base64를 반드시 추가해야 합니다.
-    .invoke_handler(tauri::generate_handler![save_image_file, read_image_base64])
+    .invoke_handler(tauri::generate_handler![save_image_file, read_image_base64, show_main_window])
     .setup(|app| {
       if cfg!(debug_assertions) {
         app.handle().plugin(

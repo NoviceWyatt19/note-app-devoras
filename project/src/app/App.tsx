@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { WorkspacePage } from '@/pages/WorkspacePage/WorkspacePage';
 
 // Detect Tauri 2 runtime — same dual-check as fs.ts
@@ -16,7 +17,28 @@ async function startWindowDrag() {
   }
 }
 
+/// Start Hidden & Reveal: 첫 렌더링 후 Rust 커맨드로 윈도우 노출.
+async function revealWindow(): Promise<void> {
+  if (!isTauri) return;
+  try {
+    const { invoke } = await import('@tauri-apps/api/core');
+    await invoke('show_main_window');
+    console.log('[Devoras] window revealed');
+  } catch (e) {
+    console.warn('[Devoras] show_main_window failed:', e);
+  }
+}
+
 function App() {
+  // 초기 렌더링(DOM + 테마 적용)이 완전히 끝난 직후 윈도우를 노출.
+  // requestAnimationFrame으로 첫 실제 페인트(paint) 이후로 지연하여
+  // 어두운 배경이 완전히 그려진 상태의 윈도우만 사용자에게 보인다.
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      revealWindow();
+    });
+  }, []);
+
   return (
     <div className="h-screen w-screen overflow-hidden bg-darkBg text-slate-100 flex flex-col">
       {/* App Header Bar — drag-region + programmatic startDragging for Tauri 2 */}
