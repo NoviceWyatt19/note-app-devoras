@@ -1,3 +1,6 @@
+@import '@xyflow/react/dist/style.css';
+@import './erd.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -164,13 +167,12 @@
   padding: 0.15rem 0.4rem;
   border-radius: 4px;
   font-weight: 800;
-  vertical-align: middle;
   user-select: none;
 }
-.cm-h1 { font-size: 1.5em; }
-.cm-h2 { font-size: 1.25em; }
-.cm-h3 { font-size: 1.1em; color: #e2e8f0; }
-.cm-h4, .cm-h5, .cm-h6 { font-size: 1em; color: #cbd5e1; }
+.cm-h1 { font-size: 1.5em; line-height: 1.4; }
+.cm-h2 { font-size: 1.25em; line-height: 1.4; }
+.cm-h3 { font-size: 1.1em; color: #e2e8f0; line-height: 1.4; }
+.cm-h4, .cm-h5, .cm-h6 { font-size: 1em; color: #cbd5e1; line-height: 1.4; }
 
 .cm-blockquote-line {
   border-left: 3px solid #6366f1;

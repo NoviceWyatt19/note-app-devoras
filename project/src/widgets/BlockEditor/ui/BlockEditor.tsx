@@ -248,8 +248,6 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
             minWidth: '0',
           },
           '.cm-line': {
-            lineHeight: '1.6em',
-            minHeight: '1.6em',
             padding: '0 4px',
           },
           '&.cm-focused .cm-cursor': {
