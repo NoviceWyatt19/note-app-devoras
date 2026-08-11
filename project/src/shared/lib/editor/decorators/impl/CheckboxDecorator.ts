@@ -97,11 +97,13 @@ export class CheckboxDecorator implements SyntaxDecorator {
           continue;
         }
 
-        builder.add(
-          line.from + indentLength,
-          matchEnd,
-          Decoration.replace({ widget: new CheckboxWidget(checked, bracketFrom) }),
-        );
+        if (matchEnd <= line.to) {
+          builder.add(
+            line.from + indentLength,
+            matchEnd,
+            Decoration.replace({ widget: new CheckboxWidget(checked, bracketFrom), bidiIsolate: false }),
+          );
+        }
       }
 
       pos = line.to + 1;

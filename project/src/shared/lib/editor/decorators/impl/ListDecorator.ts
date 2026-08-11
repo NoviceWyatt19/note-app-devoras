@@ -9,6 +9,7 @@ class BulletWidget extends WidgetType {
   toDOM() {
     const span = document.createElement('span');
     span.className = 'cm-list-bullet';
+    span.style.display = 'inline-block';
     span.textContent = this.text;
     return span;
   }
@@ -47,7 +48,7 @@ export class ListDecorator implements SyntaxDecorator {
             
             // BUG-20260810-05: same-line guard
             if (markerEnd <= line.to) {
-                builder.add(markerStart, markerEnd, Decoration.replace({ widget: new BulletWidget(bulletText) }));
+                builder.add(markerStart, markerEnd, Decoration.replace({ widget: new BulletWidget(bulletText), bidiIsolate: false }));
                 builder.add(markerEnd, line.to, Decoration.mark({ class: 'cm-list-item' }));
             }
         }

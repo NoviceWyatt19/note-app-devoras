@@ -9,6 +9,7 @@ class HeadingBadgeWidget extends WidgetType {
   toDOM() {
     const badge = document.createElement('span');
     badge.className = `cm-heading-badge cm-heading-badge-${this.level}`;
+    badge.style.display = 'inline-block';
     badge.textContent = `H${this.level}`;
     return badge;
   }
@@ -41,7 +42,7 @@ export class HeadingDecorator implements SyntaxDecorator {
         } else {
             // BUG-20260810-05: same-line guard
             if (markerEnd <= line.to) {
-                const badgeDeco = Decoration.replace({ widget: new HeadingBadgeWidget(level) });
+                const badgeDeco = Decoration.replace({ widget: new HeadingBadgeWidget(level), bidiIsolate: false });
                 builder.add(line.from, markerEnd, badgeDeco);
                 builder.add(markerEnd, line.to, mark);
             } else {

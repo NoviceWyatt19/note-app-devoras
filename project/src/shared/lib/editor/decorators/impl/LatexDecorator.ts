@@ -72,7 +72,7 @@ class KatexDisplayWidget extends WidgetType {
   toDOM(): HTMLElement {
     const span = document.createElement('span');
     span.className = 'cm-math-widget-display';
-    span.style.display = 'block';
+    span.style.display = 'inline-block';
     span.innerHTML = renderKatex(this.formula, true);
     return span;
   }
@@ -96,7 +96,8 @@ class KatexBlockWidget extends WidgetType {
   toDOM(): HTMLElement {
     const span = document.createElement('span');
     span.className = 'cm-math-widget-block';
-    span.style.display = 'block';
+    span.style.display = 'inline-block';
+    span.style.width = '100%';
     span.innerHTML = renderKatex(this.formula, true);
     return span;
   }
@@ -161,7 +162,7 @@ export class LatexDecorator implements SyntaxDecorator {
               collected.push({
                 from: fenceFrom,
                 to: fenceTo,
-                deco: Decoration.replace({ widget: new KatexBlockWidget(formula) }),
+                deco: Decoration.replace({ widget: new KatexBlockWidget(formula), bidiIsolate: false }),
               });
             }
           }
@@ -194,7 +195,7 @@ export class LatexDecorator implements SyntaxDecorator {
         collected.push({
           from: s,
           to: e,
-          deco: Decoration.replace({ widget: new KatexDisplayWidget(m[1]) }),
+          deco: Decoration.replace({ widget: new KatexDisplayWidget(m[1]), bidiIsolate: false }),
         });
       }
 
@@ -218,7 +219,7 @@ export class LatexDecorator implements SyntaxDecorator {
         collected.push({
           from: s,
           to: e,
-          deco: Decoration.replace({ widget: new KatexInlineWidget(m[1]) }),
+          deco: Decoration.replace({ widget: new KatexInlineWidget(m[1]), bidiIsolate: false }),
         });
       }
 

@@ -40,7 +40,7 @@ export class HorizontalRuleDecorator implements SyntaxDecorator {
         } else {
             // BUG-20260810-05: same-line guard. Since we replace the whole line content,
             // we use line.from to line.to which is safe and doesn't include '\n'.
-            builder.add(line.from, line.to, Decoration.replace({ widget: new HRWidget() }));
+            builder.add(line.from, line.to, Decoration.replace({ widget: new HRWidget(), bidiIsolate: false }));
         }
       }
       pos = line.to + 1;
