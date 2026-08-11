@@ -16,6 +16,7 @@ interface WorkspaceState {
   createFile: (parentPath: string, name: string) => Promise<void>;
   createFolder: (parentPath: string, name: string) => Promise<void>;
   renameEntry: (oldPath: string, newPath: string, newName: string) => Promise<void>;
+  moveEntry: (oldPath: string, targetDirPath: string) => Promise<void>;
   deleteEntry: (path: string, isDir: boolean) => Promise<void>;
 }
 
@@ -103,6 +104,31 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     // Tell DocumentStore to update opened tabs
     useDocumentStore.getState().handleFileRenamed(oldPath, newPath, newName);
     await get().scanWorkspace();
+  },
+
+  moveEntry: async (oldPath: string, targetDirPath: string) => {
+    // Guard 1: Cannot move into itself or its own subdirectories
+    if (targetDirPath.startsWith(oldPath)) {
+      alert('자기 자신 또는 하위 디렉터리로 이동할 수 없습니다.');
+      return;
+    }
+
+    const name = oldPath.split('/').pop();
+    if (!name) return;
+
+    const newPath = `${targetDirPath}/${name}`;
+
+    // Guard 2: If the destination is exactly the same, do nothing
+    if (oldPath === newPath) return;
+
+    try {
+      await fileSystemRepository.moveEntry(oldPath, newPath);
+      useDocumentStore.getState().handleFileRenamed(oldPath, newPath, name);
+      await get().scanWorkspace();
+    } catch (e) {
+      console.error('Failed to move entry:', e);
+      alert('이동에 실패했습니다. 대상 폴더에 동일한 이름이 이미 존재할 수 있습니다.');
+    }
   },
 
   deleteEntry: async (path: string, isDir: boolean) => {

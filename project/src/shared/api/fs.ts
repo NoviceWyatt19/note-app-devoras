@@ -12,6 +12,7 @@ export interface FileSystemRepository {
   writeFile(filePath: string, content: string): Promise<void>;
   createDirectory(dirPath: string): Promise<void>;
   renameEntry(oldPath: string, newPath: string): Promise<void>;
+  moveEntry(oldPath: string, newPath: string): Promise<void>;
   deleteEntry(path: string, isDir: boolean): Promise<void>;
   readSpatialMetadata(workspacePath: string): Promise<Record<string, any>>;
   writeSpatialMetadata(workspacePath: string, metadata: Record<string, any>): Promise<void>;
@@ -142,6 +143,10 @@ export class MockFileSystem implements FileSystemRepository {
     }
   }
 
+  async moveEntry(oldPath: string, newPath: string): Promise<void> {
+    return this.renameEntry(oldPath, newPath);
+  }
+
   async deleteEntry(path: string, _isDir: boolean): Promise<void> {
     delete this.virtualFs[path];
     const parentPath = path.substring(0, path.lastIndexOf('/'));
@@ -254,6 +259,16 @@ export class TauriFileSystem implements FileSystemRepository {
       await rename(oldPath, newPath);
     } catch (e) {
       console.error('Tauri renameEntry error:', e);
+      throw e;
+    }
+  }
+
+  async moveEntry(oldPath: string, newPath: string): Promise<void> {
+    try {
+      const { rename } = await import('@tauri-apps/plugin-fs');
+      await rename(oldPath, newPath);
+    } catch (e) {
+      console.error('Tauri moveEntry error:', e);
       throw e;
     }
   }

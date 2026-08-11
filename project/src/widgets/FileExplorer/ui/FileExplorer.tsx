@@ -34,29 +34,49 @@ interface TreeNodeProps {
   setCreateValue: (val: string) => void;
   handleCreateSubmit: () => void;
   setCreatingNode: (val: CreatingNode) => void;
+
+  // Drag and Drop
+  handleDragStart: (e: React.DragEvent, entry: FileEntry) => void;
+  handleDragOver: (e: React.DragEvent, entry: FileEntry) => void;
+  handleDragLeave: (e: React.DragEvent) => void;
+  handleDrop: (e: React.DragEvent, targetEntry: FileEntry | null) => void;
+  dragOverPath: string | null;
 }
 
 const TreeNode: React.FC<TreeNodeProps> = (props) => {
-  const { entry, depth, expandedFolders, renamingPath, renameValue, setRenameValue, currentFilePath, handleFileSelect, handleContextMenu, handleRenameSubmit, setRenamingPath, creatingNode, createValue, setCreateValue, handleCreateSubmit, setCreatingNode } = props;
+  const { 
+    entry, depth, expandedFolders, renamingPath, renameValue, setRenameValue, 
+    currentFilePath, handleFileSelect, handleContextMenu, handleRenameSubmit, 
+    setRenamingPath, creatingNode, createValue, setCreateValue, handleCreateSubmit, 
+    setCreatingNode, handleDragStart, handleDragOver, handleDragLeave, handleDrop, dragOverPath 
+  } = props;
 
   const isExpanded = expandedFolders.has(entry.path);
   const isRenaming = renamingPath === entry.path;
   const isSelected = currentFilePath === entry.path;
   const isCreatingHere = creatingNode?.parentPath === entry.path;
+  const isDragOver = dragOverPath === entry.path;
 
   return (
     <div className="w-full">
       <div
+        draggable={true}
+        onDragStart={(e) => handleDragStart(e, entry)}
+        onDragOver={(e) => handleDragOver(e, entry)}
+        onDragLeave={handleDragLeave}
+        onDrop={(e) => handleDrop(e, entry)}
         onClick={() => handleFileSelect(entry)}
         onContextMenu={(e) => handleContextMenu(e, entry)}
         className={`group flex items-center space-x-1.5 px-2 py-1.5 rounded cursor-pointer text-xs transition-colors ${
-          isSelected
-            ? 'bg-primary/15 text-primary font-medium border-l-2 border-primary'
-            : 'hover:bg-darkBorder/40 text-slate-300 hover:text-slate-100 border-l-2 border-transparent'
+          isDragOver 
+            ? 'bg-primary/20 text-primary border-l-2 border-primary'
+            : isSelected
+              ? 'bg-primary/15 text-primary font-medium border-l-2 border-primary'
+              : 'hover:bg-darkBorder/40 text-slate-300 hover:text-slate-100 border-l-2 border-transparent'
         }`}
         style={{ paddingLeft: `${depth * 12 + 8}px` }}
       >
-        <div className="flex-shrink-0 flex items-center justify-center w-4 h-4">
+        <div className="flex-shrink-0 flex items-center justify-center w-4 h-4 pointer-events-none">
           {entry.isDir ? (
             isExpanded ? <ChevronDown className="w-3.5 h-3.5 text-slate-500" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
           ) : (
@@ -76,9 +96,10 @@ const TreeNode: React.FC<TreeNodeProps> = (props) => {
               if (e.key === 'Escape') setRenamingPath(null);
             }}
             onClick={(e) => e.stopPropagation()}
+            onDragStart={(e) => e.preventDefault()} // prevent dragging input
           />
         ) : (
-          <span className="truncate flex-1 select-none">{entry.name}</span>
+          <span className="truncate flex-1 select-none pointer-events-none">{entry.name}</span>
         )}
       </div>
 
@@ -114,20 +135,20 @@ const TreeNode: React.FC<TreeNodeProps> = (props) => {
 };
 
 export const FileExplorer: React.FC = () => {
-  const { workspacePath, files, isLoading, openWorkspace, scanWorkspace, createFile, createFolder, renameEntry, deleteEntry } = useWorkspaceStore();
+  const { workspacePath, files, isLoading, openWorkspace, scanWorkspace, createFile, createFolder, renameEntry, deleteEntry, moveEntry } = useWorkspaceStore();
   const { getCurrentFile, loadFile, isDirty } = useDocumentStore();
   const currentFile = getCurrentFile();
   const { setBlocksFromContent } = useBlockStore();
 
   const [contextMenu, setContextMenu] = useState<ContextMenuData | null>(null);
-  
   const [renamingPath, setRenamingPath] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
-  
   const [creatingNode, setCreatingNode] = useState<CreatingNode>(null);
   const [createValue, setCreateValue] = useState('');
-
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  
+  // Drag and Drop state
+  const [dragOverPath, setDragOverPath] = useState<string | null>(null);
 
   useEffect(() => {
     const closeMenu = () => setContextMenu(null);
@@ -224,10 +245,57 @@ export const FileExplorer: React.FC = () => {
     }
   };
 
+  // --- Drag and Drop Handlers ---
+  const handleDragStart = (e: React.DragEvent, entry: FileEntry) => {
+    e.stopPropagation();
+    e.dataTransfer.setData('text/plain', entry.path);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent, entry: FileEntry | null) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+    
+    // Only highlight if dropping on a directory or root
+    const targetPath = entry?.isDir ? entry.path : (entry ? entry.path.substring(0, entry.path.lastIndexOf('/')) : workspacePath);
+    if (targetPath && targetPath !== dragOverPath) {
+      setDragOverPath(targetPath);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverPath(null);
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetEntry: FileEntry | null) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverPath(null);
+
+    const oldPath = e.dataTransfer.getData('text/plain');
+    if (!oldPath || !workspacePath) return;
+
+    // Determine the actual destination directory
+    const targetDirPath = targetEntry?.isDir 
+      ? targetEntry.path 
+      : (targetEntry ? targetEntry.path.substring(0, targetEntry.path.lastIndexOf('/')) : workspacePath);
+    
+    await moveEntry(oldPath, targetDirPath);
+  };
+
   const isCreatingInRoot = creatingNode?.parentPath === workspacePath;
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 select-none relative" onContextMenu={(e) => handleContextMenu(e, null)}>
+    <div 
+      className="flex-1 flex flex-col min-h-0 select-none relative" 
+      onContextMenu={(e) => handleContextMenu(e, null)}
+      onDragOver={(e) => handleDragOver(e, null)}
+      onDragLeave={handleDragLeave}
+      onDrop={(e) => handleDrop(e, null)}
+    >
       <div
         data-tauri-drag-region
         className="h-10 border-b border-darkBorder flex items-center justify-between pl-20 pr-4 flex-shrink-0 bg-darkPanel"
@@ -256,7 +324,7 @@ export const FileExplorer: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-2">
+      <div className={`flex-1 overflow-y-auto p-2 transition-colors ${dragOverPath === workspacePath ? 'bg-primary/5' : ''}`}>
         {!workspacePath ? (
           <div className="h-full flex flex-col items-center justify-center text-center p-4">
             <FolderOpen className="w-8 h-8 text-indigo-500/60 mb-3" />
@@ -272,7 +340,7 @@ export const FileExplorer: React.FC = () => {
             </button>
           </div>
         ) : (
-          <div className="flex flex-col space-y-0.5">
+          <div className="flex flex-col space-y-0.5 min-h-full">
             {isCreatingInRoot && (
               <div className="flex items-center space-x-1.5 px-2 py-1.5 pl-2">
                 <div className="flex-shrink-0 flex items-center justify-center w-4 h-4">
@@ -294,7 +362,7 @@ export const FileExplorer: React.FC = () => {
               </div>
             )}
             {files.length === 0 && !isCreatingInRoot ? (
-              <div className="text-center py-6 text-xs text-mutedText/50">항목이 없습니다.</div>
+              <div className="text-center py-6 text-xs text-mutedText/50 pointer-events-none">항목이 없습니다. 파일이나 폴더를 여기에 놓으세요.</div>
             ) : (
               files.map((file) => (
                 <TreeNode 
@@ -315,6 +383,11 @@ export const FileExplorer: React.FC = () => {
                   setCreateValue={setCreateValue}
                   handleCreateSubmit={handleCreateSubmit}
                   setCreatingNode={setCreatingNode}
+                  handleDragStart={handleDragStart}
+                  handleDragOver={handleDragOver}
+                  handleDragLeave={handleDragLeave}
+                  handleDrop={handleDrop}
+                  dragOverPath={dragOverPath}
                 />
               ))
             )}
