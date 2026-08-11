@@ -14,6 +14,7 @@ class HeadingBadgeWidget extends WidgetType {
     badge.textContent = `H${this.level}`;
     return badge;
   }
+  eq(other: HeadingBadgeWidget): boolean { return this.level === other.level; }
   ignoreEvent() { return false; }
 }
 

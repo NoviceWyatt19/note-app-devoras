@@ -14,6 +14,7 @@ class BulletWidget extends WidgetType {
     span.textContent = this.text;
     return span;
   }
+  eq(other: BulletWidget): boolean { return this.text === other.text; }
   ignoreEvent() { return false; }
 }
 

@@ -17,6 +17,7 @@ class HRWidget extends WidgetType {
     span.appendChild(line);
     return span;
   }
+  eq(_other: HRWidget): boolean { return true; }
   ignoreEvent() { return false; }
 }
 
