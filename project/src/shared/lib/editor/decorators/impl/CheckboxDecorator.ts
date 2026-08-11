@@ -2,8 +2,8 @@ import { Decoration, DecorationSet, EditorView, WidgetType } from '@codemirror/v
 import { RangeSetBuilder } from '@codemirror/state';
 import { SyntaxDecorator } from '../types';
 
-// Matches "- [ ] " or "- [x] " at the very start of a line
-const CHECKBOX_RE = /^(- \[([ x])\] ?)/;
+// Matches "- [ ] " or "- [x] " with optional leading spaces/tabs
+const CHECKBOX_RE = /^([ \t]*)(- \[([ x])\] ?)/;
 
 // ---------------------------------------------------------------------------
 // Widget
@@ -86,9 +86,10 @@ export class CheckboxDecorator implements SyntaxDecorator {
           continue;
         }
 
-        const checked = match[2] === 'x';
-        const bracketFrom = line.from + 2;
-        const matchEnd = line.from + match[1].length;
+        const indentLength = match[1].length;
+        const checked = match[3] === 'x';
+        const bracketFrom = line.from + indentLength + 2;
+        const matchEnd = line.from + indentLength + match[2].length;
 
         // BUG-20260810-05: same-line guard — Decoration.replace must not span newlines.
         if (matchEnd > line.to) {
@@ -97,7 +98,7 @@ export class CheckboxDecorator implements SyntaxDecorator {
         }
 
         builder.add(
-          line.from,
+          line.from + indentLength,
           matchEnd,
           Decoration.replace({ widget: new CheckboxWidget(checked, bracketFrom) }),
         );
