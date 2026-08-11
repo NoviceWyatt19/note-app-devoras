@@ -7,15 +7,7 @@ const isTauri =
   ((window as any).__TAURI__ !== undefined ||
     (window as any).__TAURI_INTERNALS__ !== undefined);
 
-async function startWindowDrag() {
-  if (!isTauri) return;
-  try {
-    const { getCurrentWindow } = await import('@tauri-apps/api/window');
-    await getCurrentWindow().startDragging();
-  } catch (e) {
-    console.warn('[Devoras] window.startDragging failed:', e);
-  }
-}
+// Removed startWindowDrag to prevent blocking window reveal
 
 /// Start Hidden & Reveal: 첫 렌더링 후 Rust 커맨드로 윈도우 노출.
 async function revealWindow(): Promise<void> {
@@ -44,10 +36,6 @@ function App() {
       {/* App Header Bar — drag-region + programmatic startDragging for Tauri 2 */}
       <header
         data-tauri-drag-region
-        onMouseDown={(e) => {
-          // Left button only; allow right-click menus to work normally
-          if (e.button === 0) startWindowDrag();
-        }}
         className="h-12 bg-darkPanel border-b border-darkBorder flex items-center justify-between pl-20 pr-5 select-none cursor-default"
       >
         <div data-tauri-drag-region className="flex items-center space-x-3">
