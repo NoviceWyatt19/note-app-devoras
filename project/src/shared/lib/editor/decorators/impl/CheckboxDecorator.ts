@@ -24,7 +24,10 @@ class CheckboxWidget extends WidgetType {
   }
 
   toDOM(view: EditorView): HTMLElement {
-    const wrap = document.createElement('span');
+    const wrapper = document.createElement('span');
+    wrapper.className = 'cm-checkbox-wrapper';
+    wrapper.contentEditable = 'false';
+
     const cb = document.createElement('input');
     cb.type = 'checkbox';
     cb.checked = this.checked;
@@ -41,8 +44,8 @@ class CheckboxWidget extends WidgetType {
       });
     });
 
-    wrap.appendChild(cb);
-    return wrap;
+    wrapper.appendChild(cb);
+    return wrapper;
   }
 
   /** Allow mouse events so the checkbox click reaches the change handler */

@@ -10,6 +10,7 @@ class HeadingBadgeWidget extends WidgetType {
     const badge = document.createElement('span');
     badge.className = `cm-heading-badge cm-heading-badge-${this.level}`;
     badge.style.display = 'inline-block';
+    badge.contentEditable = 'false';
     badge.textContent = `H${this.level}`;
     return badge;
   }

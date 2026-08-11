@@ -6,15 +6,16 @@ const HR_RE = /^(\s*)(---|___|\*\*\*)(\s*)$/;
 
 class HRWidget extends WidgetType {
   toDOM() {
-    const hr = document.createElement('span');
-    hr.className = 'cm-hr-widget';
-    hr.style.display = 'inline-block';
-    hr.style.width = '100%';
+    const span = document.createElement('span');
+    span.className = 'cm-hr';
+    span.style.display = 'inline-block';
+    span.style.width = '100%';
+    span.contentEditable = 'false';
     // inner line
     const line = document.createElement('span');
     line.className = 'cm-hr-line';
-    hr.appendChild(line);
-    return hr;
+    span.appendChild(line);
+    return span;
   }
   ignoreEvent() { return false; }
 }

@@ -48,6 +48,7 @@ class KatexInlineWidget extends WidgetType {
   toDOM(): HTMLElement {
     const span = document.createElement('span');
     span.className = 'cm-math-widget-inline';
+    span.contentEditable = 'false';
     span.innerHTML = renderKatex(this.formula, false);
     return span;
   }
@@ -73,6 +74,7 @@ class KatexDisplayWidget extends WidgetType {
     const span = document.createElement('span');
     span.className = 'cm-math-widget-display';
     span.style.display = 'inline-block';
+    span.contentEditable = 'false';
     span.innerHTML = renderKatex(this.formula, true);
     return span;
   }
@@ -98,6 +100,7 @@ class KatexBlockWidget extends WidgetType {
     span.className = 'cm-math-widget-block';
     span.style.display = 'inline-block';
     span.style.width = '100%';
+    span.contentEditable = 'false';
     span.innerHTML = renderKatex(this.formula, true);
     return span;
   }
