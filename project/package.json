@@ -1,7 +1,7 @@
 {
-  "name": "devoras",
+  "name": "devoras-design",
   "private": true,
-  "version": "0.5.6",
+  "version": "0.5.7",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -23,6 +23,7 @@
     "@tauri-apps/api": "^2.11.1",
     "@tauri-apps/plugin-dialog": "^2.7.1",
     "@tauri-apps/plugin-fs": "^2.5.1",
+    "@xyflow/react": "^12.11.2",
     "katex": "^0.18.1",
     "lucide-react": "^1.24.0",
     "marked": "^18.0.7",
