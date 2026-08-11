@@ -1,47 +1,9 @@
-import { Decoration, DecorationSet, WidgetType } from '@codemirror/view';
-import { EditorState } from '@codemirror/state';
-import { RangeSetBuilder } from '@codemirror/state';
+import { Decoration, DecorationSet } from '@codemirror/view';
+import { EditorState, RangeSetBuilder } from '@codemirror/state';
 import { SyntaxDecorator } from '../types';
-import { Marked } from 'marked';
 
-// Create a local marked parser for blockquotes (simple GFM)
-const markedParser = new Marked({ gfm: true, breaks: true });
-
-// We want to match any line that starts with >
 const BLOCKQUOTE_RE = /^>\s?(.*)$/;
-
-class BlockquoteWidget extends WidgetType {
-  constructor(public content: string) {
-    super();
-  }
-
-  toDOM() {
-    const span = document.createElement('span');
-    span.className = 'cm-blockquote-widget-block rv-content';
-    span.style.display = 'inline-block';
-    span.style.width = '100%';
-    span.contentEditable = 'false';
-
-    // Parse the inner text using marked.
-    // The content is the raw markdown (e.g. `> hello\n> world`).
-    // marked handles the blockquote tags natively!
-    try {
-      span.innerHTML = markedParser.parse(this.content) as string;
-    } catch {
-      span.textContent = this.content;
-    }
-
-    return span;
-  }
-
-  eq(other: BlockquoteWidget): boolean {
-    return this.content === other.content;
-  }
-
-  ignoreEvent() {
-    return false;
-  }
-}
+const HIDE_DECO = Decoration.replace({});
 
 export class BlockquoteDecorator implements SyntaxDecorator {
   readonly name = 'blockquote';
@@ -53,50 +15,6 @@ export class BlockquoteDecorator implements SyntaxDecorator {
     interface DR { from: number; to: number; deco: Decoration; }
     const ranges: DR[] = [];
 
-    let bqStartLine = -1;
-    let bqLines: string[] = [];
-    let bqEndLine = -1;
-
-    // Helper to commit a blockquote group
-    const commitBlockquote = () => {
-      if (bqStartLine === -1) return;
-      
-      const startPos = doc.line(bqStartLine).from;
-      const endPos = doc.line(bqEndLine).to;
-      const content = bqLines.join('\n');
-      
-      const cursorInside = cursorHead >= startPos && cursorHead <= endPos;
-      
-      if (!cursorInside) {
-        // Live preview: hide the raw markdown and replace with widget
-        ranges.push({
-          from: startPos,
-          to: endPos,
-          deco: Decoration.replace({ widget: new BlockquoteWidget(content), bidiIsolate: false })
-        });
-      } else {
-        // Edit mode: reveal raw markdown, but keep basic line styles so it looks distinct
-        for (let i = bqStartLine; i <= bqEndLine; i++) {
-          const line = doc.line(i);
-          let blockClass = 'cm-blockquote-single';
-          if (bqStartLine !== bqEndLine) {
-            if (i === bqStartLine) blockClass = 'cm-blockquote-top';
-            else if (i === bqEndLine) blockClass = 'cm-blockquote-bottom';
-            else blockClass = 'cm-blockquote-middle';
-          }
-          ranges.push({
-            from: line.from,
-            to: line.from,
-            deco: Decoration.line({ class: `cm-blockquote-line ${blockClass}` })
-          });
-        }
-      }
-      
-      bqStartLine = -1;
-      bqEndLine = -1;
-      bqLines = [];
-    };
-
     let pos = from;
     while (pos <= to) {
       const line = doc.lineAt(pos);
@@ -104,19 +22,40 @@ export class BlockquoteDecorator implements SyntaxDecorator {
       const match = BLOCKQUOTE_RE.exec(lineText);
 
       if (match) {
-        if (bqStartLine === -1) {
-          bqStartLine = line.number;
+        let isPrevBq = false;
+        if (line.number > 1) {
+            isPrevBq = BLOCKQUOTE_RE.test(doc.line(line.number - 1).text);
         }
-        bqEndLine = line.number;
-        bqLines.push(lineText);
-      } else {
-        commitBlockquote();
+
+        let isNextBq = false;
+        if (line.number < doc.lines) {
+            isNextBq = BLOCKQUOTE_RE.test(doc.line(line.number + 1).text);
+        }
+
+        let blockClass = 'cm-blockquote-single';
+        if (isPrevBq && isNextBq) blockClass = 'cm-blockquote-middle';
+        else if (isPrevBq) blockClass = 'cm-blockquote-bottom';
+        else if (isNextBq) blockClass = 'cm-blockquote-top';
+
+        const markerEnd = line.from + (lineText.startsWith('> ') ? 2 : 1);
+
+        // Add line decoration to style the entire block
+        ranges.push({ 
+          from: line.from, 
+          to: line.from, 
+          deco: Decoration.line({ class: `cm-blockquote-line ${blockClass}` }) 
+        });
+
+        // Hide marker if cursor is NOT on this line
+        if (line.number !== doc.lineAt(cursorHead).number) {
+            if (markerEnd <= line.to) {
+                ranges.push({ from: line.from, to: markerEnd, deco: HIDE_DECO });
+            }
+        }
       }
       pos = line.to + 1;
     }
-    commitBlockquote(); // flush any remaining
 
-    // Sort by from
     ranges.sort((a, b) => a.from - b.from);
 
     const builder = new RangeSetBuilder<Decoration>();

@@ -183,10 +183,13 @@
 .cm-blockquote-single {
   border-top-right-radius: 6px;
   border-bottom-right-radius: 6px;
+  padding-top: 0.6rem;
+  padding-bottom: 0.6rem;
 }
 
 .cm-blockquote-top {
   border-top-right-radius: 6px;
+  padding-top: 0.6rem;
 }
 
 .cm-blockquote-middle {
@@ -194,6 +197,7 @@
 
 .cm-blockquote-bottom {
   border-bottom-right-radius: 6px;
+  padding-bottom: 0.6rem;
 }
 
 .cm-blockquote-text {
@@ -221,6 +225,7 @@
   width: 100%;
 }
 .cm-hr-line {
+  display: block;
   height: 1px;
   background: #334155;
   width: 100%;
