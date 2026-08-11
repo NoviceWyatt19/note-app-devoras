@@ -30,6 +30,7 @@ import { ListDecorator } from '@/shared/lib/editor/decorators/impl/ListDecorator
 import { BlockquoteDecorator } from '@/shared/lib/editor/decorators/impl/BlockquoteDecorator';
 import { HorizontalRuleDecorator } from '@/shared/lib/editor/decorators/impl/HorizontalRuleDecorator';
 
+
 // ---------------------------------------------------------------------------
 // Module-level decoration plugin
 // Instantiated once and shared across all CodeMirrorBlock instances.
@@ -130,9 +131,8 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
         run: (view) => {
           // IME guard: arrow keys during composition commit/select candidates.
           if (view.composing) return false;
-          const { from } = view.state.selection.main;
-          const line = view.state.doc.lineAt(from);
-          if (line.number === 1) {
+          const { from, empty } = view.state.selection.main;
+          if (empty && from === 0) {
             callbacksRef.current.onFocusPrev();
             return true;
           }
@@ -144,10 +144,8 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
         run: (view) => {
           // IME guard: same as ArrowUp.
           if (view.composing) return false;
-          const { from } = view.state.selection.main;
-          const line = view.state.doc.lineAt(from);
-          const totalLines = view.state.doc.lines;
-          if (line.number === totalLines) {
+          const { from, empty } = view.state.selection.main;
+          if (empty && from === view.state.doc.length) {
             callbacksRef.current.onFocusNext();
             return true;
           }
@@ -248,6 +246,11 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
             caretColor: '#6366f1',
             padding: '4px 0',
             minWidth: '0',
+          },
+          '.cm-line': {
+            lineHeight: '1.6em',
+            minHeight: '1.6em',
+            padding: '0 4px',
           },
           '&.cm-focused .cm-cursor': {
             borderLeftColor: '#6366f1',
