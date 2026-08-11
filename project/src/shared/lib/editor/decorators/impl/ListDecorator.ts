@@ -12,6 +12,7 @@ class BulletWidget extends WidgetType {
     span.textContent = this.text;
     return span;
   }
+  ignoreEvent() { return false; }
 }
 
 export class ListDecorator implements SyntaxDecorator {

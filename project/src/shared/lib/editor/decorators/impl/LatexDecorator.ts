@@ -52,10 +52,9 @@ class KatexInlineWidget extends WidgetType {
     return span;
   }
 
-  /** Prevent mouse events from reaching the widget so users can click through
-   *  to place the cursor and reveal raw markdown. */
+  /** Allow mouse events to propagate */
   ignoreEvent(): boolean {
-    return true;
+    return false;
   }
 }
 
@@ -71,14 +70,15 @@ class KatexDisplayWidget extends WidgetType {
   }
 
   toDOM(): HTMLElement {
-    const div = document.createElement('div');
-    div.className = 'cm-math-widget-display';
-    div.innerHTML = renderKatex(this.formula, true);
-    return div;
+    const span = document.createElement('span');
+    span.className = 'cm-math-widget-display';
+    span.style.display = 'block';
+    span.innerHTML = renderKatex(this.formula, true);
+    return span;
   }
 
   ignoreEvent(): boolean {
-    return true;
+    return false;
   }
 }
 
@@ -94,14 +94,15 @@ class KatexBlockWidget extends WidgetType {
   }
 
   toDOM(): HTMLElement {
-    const div = document.createElement('div');
-    div.className = 'cm-math-widget-block';
-    div.innerHTML = renderKatex(this.formula, true);
-    return div;
+    const span = document.createElement('span');
+    span.className = 'cm-math-widget-block';
+    span.style.display = 'block';
+    span.innerHTML = renderKatex(this.formula, true);
+    return span;
   }
 
   ignoreEvent(): boolean {
-    return true;
+    return false;
   }
 }
 

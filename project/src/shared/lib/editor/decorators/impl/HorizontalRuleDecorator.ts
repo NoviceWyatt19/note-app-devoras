@@ -6,14 +6,17 @@ const HR_RE = /^(\s*)(---|___|\*\*\*)(\s*)$/;
 
 class HRWidget extends WidgetType {
   toDOM() {
-    const hr = document.createElement('div');
+    const hr = document.createElement('span');
     hr.className = 'cm-hr-widget';
+    hr.style.display = 'inline-block';
+    hr.style.width = '100%';
     // inner line
-    const line = document.createElement('div');
+    const line = document.createElement('span');
     line.className = 'cm-hr-line';
     hr.appendChild(line);
     return hr;
   }
+  ignoreEvent() { return false; }
 }
 
 export class HorizontalRuleDecorator implements SyntaxDecorator {

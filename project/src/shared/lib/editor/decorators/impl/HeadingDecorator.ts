@@ -12,6 +12,7 @@ class HeadingBadgeWidget extends WidgetType {
     badge.textContent = `H${this.level}`;
     return badge;
   }
+  ignoreEvent() { return false; }
 }
 
 export class HeadingDecorator implements SyntaxDecorator {
