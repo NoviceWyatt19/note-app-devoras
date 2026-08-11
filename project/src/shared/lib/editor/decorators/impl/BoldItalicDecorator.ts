@@ -1,4 +1,5 @@
-import { Decoration, DecorationSet, EditorView } from '@codemirror/view';
+import { Decoration, DecorationSet } from '@codemirror/view';
+import { EditorState } from '@codemirror/state';
 import { RangeSetBuilder } from '@codemirror/state';
 import { SyntaxDecorator } from '../types';
 
@@ -47,10 +48,10 @@ interface DR {
 export class BoldItalicDecorator implements SyntaxDecorator {
   readonly name = 'bold-italic';
 
-  createDecorations(view: EditorView, from: number, to: number): DecorationSet {
-    const { doc } = view.state;
+  createDecorations(state: EditorState, from: number, to: number): DecorationSet {
+    const { doc } = state;
     // Use selection HEAD so that a collapsed cursor triggers marker reveal
-    const cursorHead = view.state.selection.main.head;
+    const cursorHead = state.selection.main.head;
 
     const ranges: DR[] = [];
 

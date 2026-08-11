@@ -1,129 +1,98 @@
-import { Extension, RangeSet } from '@codemirror/state';
-import { DecorationSet, EditorView, PluginValue, ViewPlugin, ViewUpdate } from '@codemirror/view';
+import { Extension, RangeSet, StateField, StateEffect, EditorState } from '@codemirror/state';
+import { DecorationSet, EditorView, PluginValue, ViewPlugin } from '@codemirror/view';
 import { SyntaxDecorator } from './types';
 
 // ---------------------------------------------------------------------------
-// Internal orchestrator class
+// Internal IME State Effect & Field
+// ---------------------------------------------------------------------------
+
+// Emitted by the ViewPlugin when IME composition starts or ends
+const setImeEffect = StateEffect.define<boolean>();
+
+// Tracks the DOM IME composition state in CodeMirror's state
+const imeStateField = StateField.define<boolean>({
+  create: () => false,
+  update: (value, tr) => {
+    for (const e of tr.effects) {
+      if (e.is(setImeEffect)) return e.value;
+    }
+    return value;
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Decoration StateField
+// ---------------------------------------------------------------------------
+
+function buildAll(state: EditorState, decorators: readonly SyntaxDecorator[]): DecorationSet {
+  if (decorators.length === 0) return RangeSet.empty;
+  
+  // Since Devoras splits blocks into separate CodeMirror instances,
+  // doc.length is small enough to parse the whole block synchronously.
+  const from = 0;
+  const to = state.doc.length;
+
+  const sets = decorators.map((d) => {
+    try {
+      return d.createDecorations(state, from, to);
+    } catch (err) {
+      // Isolate failures — one broken decorator must not crash the editor
+      console.warn(`[Orchestrator] Decorator "${d.name}" threw:`, err);
+      return RangeSet.empty as DecorationSet;
+    }
+  });
+
+  // RangeSet.join merges multiple sorted sets into one, preserving all ranges
+  return RangeSet.join(sets);
+}
+
+// ---------------------------------------------------------------------------
+// IME Latch ViewPlugin (DOM event manager)
 // ---------------------------------------------------------------------------
 
 /**
- * Central ViewPlugin that drives all registered SyntaxDecorators.
- *
- * On every view update it calls each decorator's `createDecorations` for the
- * current viewport range, then merges the results with `RangeSet.join` so that
- * CodeMirror receives a single, coherent DecorationSet.
- *
  * ## IME / Composition Policy
  * A rebuild is blocked by two independent signals:
  *
- * - CodeMirror's `view.composing`, which protects the normal transaction path.
+ * - CodeMirror's `tr.isUserEvent('input.type.compose')` or native composing flags.
  * - A DOM `compositionstart`/`compositionend` latch, which remains true through
- *   WebKit's transient `view.composing === false` reports during Korean IME
- *   preedit updates.
+ *   WebKit's transient false reports during Korean IME preedit updates.
  *
  * The latch is deliberately cleared only after `compositionend`; rebuilding is
  * then deferred one task so the final committed document and selection are both
  * stable before any `Decoration.replace` or widget can be introduced.
  */
-class DecorationOrchestrator implements PluginValue {
-  decorations: DecorationSet;
-  private domComposing = false;
-  private rebuildPending = false;
+class ImeLatchPlugin implements PluginValue {
   private compositionEndTimer: ReturnType<typeof setTimeout> | null = null;
   private destroyed = false;
-  private readonly editorView: EditorView;
 
-  constructor(
-    view: EditorView,
-    private readonly decorators: readonly SyntaxDecorator[],
-  ) {
-    this.editorView = view;
-    this.decorations = this.buildAll(view);
-    // Capture phase makes the DOM latch active before CodeMirror processes the
-    // same composition event and emits its ViewUpdate.
+  constructor(private readonly view: EditorView) {
     view.contentDOM.addEventListener('compositionstart', this.onCompositionStart, true);
     view.contentDOM.addEventListener('compositionend', this.onCompositionEnd, true);
-  }
-
-  update(upd: ViewUpdate): void {
-    // Do not let a selection/doc update toggle marker visibility while the DOM
-    // still owns a preedit string. `domComposing` covers WebKit's false-negative
-    // `view.composing` pulses; `view.composing` covers platforms that do not
-    // deliver DOM composition events in the expected order.
-    if (this.domComposing || upd.view.composing) {
-      // BUG-20260810-06: Even while composing, if the document changed we MUST
-      // map existing decorations to the new coordinates via upd.changes.
-      // Without this, stale offsets from the previous doc layout remain and
-      // cause "Decorations that replace line breaks" RangeErrors when CodeMirror
-      // tries to apply them against the updated document.
-      if (upd.docChanged) {
-        this.decorations = this.decorations.map(upd.changes);
-      }
-      this.rebuildPending = true;
-      return;
-    }
-
-    // Rebuild on document edit, viewport change, or cursor move.
-    // Cursor move is included so that bold/italic markers reveal themselves
-    // when the user's caret enters the marked span.
-    if (this.rebuildPending || upd.docChanged || upd.viewportChanged || upd.selectionSet) {
-      this.decorations = this.buildAll(upd.view);
-      this.rebuildPending = false;
-    }
   }
 
   destroy(): void {
     this.destroyed = true;
     if (this.compositionEndTimer !== null) clearTimeout(this.compositionEndTimer);
-    this.editorView.contentDOM.removeEventListener(
-      'compositionstart',
-      this.onCompositionStart,
-      true,
-    );
-    this.editorView.contentDOM.removeEventListener('compositionend', this.onCompositionEnd, true);
+    this.view.contentDOM.removeEventListener('compositionstart', this.onCompositionStart, true);
+    this.view.contentDOM.removeEventListener('compositionend', this.onCompositionEnd, true);
   }
 
   private readonly onCompositionStart = (): void => {
-    this.domComposing = true;
     if (this.compositionEndTimer !== null) {
       clearTimeout(this.compositionEndTimer);
       this.compositionEndTimer = null;
     }
+    this.view.dispatch({ effects: setImeEffect.of(true) });
   };
 
   private readonly onCompositionEnd = (): void => {
-    this.rebuildPending = true;
-
-    // `compositionend` can precede CodeMirror's final input transaction. Run
-    // after that transaction. Keeping the latch set until this task also
-    // blocks the final event's selection/doc ViewUpdate from rebuilding early.
     this.compositionEndTimer = setTimeout(() => {
       this.compositionEndTimer = null;
       if (this.destroyed) return;
-      this.domComposing = false;
-      // Force a no-op view update so the plugin performs exactly one rebuild
-      // with committed offsets.
-      this.editorView.dispatch({});
+      this.view.dispatch({ effects: setImeEffect.of(false) });
     }, 0);
   };
-
-  private buildAll(view: EditorView): DecorationSet {
-    if (this.decorators.length === 0) return RangeSet.empty;
-    const { from, to } = view.viewport;
-
-    const sets = this.decorators.map((d) => {
-      try {
-        return d.createDecorations(view, from, to);
-      } catch (err) {
-        // Isolate failures — one broken decorator must not crash the editor
-        console.warn(`[Orchestrator] Decorator "${d.name}" threw:`, err);
-        return RangeSet.empty as DecorationSet;
-      }
-    });
-
-    // RangeSet.join merges multiple sorted sets into one, preserving all ranges
-    return RangeSet.join(sets);
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -228,21 +197,36 @@ const decorationBaseTheme = EditorView.baseTheme({
 
 /**
  * Creates a CodeMirror `Extension` that wires up all provided decorators
- * through the central orchestrator.
- *
- * Usage in BlockEditor:
- * ```ts
- * const decorationPlugin = createDecorationPlugin([
- *   new BoldItalicDecorator(),
- *   new StrikethroughDecorator(),
- *   // To add new syntax: just append a new instance here
- * ]);
- * EditorState.create({ extensions: [..., decorationPlugin] });
- * ```
+ * through the central orchestrator using a StateField (to support multi-line replacement).
  */
 export function createDecorationPlugin(decorators: SyntaxDecorator[]): Extension {
-  const plugin = ViewPlugin.define((view) => new DecorationOrchestrator(view, decorators), {
-    decorations: (p) => p.decorations,
+  const decorationStateField = StateField.define<DecorationSet>({
+    create(state) {
+      return buildAll(state, decorators);
+    },
+    update(value, tr) {
+      // Do not rebuild during DOM composition
+      if (tr.state.field(imeStateField, false)) {
+        if (tr.docChanged) return value.map(tr.changes);
+        return value;
+      }
+
+      // Rebuild on doc change, selection change, or IME unlatch
+      if (tr.docChanged || tr.selection || tr.effects.some(e => e.is(setImeEffect))) {
+        return buildAll(tr.state, decorators);
+      }
+
+      return value;
+    },
+    provide: (f) => EditorView.decorations.from(f)
   });
-  return [plugin, decorationBaseTheme];
+
+  const imePlugin = ViewPlugin.fromClass(ImeLatchPlugin);
+
+  return [
+    imeStateField,
+    decorationStateField,
+    imePlugin,
+    decorationBaseTheme
+  ];
 }

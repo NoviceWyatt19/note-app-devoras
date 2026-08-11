@@ -1,5 +1,6 @@
 import katex from 'katex';
-import { Decoration, DecorationSet, EditorView, WidgetType } from '@codemirror/view';
+import { Decoration, DecorationSet, WidgetType } from '@codemirror/view';
+import { EditorState } from '@codemirror/state';
 import { RangeSetBuilder } from '@codemirror/state';
 import { SyntaxDecorator } from '../types';
 
@@ -135,9 +136,9 @@ interface DR {
 export class LatexDecorator implements SyntaxDecorator {
   readonly name = 'latex';
 
-  createDecorations(view: EditorView, from: number, to: number): DecorationSet {
-    const { doc } = view.state;
-    const cursorHead = view.state.selection.main.head;
+  createDecorations(state: EditorState, from: number, to: number): DecorationSet {
+    const { doc } = state;
+    const cursorHead = state.selection.main.head;
     const collected: DR[] = [];
 
     // ── 1. Fence-style display math  $$\n...\n$$  (multi-line) ──────────────

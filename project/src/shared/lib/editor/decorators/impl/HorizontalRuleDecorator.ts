@@ -1,4 +1,5 @@
-import { Decoration, DecorationSet, EditorView, WidgetType } from '@codemirror/view';
+import { Decoration, DecorationSet, WidgetType } from '@codemirror/view';
+import { EditorState } from '@codemirror/state';
 import { RangeSetBuilder } from '@codemirror/state';
 import { SyntaxDecorator } from '../types';
 
@@ -24,9 +25,9 @@ class HRWidget extends WidgetType {
 export class HorizontalRuleDecorator implements SyntaxDecorator {
   readonly name = 'hr';
 
-  createDecorations(view: EditorView, from: number, to: number): DecorationSet {
-    const { doc } = view.state;
-    const cursorHead = view.state.selection.main.head;
+  createDecorations(state: EditorState, from: number, to: number): DecorationSet {
+    const { doc } = state;
+    const cursorHead = state.selection.main.head;
     const builder = new RangeSetBuilder<Decoration>();
 
     let pos = from;

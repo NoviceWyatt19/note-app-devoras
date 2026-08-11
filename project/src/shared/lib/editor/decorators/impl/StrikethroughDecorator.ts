@@ -1,4 +1,5 @@
-import { Decoration, DecorationSet, EditorView } from '@codemirror/view';
+import { Decoration, DecorationSet } from '@codemirror/view';
+import { EditorState } from '@codemirror/state';
 import { RangeSetBuilder } from '@codemirror/state';
 import { SyntaxDecorator } from '../types';
 
@@ -18,9 +19,9 @@ const HIDE_DECO   = Decoration.replace({});
 export class StrikethroughDecorator implements SyntaxDecorator {
   readonly name = 'strikethrough';
 
-  createDecorations(view: EditorView, from: number, to: number): DecorationSet {
-    const { doc } = view.state;
-    const cursorHead = view.state.selection.main.head;
+  createDecorations(state: EditorState, from: number, to: number): DecorationSet {
+    const { doc } = state;
+    const cursorHead = state.selection.main.head;
 
     interface DR { from: number; to: number; deco: Decoration; }
     const ranges: DR[] = [];

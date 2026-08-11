@@ -1,4 +1,5 @@
-import { Decoration, DecorationSet, EditorView, WidgetType } from '@codemirror/view';
+import { Decoration, DecorationSet, WidgetType, EditorView } from '@codemirror/view';
+import { EditorState } from '@codemirror/state';
 import { RangeSetBuilder } from '@codemirror/state';
 import { SyntaxDecorator } from '../types';
 
@@ -68,10 +69,10 @@ class CheckboxWidget extends WidgetType {
 export class CheckboxDecorator implements SyntaxDecorator {
   readonly name = 'checkbox';
 
-  createDecorations(view: EditorView, from: number, to: number): DecorationSet {
-    const { doc } = view.state;
+  createDecorations(state: EditorState, from: number, to: number): DecorationSet {
+    const { doc } = state;
     // Active line: the line that contains the cursor head.
-    const cursorHead = view.state.selection.main.head;
+    const cursorHead = state.selection.main.head;
     const activeLine = doc.lineAt(cursorHead).number;
 
     const builder = new RangeSetBuilder<Decoration>();

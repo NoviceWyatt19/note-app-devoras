@@ -1,4 +1,5 @@
-import { DecorationSet, EditorView } from '@codemirror/view';
+import { DecorationSet } from '@codemirror/view';
+import { EditorState } from '@codemirror/state';
 
 /**
  * Pluggable markdown syntax decoration handler.
@@ -21,9 +22,9 @@ export interface SyntaxDecorator {
    * Called on every view update (doc change, scroll, cursor move).
    * Keep this method fast — only process characters within [from, to].
    *
-   * @param view  Current EditorView (provides doc, state, selection)
-   * @param from  Viewport start offset (inclusive)
-   * @param to    Viewport end offset (inclusive)
+   * @param state  Current EditorState (provides doc, selection)
+   * @param from   Viewport start offset (inclusive)
+   * @param to     Viewport end offset (inclusive)
    */
-  createDecorations(view: EditorView, from: number, to: number): DecorationSet;
+  createDecorations(state: EditorState, from: number, to: number): DecorationSet;
 }
