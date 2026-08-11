@@ -9,7 +9,7 @@ class BulletWidget extends WidgetType {
   toDOM() {
     const span = document.createElement('span');
     span.className = 'cm-list-bullet';
-    span.style.display = 'inline-block';
+    span.style.display = 'inline';
     span.contentEditable = 'false';
     span.textContent = this.text;
     return span;
