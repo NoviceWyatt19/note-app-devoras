@@ -1,23 +1,41 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useWorkspaceStore } from '@/entities/workspace/model/store';
 import { useDocumentStore } from '@/entities/document/model/store';
 import { useBlockStore } from '@/entities/block/model/store';
-import { FolderOpen, FileText, Plus, RefreshCw, Loader } from 'lucide-react';
-import { fileSystemRepository } from '@/shared/api/fs';
+import { FolderOpen, FileText, Plus, RefreshCw, Loader, ChevronRight, ChevronDown, File, Trash, Edit2, FolderPlus } from 'lucide-react';
+import { FileEntry } from '@/shared/api/fs';
+
+interface ContextMenuData {
+  x: number;
+  y: number;
+  entry: FileEntry | null; // null if clicked on empty space (root)
+}
 
 export const FileExplorer: React.FC = () => {
-  const { workspacePath, files, isLoading, openWorkspace, scanWorkspace } = useWorkspaceStore();
+  const { workspacePath, files, isLoading, openWorkspace, scanWorkspace, createFile, createFolder, renameEntry, deleteEntry } = useWorkspaceStore();
   const { getCurrentFile, loadFile, isDirty } = useDocumentStore();
   const currentFile = getCurrentFile();
   const { setBlocksFromContent } = useBlockStore();
 
-  const [newFileName, setNewFileName] = useState('');
-  const [isCreating, setIsCreating] = useState(false);
+  const [contextMenu, setContextMenu] = useState<ContextMenuData | null>(null);
+  const [renamingPath, setRenamingPath] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
 
-  const handleFileSelect = async (file: any) => {
-    if (file.isDir) return; // Directory recursion is out of scope for MVP simple list
+  // --- Global Click to close Context Menu ---
+  useEffect(() => {
+    const closeMenu = () => setContextMenu(null);
+    window.addEventListener('click', closeMenu);
+    return () => window.removeEventListener('click', closeMenu);
+  }, []);
+
+  // --- Handlers ---
+  const handleFileSelect = async (file: FileEntry) => {
+    if (file.isDir) {
+      toggleExpand(file.path);
+      return;
+    }
     
-    // Check for unsaved changes before loading a new document
     if (isDirty && currentFile?.path !== file.path) {
       const confirmLeave = window.confirm('저장되지 않은 변경 사항이 있습니다. 무시하고 다른 파일을 여시겠습니까?');
       if (!confirmLeave) return;
@@ -25,78 +43,166 @@ export const FileExplorer: React.FC = () => {
 
     await loadFile(file);
 
-    // Load blocks in the editor store using document rawContent
     const freshContent = useDocumentStore.getState().rawContent;
     setBlocksFromContent(freshContent);
-    // setBlocksFromContent no longer manages activeBlockId/focusOffset (SRP).
-    // Explicitly focus the first block so the editor is ready to use immediately.
     const firstBlockOnLoad = useBlockStore.getState().blocks[0];
     if (firstBlockOnLoad) useBlockStore.getState().focusBlock(firstBlockOnLoad.id, 0);
   };
 
-  const handleCreateFile = async (e: React.FormEvent) => {
+  const toggleExpand = (path: string) => {
+    setExpandedFolders(prev => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
+  };
+
+  const handleContextMenu = (e: React.MouseEvent, entry: FileEntry | null) => {
     e.preventDefault();
-    if (!newFileName.trim() || !workspacePath) return;
+    e.stopPropagation();
+    setContextMenu({ x: e.pageX, y: e.pageY, entry });
+  };
 
-    if (isDirty) {
-      const confirmLeave = window.confirm('저장되지 않은 변경 사항이 있습니다. 저장하지 않고 새 문서를 만드시겠습니까?');
-      if (!confirmLeave) return;
+  // --- CRUD Actions ---
+  const handleCreateNew = async (isFolder: boolean) => {
+    if (!workspacePath) return;
+    const parentPath = contextMenu?.entry?.isDir 
+      ? contextMenu.entry.path 
+      : (contextMenu?.entry ? contextMenu.entry.path.substring(0, contextMenu.entry.path.lastIndexOf('/')) : workspacePath);
+    
+    const name = prompt(isFolder ? '새 폴더 이름:' : '새 파일 이름 (예: 노트):');
+    if (!name) return;
+
+    if (isFolder) {
+      await createFolder(parentPath, name);
+    } else {
+      await createFile(parentPath, name);
     }
+    
+    // Ensure parent is expanded
+    setExpandedFolders(prev => {
+      const next = new Set(prev);
+      next.add(parentPath);
+      return next;
+    });
+  };
 
-    let sanitizedName = newFileName.trim();
-    if (!sanitizedName.endsWith('.md')) {
-      sanitizedName += '.md';
+  const handleRenameSubmit = async (oldPath: string, newName: string) => {
+    if (!newName.trim() || newName === renamingPath?.split('/').pop()) {
+      setRenamingPath(null);
+      return;
     }
-
-    const fullPath = `${workspacePath}/${sanitizedName}`;
-    const initialContent = `# ${sanitizedName.replace('.md', '')}\n\n첫 번째 문장을 입력하세요.`;
-
+    const newPath = oldPath.substring(0, oldPath.lastIndexOf('/')) + '/' + newName;
     try {
-      await fileSystemRepository.writeFile(fullPath, initialContent);
-      setNewFileName('');
-      setIsCreating(false);
-      await scanWorkspace();
-
-      // Automatically load the newly created file
-      const freshFile = {
-        name: sanitizedName,
-        path: fullPath,
-        isDir: false,
-      };
-      await loadFile(freshFile);
-      setBlocksFromContent(initialContent);
-      // Focus the first block of the newly created file.
-      const firstBlockOnCreate = useBlockStore.getState().blocks[0];
-      if (firstBlockOnCreate) useBlockStore.getState().focusBlock(firstBlockOnCreate.id, 0);
+      await renameEntry(oldPath, newPath, newName);
     } catch (e) {
-      console.error('Failed to create file:', e);
-      alert('파일 생성 중 에러가 발생했습니다.');
+      alert('이름 변경 실패');
+    }
+    setRenamingPath(null);
+  };
+
+  const handleDelete = async (entry: FileEntry) => {
+    if (window.confirm(`'${entry.name}' 항목을 정말 삭제하시겠습니까?`)) {
+      try {
+        await deleteEntry(entry.path, entry.isDir);
+      } catch (e) {
+        alert('삭제 실패');
+      }
     }
   };
 
+  // --- Recursive Tree Node Component ---
+  const TreeNode: React.FC<{ entry: FileEntry; depth: number }> = ({ entry, depth }) => {
+    const isExpanded = expandedFolders.has(entry.path);
+    const isRenaming = renamingPath === entry.path;
+    const isSelected = currentFile?.path === entry.path;
+
+    return (
+      <div className="w-full">
+        <div
+          onClick={() => handleFileSelect(entry)}
+          onContextMenu={(e) => handleContextMenu(e, entry)}
+          className={`group flex items-center space-x-1.5 px-2 py-1.5 rounded cursor-pointer text-xs transition-colors ${
+            isSelected
+              ? 'bg-primary/15 text-primary font-medium border-l-2 border-primary'
+              : 'hover:bg-darkBorder/40 text-slate-300 hover:text-slate-100 border-l-2 border-transparent'
+          }`}
+          style={{ paddingLeft: `${depth * 12 + 8}px` }}
+        >
+          {/* Icon / Chevron */}
+          <div className="flex-shrink-0 flex items-center justify-center w-4 h-4">
+            {entry.isDir ? (
+              isExpanded ? <ChevronDown className="w-3.5 h-3.5 text-slate-500" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
+            ) : (
+              <FileText className={`w-3.5 h-3.5 ${isSelected ? 'text-primary' : 'text-slate-400'}`} />
+            )}
+          </div>
+
+          {/* Name / Input */}
+          {isRenaming ? (
+            <input
+              autoFocus
+              className="flex-1 bg-darkBg border border-primary px-1 rounded text-slate-100 outline-none text-xs min-w-0"
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              onBlur={() => handleRenameSubmit(entry.path, renameValue)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleRenameSubmit(entry.path, renameValue);
+                if (e.key === 'Escape') setRenamingPath(null);
+              }}
+              onClick={(e) => e.stopPropagation()}
+            />
+          ) : (
+            <span className="truncate flex-1 select-none">{entry.name}</span>
+          )}
+        </div>
+
+        {/* Children */}
+        {entry.isDir && isExpanded && entry.children && (
+          <div className="flex flex-col">
+            {entry.children.map((child) => (
+              <TreeNode key={child.path} entry={child} depth={depth + 1} />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
-    <div className="flex-1 flex flex-col min-h-0 select-none">
-      {/* Sidebar Header — left padding clears the macOS traffic light buttons (~78px).
-           data-tauri-drag-region makes this bar act as the window drag handle. */}
+    <div className="flex-1 flex flex-col min-h-0 select-none relative" onContextMenu={(e) => handleContextMenu(e, null)}>
+      {/* Sidebar Header */}
       <div
         data-tauri-drag-region
         className="h-10 border-b border-darkBorder flex items-center justify-between pl-20 pr-4 flex-shrink-0 bg-darkPanel"
       >
         <span className="text-xs font-bold uppercase tracking-wider text-mutedText">워크스페이스</span>
-        {workspacePath && (
-          <button
-            onClick={scanWorkspace}
-            disabled={isLoading}
-            className="p-1 hover:bg-darkBorder rounded text-mutedText hover:text-slate-100 transition-colors"
-            title="새로고침"
-          >
-            {isLoading ? <Loader className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-          </button>
-        )}
+        <div className="flex items-center space-x-1">
+          {workspacePath && (
+            <>
+              <button
+                onClick={() => handleCreateNew(false)}
+                className="p-1 hover:bg-darkBorder rounded text-mutedText hover:text-slate-100 transition-colors"
+                title="새 파일"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={scanWorkspace}
+                disabled={isLoading}
+                className="p-1 hover:bg-darkBorder rounded text-mutedText hover:text-slate-100 transition-colors"
+                title="새로고침"
+              >
+                {isLoading ? <Loader className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Explorer Content */}
-      <div className="flex-1 overflow-y-auto p-3">
+      <div className="flex-1 overflow-y-auto p-2">
         {!workspacePath ? (
           <div className="h-full flex flex-col items-center justify-center text-center p-4">
             <FolderOpen className="w-8 h-8 text-indigo-500/60 mb-3" />
@@ -112,80 +218,62 @@ export const FileExplorer: React.FC = () => {
             </button>
           </div>
         ) : (
-          <div className="space-y-4">
-            {/* Folder Path Banner */}
-            <div className="bg-darkBg/60 border border-darkBorder/40 rounded p-2 text-[10px] text-mutedText truncate font-mono" title={workspacePath}>
-              {workspacePath}
-            </div>
-
-            {/* Create File Form */}
-            {isCreating ? (
-              <form onSubmit={handleCreateFile} className="space-y-2">
-                <input
-                  type="text"
-                  placeholder="새 파일명 (예: 노트)"
-                  value={newFileName}
-                  onChange={(e) => setNewFileName(e.target.value)}
-                  className="w-full bg-darkBg border border-darkBorder focus:border-primary rounded px-2.5 py-1.5 text-xs text-slate-100 outline-none transition-colors"
-                  autoFocus
-                />
-                <div className="flex space-x-2">
-                  <button
-                    type="submit"
-                    className="flex-1 bg-primary text-white text-xs py-1 rounded font-semibold hover:bg-primary/90 transition-colors"
-                  >
-                    생성
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsCreating(false)}
-                    className="flex-1 bg-darkBorder text-mutedText text-xs py-1 rounded font-semibold hover:bg-darkBorder/80 transition-colors"
-                  >
-                    취소
-                  </button>
-                </div>
-              </form>
+          <div className="flex flex-col space-y-0.5">
+            {files.length === 0 ? (
+              <div className="text-center py-6 text-xs text-mutedText/50">항목이 없습니다.</div>
             ) : (
-              <button
-                onClick={() => setIsCreating(true)}
-                className="w-full flex items-center justify-center space-x-1 border border-dashed border-darkBorder hover:border-primary/40 hover:bg-primary/5 rounded py-1.5 text-xs text-mutedText hover:text-primary transition-all"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>새 문서 만들기</span>
-              </button>
+              files.map((file) => <TreeNode key={file.path} entry={file} depth={0} />)
             )}
-
-            {/* File List */}
-            <div className="space-y-1">
-              {files.length === 0 ? (
-                <div className="text-center py-6 text-xs text-mutedText/50">마크다운 파일이 없습니다.</div>
-              ) : (
-                files.map((file) => {
-                  const isSelected = currentFile?.path === file.path;
-                  return (
-                    <button
-                      key={file.path}
-                      onClick={() => handleFileSelect(file)}
-                      className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded text-left text-xs transition-all ${
-                        isSelected
-                          ? 'bg-primary/10 text-primary border-l-2 border-primary font-medium'
-                          : 'hover:bg-darkBorder/40 text-slate-300 hover:text-slate-100'
-                      }`}
-                    >
-                      {file.isDir ? (
-                        <FolderOpen className="w-3.5 h-3.5 text-indigo-400 flex-shrink-0" />
-                      ) : (
-                        <FileText className={`w-3.5 h-3.5 flex-shrink-0 ${isSelected ? 'text-primary' : 'text-slate-400'}`} />
-                      )}
-                      <span className="truncate flex-1">{file.name}</span>
-                    </button>
-                  );
-                })
-              )}
-            </div>
           </div>
         )}
       </div>
+
+      {/* Context Menu */}
+      {contextMenu && workspacePath && (
+        <div
+          className="fixed bg-darkPanel border border-darkBorder rounded-md shadow-xl py-1 z-50 flex flex-col min-w-[140px]"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+          onClick={(e) => e.stopPropagation()} // prevent immediate close
+        >
+          <button 
+            className="flex items-center space-x-2 px-3 py-1.5 text-xs text-slate-200 hover:bg-primary/20 hover:text-primary transition-colors text-left"
+            onClick={() => { setContextMenu(null); handleCreateNew(false); }}
+          >
+            <File className="w-3.5 h-3.5" /> <span>새 문서</span>
+          </button>
+          <button 
+            className="flex items-center space-x-2 px-3 py-1.5 text-xs text-slate-200 hover:bg-primary/20 hover:text-primary transition-colors text-left"
+            onClick={() => { setContextMenu(null); handleCreateNew(true); }}
+          >
+            <FolderPlus className="w-3.5 h-3.5" /> <span>새 폴더</span>
+          </button>
+          
+          {contextMenu.entry && (
+            <>
+              <div className="h-px bg-darkBorder my-1 mx-2" />
+              <button 
+                className="flex items-center space-x-2 px-3 py-1.5 text-xs text-slate-200 hover:bg-primary/20 hover:text-primary transition-colors text-left"
+                onClick={() => {
+                  setRenamingPath(contextMenu.entry!.path);
+                  setRenameValue(contextMenu.entry!.name);
+                  setContextMenu(null);
+                }}
+              >
+                <Edit2 className="w-3.5 h-3.5" /> <span>이름 변경</span>
+              </button>
+              <button 
+                className="flex items-center space-x-2 px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-colors text-left"
+                onClick={() => {
+                  handleDelete(contextMenu.entry!);
+                  setContextMenu(null);
+                }}
+              >
+                <Trash className="w-3.5 h-3.5" /> <span>삭제</span>
+              </button>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 };

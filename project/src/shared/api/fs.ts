@@ -2,6 +2,7 @@ export interface FileEntry {
   name: string;
   path: string;
   isDir: boolean;
+  children?: FileEntry[];
 }
 
 export interface FileSystemRepository {
@@ -9,6 +10,9 @@ export interface FileSystemRepository {
   readDirectory(dirPath: string): Promise<FileEntry[]>;
   readFile(filePath: string): Promise<string>;
   writeFile(filePath: string, content: string): Promise<void>;
+  createDirectory(dirPath: string): Promise<void>;
+  renameEntry(oldPath: string, newPath: string): Promise<void>;
+  deleteEntry(path: string, isDir: boolean): Promise<void>;
   readSpatialMetadata(workspacePath: string): Promise<Record<string, any>>;
   writeSpatialMetadata(workspacePath: string, metadata: Record<string, any>): Promise<void>;
   /**
@@ -90,6 +94,60 @@ export class MockFileSystem implements FileSystemRepository {
           isDir: false,
         });
       }
+    }
+  }
+
+  async createDirectory(dirPath: string): Promise<void> {
+    this.virtualFs[dirPath] = { entries: [] };
+    const parentPath = dirPath.substring(0, dirPath.lastIndexOf('/'));
+    const dirName = dirPath.substring(dirPath.lastIndexOf('/') + 1);
+    const parentDir = this.virtualFs[parentPath];
+    if (parentDir && parentDir.entries) {
+      const exists = parentDir.entries.some(e => e.path === dirPath);
+      if (!exists) {
+        parentDir.entries.push({
+          name: dirName,
+          path: dirPath,
+          isDir: true,
+        });
+      }
+    }
+  }
+
+  async renameEntry(oldPath: string, newPath: string): Promise<void> {
+    const entry = this.virtualFs[oldPath];
+    if (!entry) throw new Error(`Entry not found: ${oldPath}`);
+    
+    // 이사
+    this.virtualFs[newPath] = entry;
+    delete this.virtualFs[oldPath];
+
+    // 부모 디렉토리 수정 (간단히 처리)
+    const oldParentPath = oldPath.substring(0, oldPath.lastIndexOf('/'));
+    const oldParentDir = this.virtualFs[oldParentPath];
+    if (oldParentDir && oldParentDir.entries) {
+      oldParentDir.entries = oldParentDir.entries.filter(e => e.path !== oldPath);
+    }
+
+    const newParentPath = newPath.substring(0, newPath.lastIndexOf('/'));
+    const newName = newPath.substring(newPath.lastIndexOf('/') + 1);
+    const newParentDir = this.virtualFs[newParentPath];
+    if (newParentDir && newParentDir.entries) {
+      const isDir = entry.entries !== undefined;
+      newParentDir.entries.push({
+        name: newName,
+        path: newPath,
+        isDir,
+      });
+    }
+  }
+
+  async deleteEntry(path: string, _isDir: boolean): Promise<void> {
+    delete this.virtualFs[path];
+    const parentPath = path.substring(0, path.lastIndexOf('/'));
+    const parentDir = this.virtualFs[parentPath];
+    if (parentDir && parentDir.entries) {
+      parentDir.entries = parentDir.entries.filter(e => e.path !== path);
     }
   }
 
@@ -176,6 +234,36 @@ export class TauriFileSystem implements FileSystemRepository {
       await writeTextFile(filePath, content);
     } catch (e) {
       console.error('Tauri writeFile error:', e);
+      throw e;
+    }
+  }
+
+  async createDirectory(dirPath: string): Promise<void> {
+    try {
+      const { mkdir } = await import('@tauri-apps/plugin-fs');
+      await mkdir(dirPath, { recursive: true });
+    } catch (e) {
+      console.error('Tauri createDirectory error:', e);
+      throw e;
+    }
+  }
+
+  async renameEntry(oldPath: string, newPath: string): Promise<void> {
+    try {
+      const { rename } = await import('@tauri-apps/plugin-fs');
+      await rename(oldPath, newPath);
+    } catch (e) {
+      console.error('Tauri renameEntry error:', e);
+      throw e;
+    }
+  }
+
+  async deleteEntry(path: string, isDir: boolean): Promise<void> {
+    try {
+      const { remove } = await import('@tauri-apps/plugin-fs');
+      await remove(path, { recursive: isDir });
+    } catch (e) {
+      console.error('Tauri deleteEntry error:', e);
       throw e;
     }
   }

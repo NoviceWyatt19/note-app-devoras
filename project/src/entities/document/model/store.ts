@@ -56,6 +56,10 @@ interface DocumentState {
   setViewMode: (mode: 'write' | 'read') => void;
   toggleViewMode: () => void;
   adjustFontSize: (delta: number) => void;
+
+  // ── File System Sync 액션 ────────────────────────────────────────
+  handleFileRenamed: (oldPath: string, newPath: string, newName: string) => void;
+  handleFileDeleted: (path: string, isDir: boolean) => void;
 }
 
 export const useDocumentStore = create<DocumentState>((set, get) => ({
@@ -308,6 +312,58 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       panes: [...panes, newPane],
       activePaneId: newPaneId,
     });
+  },
+
+  // ── File System Sync 로직 ─────────────────────────────────────────
+  handleFileRenamed: (oldPath, newPath, newName) => {
+    const { panes } = get();
+    const updatedPanes = panes.map((p) => {
+      const updatedTabs = p.tabs.map((t) => {
+        if (t.type === 'markdown' && t.filePath && t.filePath.startsWith(oldPath)) {
+          // If the path exactly matches, or it's inside the renamed directory
+          const newFilePath = t.filePath.replace(oldPath, newPath);
+          const newTabId = t.id.replace(oldPath, newPath);
+          const newTitle = t.filePath === oldPath ? newName : t.title; // update title only if it's the exact file
+          
+          return {
+            ...t,
+            id: newTabId,
+            title: newTitle,
+            filePath: newFilePath,
+            fileEntry: t.fileEntry ? { ...t.fileEntry, path: newFilePath, name: t.filePath === oldPath ? newName : t.fileEntry.name } : undefined,
+          };
+        }
+        return t;
+      });
+
+      const updatedActiveTabId = p.activeTabId.startsWith(oldPath) 
+        ? p.activeTabId.replace(oldPath, newPath)
+        : p.activeTabId;
+
+      return { ...p, tabs: updatedTabs, activeTabId: updatedActiveTabId };
+    });
+    set({ panes: updatedPanes });
+  },
+
+  handleFileDeleted: (path, _isDir) => {
+    const { panes } = get();
+    
+    // Find all tabs that match the deleted path (or are children of it)
+    const tabsToClose: { paneId: string, tabId: string }[] = [];
+    
+    panes.forEach(p => {
+      p.tabs.forEach(t => {
+        if (t.type === 'markdown' && t.filePath && t.filePath.startsWith(path)) {
+          tabsToClose.push({ paneId: p.id, tabId: t.id });
+        }
+      });
+    });
+
+    // We can't just call closeTab repeatedly inside the loop because it relies on get().panes
+    // But closeTab uses get() internally, so it's safe if we do it sequentially
+    for (const { paneId, tabId } of tabsToClose) {
+      get().closeTab(paneId, tabId);
+    }
   },
 
   // ── Document/Editor Sync 로직 ──────────────────────────────────────
