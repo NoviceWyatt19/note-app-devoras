@@ -183,13 +183,13 @@
 .cm-blockquote-single {
   border-top-right-radius: 6px;
   border-bottom-right-radius: 6px;
-  padding-top: 0.6rem;
-  padding-bottom: 0.6rem;
+  padding-top: 0.8em;
+  padding-bottom: 0.8em;
 }
 
 .cm-blockquote-top {
   border-top-right-radius: 6px;
-  padding-top: 0.6rem;
+  padding-top: 0.8em;
 }
 
 .cm-blockquote-middle {
@@ -197,7 +197,7 @@
 
 .cm-blockquote-bottom {
   border-bottom-right-radius: 6px;
-  padding-bottom: 0.6rem;
+  padding-bottom: 0.8em;
 }
 
 .cm-blockquote-text {
