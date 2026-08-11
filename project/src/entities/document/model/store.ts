@@ -4,14 +4,14 @@ import { MindNode, parseMarkdown } from '@/entities/document/lib/parser';
 import { useWorkspaceStore } from '@/entities/workspace/model/store';
 import { useBlockStore } from '@/entities/block/model/store';
 
-export type TabType = 'markdown' | 'mindmap-global';
+export type TabType = 'markdown' | 'mindmap-global' | 'erd';
 
 export interface TabItem {
   id: string;            // filePath 혹은 'global-mindmap'
   type: TabType;
   title: string;
-  filePath?: string;     // markdown 일 때 파일 경로
-  fileEntry?: FileEntry; // markdown 일 때 FileEntry 저장
+  filePath?: string;     // markdown, erd 일 때 파일 경로
+  fileEntry?: FileEntry; // markdown, erd 일 때 FileEntry 저장
   isDirty?: boolean;
 }
 
@@ -93,7 +93,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
 
   getCurrentFile: () => {
     const activeTab = get().getActiveTab();
-    if (activeTab && activeTab.type === 'markdown') {
+    if (activeTab && (activeTab.type === 'markdown' || activeTab.type === 'erd')) {
       return activeTab.fileEntry || null;
     }
     return null;
@@ -151,9 +151,12 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       if (!workspacePath) return;
 
       const content = await fileSystemRepository.readFile(file.path);
+      const isErd = file.path.toLowerCase().endsWith('.erd');
+      
       const allMetadata = await fileSystemRepository.readSpatialMetadata(workspacePath);
       const spatialData = allMetadata[file.path] || {};
-      const parsedNodes = parseMarkdown(content);
+      
+      const parsedNodes = isErd ? [] : parseMarkdown(content);
 
       const alignedNodes = parsedNodes.map((node) => {
         if (spatialData[node.id]) {
@@ -170,7 +173,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       if (!existingTab) {
         updatedTabs.push({
           id: tabId,
-          type: 'markdown',
+          type: isErd ? 'erd' : 'markdown',
           title: file.name,
           filePath: file.path,
           fileEntry: file,
@@ -203,14 +206,16 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     const targetTab = pane.tabs.find((t) => t.id === tabId);
     const updatedPanes = panes.map((p) => (p.id === paneId ? { ...p, activeTabId: tabId } : p));
 
-    // 마크다운 탭인 경우 해당 파일 내용으로 로드 동기화
-    if (targetTab && targetTab.type === 'markdown' && targetTab.fileEntry) {
+    // 파일 탭인 경우 해당 파일 내용으로 로드 동기화
+    if (targetTab && (targetTab.type === 'markdown' || targetTab.type === 'erd') && targetTab.fileEntry) {
       const workspacePath = useWorkspaceStore.getState().workspacePath;
       if (workspacePath) {
         const content = await fileSystemRepository.readFile(targetTab.fileEntry.path);
+        const isErd = targetTab.type === 'erd';
+        
         const allMetadata = await fileSystemRepository.readSpatialMetadata(workspacePath);
         const spatialData = allMetadata[targetTab.fileEntry.path] || {};
-        const parsedNodes = parseMarkdown(content);
+        const parsedNodes = isErd ? [] : parseMarkdown(content);
 
         const alignedNodes = parsedNodes.map((node) => {
           if (spatialData[node.id]) return { ...node, x: spatialData[node.id].x, y: spatialData[node.id].y };
@@ -423,14 +428,23 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     const workspacePath = useWorkspaceStore.getState().workspacePath;
     if (!workspacePath) return;
 
-    const latestContent = useBlockStore.getState().getMergedContent();
+    let latestContent = '';
+    if (currentFile.path.endsWith('.erd')) {
+      latestContent = get().rawContent;
+    } else {
+      latestContent = useBlockStore.getState().getMergedContent();
+    }
 
     try {
       await fileSystemRepository.writeFile(currentFile.path, latestContent);
 
-      const allMetadata = await fileSystemRepository.readSpatialMetadata(workspacePath);
-      const updatedMetadata = { ...allMetadata, [currentFile.path]: spatialData };
-      await fileSystemRepository.writeSpatialMetadata(workspacePath, updatedMetadata);
+      try {
+        const allMetadata = await fileSystemRepository.readSpatialMetadata(workspacePath);
+        const updatedMetadata = { ...allMetadata, [currentFile.path]: spatialData };
+        await fileSystemRepository.writeSpatialMetadata(workspacePath, updatedMetadata);
+      } catch (e) {
+        console.warn('Failed to update spatial metadata (ignoring):', e);
+      }
 
       // dirty 상태 해제
       const { panes, activePaneId } = get();

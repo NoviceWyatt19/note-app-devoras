@@ -62,7 +62,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
           if (entry.isDir) {
             const children = await buildTree(entry.path);
             result.push({ ...entry, children });
-          } else if (entry.name.endsWith('.md')) {
+          } else if (entry.name.endsWith('.md') || entry.name.endsWith('.erd')) {
             result.push(entry);
           }
         }
@@ -84,11 +84,21 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
 
   createFile: async (parentPath: string, name: string) => {
     let sanitizedName = name.trim();
-    if (!sanitizedName.endsWith('.md')) {
+    // 만약 이미 .erd 또는 .md 확장자가 있으면 그대로 사용, 없으면 기본적으로 .md 추가
+    if (!sanitizedName.endsWith('.md') && !sanitizedName.endsWith('.erd')) {
       sanitizedName += '.md';
     }
     const fullPath = `${parentPath}/${sanitizedName}`;
-    const initialContent = `# ${sanitizedName.replace('.md', '')}\n\n`;
+    
+    // 확장자에 따라 초기 내용 분기
+    let initialContent = '';
+    if (sanitizedName.endsWith('.md')) {
+      initialContent = `# ${sanitizedName.replace('.md', '')}\n\n`;
+    } else if (sanitizedName.endsWith('.erd')) {
+      const { createEmptyErdDocument } = await import('../../erd/model/erd');
+      initialContent = JSON.stringify(createEmptyErdDocument(), null, 2);
+    }
+    
     await fileSystemRepository.writeFile(fullPath, initialContent);
     await get().scanWorkspace();
   },

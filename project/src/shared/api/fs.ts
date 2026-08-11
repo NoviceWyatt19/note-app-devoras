@@ -170,8 +170,12 @@ export class MockFileSystem implements FileSystemRepository {
   }
 
   async writeSpatialMetadata(workspacePath: string, metadata: Record<string, any>): Promise<void> {
-    const metaPath = `${workspacePath}/.devoras/spatial.json`;
-    this.virtualFs[metaPath] = { content: JSON.stringify(metadata) };
+    try {
+      const metaPath = `${workspacePath}/.devoras/spatial.json`;
+      this.virtualFs[metaPath] = { content: JSON.stringify(metadata) };
+    } catch (e) {
+      console.error('Node readSpatialMetadata error:', e);
+    }
   }
 
   async saveImageAsset(
@@ -291,8 +295,11 @@ export class TauriFileSystem implements FileSystemRepository {
       if (!hasMeta) return {};
       const content = await readTextFile(metaPath);
       return JSON.parse(content);
-    } catch (e) {
-      console.error('Tauri readSpatialMetadata error:', e);
+    } catch (e: any) {
+      const msg = typeof e === 'string' ? e : (e instanceof Error ? e.message : String(e));
+      if (!msg.includes('forbidden path')) {
+        console.error('Tauri readSpatialMetadata error:', e);
+      }
       return {};
     }
   }
@@ -307,8 +314,11 @@ export class TauriFileSystem implements FileSystemRepository {
       }
       const metaPath = `${devorasDir}/spatial.json`;
       await writeTextFile(metaPath, JSON.stringify(metadata, null, 2));
-    } catch (e) {
-      console.error('Tauri writeSpatialMetadata error:', e);
+    } catch (e: any) {
+      const msg = typeof e === 'string' ? e : (e instanceof Error ? e.message : String(e));
+      if (!msg.includes('forbidden path')) {
+        console.error('Tauri writeSpatialMetadata error:', e);
+      }
     }
   }
 

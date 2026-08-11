@@ -10,6 +10,8 @@ import {
   ReactFlow,
   ReactFlowProvider,
   getSmoothStepPath,
+  useNodesState,
+  useEdgesState,
   type Edge,
   type EdgeChange,
   type EdgeProps,
@@ -82,17 +84,25 @@ export default function ErdDesigner(props: ErdDesignerProps): JSX.Element {
     setSelection(null);
   }, [props.filePath]);
 
-  const nodes = useMemo<Node<TableNodeData>[]>(() => props.document.tables.map((table) => ({
-    id: table.id,
-    type: "erdTable",
-    position: table.position,
-    data: { table }
-  })) ?? [], [props.document.tables]);
+  const [nodes, setNodes, onNodesChangeReactFlow] = useNodesState<Node<TableNodeData>>([]);
+  const [edges, setEdges, onEdgesChangeReactFlow] = useEdgesState<Edge<ErdEdgeData>>([]);
 
-  const edges = useMemo<Edge<ErdEdgeData>[]>(() => {
-    if (!props.document) return [];
+  React.useEffect(() => {
+    setNodes((currentNodes) => {
+      const positionMap = new Map(currentNodes.map(n => [n.id, n.position]));
+      return props.document.tables.map((table) => ({
+        id: table.id,
+        type: "erdTable",
+        position: positionMap.get(table.id) || table.position,
+        data: { table }
+      }));
+    });
+  }, [props.document.tables, setNodes]);
+
+  React.useEffect(() => {
+    if (!props.document) return;
     const boxes = buildTableBoxes(props.document);
-    return props.document.relations.map((relation) => {
+    setEdges(props.document.relations.map((relation) => {
       const route = routeRelation(props.document, relation, boxes);
       const symbols = relationSymbols(relation);
       const style = relationVisualStyle(relation);
@@ -116,8 +126,8 @@ export default function ErdDesigner(props: ErdDesignerProps): JSX.Element {
           targetOptional: style.targetOptional
         }
       };
-    });
-  }, [props.document.relations, props.document.tables]);
+    }));
+  }, [props.document.relations, props.document.tables, setEdges]);
 
   const updateDocument = useCallback((updater: (document: ErdDocumentV1) => ErdDocumentV1) => {
     const next = updater(props.document);
@@ -128,59 +138,41 @@ export default function ErdDesigner(props: ErdDesignerProps): JSX.Element {
 
   const commitDocument = updateDocument;
 
-  const onNodesChange = useCallback((changes: NodeChange[]) => {
+  const onNodesChange = useCallback((changes: NodeChange<Node<TableNodeData>>[]) => {
+    onNodesChangeReactFlow(changes);
+    const removeIds = new Set(changes.filter((change) => change.type === "remove").map((change) => change.id));
+    if (removeIds.size > 0) {
+      updateDocument((current) => {
+        return {
+          ...current,
+          tables: current.tables.filter((table) => !removeIds.has(table.id)),
+          relations: current.relations.filter((relation) => !removeIds.has(relation.fromTable) && !removeIds.has(relation.toTable))
+        };
+      });
+    }
+  }, [onNodesChangeReactFlow, updateDocument]);
+
+  const onNodeDragStop = useCallback((_event: any, node: any) => {
     updateDocument((current) => {
-      const removeIds = new Set(changes.filter((change) => change.type === "remove").map((change) => change.id));
-      const positionById = new Map(
-        changes
-          .flatMap((change) => change.type === "position" && change.position ? [[change.id, change.position] as const] : [])
-      );
-
-      let changed = false;
-      const tables = current.tables
-        .filter((table) => {
-          const keep = !removeIds.has(table.id);
-          if (!keep) changed = true;
-          return keep;
-        })
-        .map((table) => {
-          const nextPosition = positionById.get(table.id);
-          if (!nextPosition) return table;
-          if (table.position.x === nextPosition.x && table.position.y === nextPosition.y) return table;
-          changed = true;
-          return { ...table, position: nextPosition };
-        });
-
-      if (!changed) return current;
-
-      return {
-        ...current,
-        tables,
-        relations: current.relations.filter((relation) => !removeIds.has(relation.fromTable) && !removeIds.has(relation.toTable))
-      };
+      const tables = current.tables.map(t => t.id === node.id ? { ...t, position: node.position } : t);
+      return { ...current, tables };
     });
   }, [updateDocument]);
 
-  const onNodeDragStop = useCallback((_event: any, node: any) => {
-    const nextTables = props.document.tables.map(t => t.id === node.id ? { ...t, position: node.position } : t);
-    const nextDoc = { ...props.document, tables: nextTables };
-    props.onChange(nextDoc);
-  }, [props.document, props.onChange]);
-
-  const onEdgesChange = useCallback((changes: EdgeChange[]) => {
-    commitDocument((current) => {
-      const removeIds = new Set(
-        changes.flatMap((change) => (change.type === "remove" ? [change.id] : []))
-      );
-      if (removeIds.size === 0) return current;
-      const nextRelations = current.relations.filter((relation) => !removeIds.has(relation.id));
-      if (nextRelations.length === current.relations.length) return current;
-      return {
-        ...current,
-        relations: nextRelations
-      };
-    });
-  }, [commitDocument]);
+  const onEdgesChange = useCallback((changes: EdgeChange<Edge<ErdEdgeData>>[]) => {
+    onEdgesChangeReactFlow(changes);
+    const removeIds = new Set(
+      changes.flatMap((change) => (change.type === "remove" ? [change.id] : []))
+    );
+    if (removeIds.size > 0) {
+      commitDocument((current) => {
+        return {
+          ...current,
+          relations: current.relations.filter((relation) => !removeIds.has(relation.id))
+        };
+      });
+    }
+  }, [onEdgesChangeReactFlow, commitDocument]);
 
   if (!props.document) {
     return (
