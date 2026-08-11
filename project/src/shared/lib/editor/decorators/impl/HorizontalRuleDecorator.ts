@@ -7,7 +7,7 @@ const HR_RE = /^(\s*)(---|___|\*\*\*)(\s*)$/;
 class HRWidget extends WidgetType {
   toDOM() {
     const span = document.createElement('span');
-    span.className = 'cm-hr';
+    span.className = 'cm-hr-widget';
     span.style.display = 'inline-block';
     span.style.width = '100%';
     span.contentEditable = 'false';

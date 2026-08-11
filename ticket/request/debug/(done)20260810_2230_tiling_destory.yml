@@ -1,0 +1,21 @@
+# 🚑 HOTFIX TICKET
+type: "FIX_TICKET"
+id: "BUG-20260810-05"
+# ━━━
+update: "2026-08-10 22:29"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "줄바꿈 문자(\n) Replace로 인한 CodeMirror 엔진 크래시 및 타일링 붕괴 핫픽스"
+status: "Todo"
+# ━━━
+bug_report:
+  symptom: "에디터에 텍스트 입력 시 `RangeError: Decorations that replace line breaks may not be specified via plugins` 및 `No tile at position...` 에러가 발생하며 에디터가 완전히 굳어버림."
+  cause: "이전 티켓(BUG-20260810-04) 적용 시, 데코레이터의 정규식 매칭 또는 `from`/`to` 오프셋이 줄바꿈 문자(`\n`)를 포함하여 `Decoration.replace`를 반환하도록 잘못 구현됨. 이로 인해 CodeMirror의 줄 기반(Line-based) 렌더링 타일이 파괴됨."
+# ━━━
+architecture_guidelines:
+  - "Never Replace Newlines: 어떠한 경우에도 `Decoration.replace`의 `from`과 `to` 사이에 줄바꿈 문자(`\n`)가 포함되어서는 안 된다."
+  - "Line-bounded Execution: 블록 레벨 마커(`- [ ]`, `---`, ` ``` ` 등)를 처리할 때는 정규식에 의존하여 멀티라인을 한 번에 치환하지 말고, `state.doc.lineAt(pos)` 등을 활용하여 반드시 단일 줄(Single Line) 내부에서만 마커 텍스트 범위를 특정하여 Replace할 것."
+  - "Strict Regex: 인라인 데코레이터 정규식에서 점(`.`)이나 공백 처리 시 `\n`이 절대 매칭되지 않도록 `[^\n]` 등의 부정 문자열(Negated Character Class)을 엄격히 적용할 것."
+# ━━━
+tasks:
+  - "[ ] `CodeBlockDecorator`, `CheckboxDecorator` 등 최근 수정된 모든 Decorator의 매칭 로직(특히 정규식) 검수 및 `\n` 캡처 방지 처리"
+  - "[ ] `Decoration.replace`를 생성하기 직전, `from`과 `to`가 동일한 라인에 속해 있는지(`state.doc.lineAt(from).number === state.doc.lineAt(to).number`) 검증하는 안전장치(Guard) 로직 추가"

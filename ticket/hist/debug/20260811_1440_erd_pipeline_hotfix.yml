@@ -1,0 +1,19 @@
+# 🗂️ FIX TICKET
+type: "FIX_TICKET"
+id: "BUG-20260811-04"
+# ━━━
+update: "2026-08-11 14:40"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "ERD 저장 파이프라인 수리, Tauri 권한 경고 억제, React Flow 상태 최적화"
+status: "Done"
+# ━━━
+architecture_guidelines:
+  - "Save Pipeline Branching: `store.ts`의 `saveFile` 로직에서 현재 활성화된 탭의 `type`이 'erd'인 경우 `useBlockStore.getMergedContent()` 대신 `get().rawContent`를 저장하도록 분기 처리 완료."
+  - "Silent Fails for Metadata: `fs.ts`의 메타데이터(spatial.json) 읽기/쓰기 시 발생하는 `forbidden path` 에러 로그를 콘솔에 출력하지 않고 무시하도록 `catch` 블록 수정 완료."
+  - "React Flow Identity: `ErdDesigner.tsx`에서 부모의 `document` 프롭스가 갱신될 때, `setNodes`를 기존 노드의 위치(`position`)를 유지하면서 병합(Merge)하여 `drag a node that is not initialized (#015)` 에러 차단 완료."
+# ━━━
+tasks:
+  - "[x] `entities/document/model/store.ts`: `saveFile` 내부에 ERD와 Markdown을 구분하여 저장 소스 분기 완료."
+  - "[x] `shared/api/fs.ts`: 메타데이터 관련 함수 내부 `catch` 블록에서 권한 에러 메시지(`forbidden path`) 필터링 완료."
+  - "[x] `widgets/ErdDesigner/ui/ErdDesigner.tsx`: `useEffect` 내부의 `setNodes` 로직을 기존 위치와 병합 및 간소화 완료."
+  - "[x] `entities/workspace/model/store.ts`: `.erd` 확장자 생성 시 뼈대 JSON 구조 할당 완료."

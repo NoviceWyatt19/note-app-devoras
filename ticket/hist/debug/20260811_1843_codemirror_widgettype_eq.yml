@@ -1,0 +1,18 @@
+# 🗂️ FIX TICKET
+type: "FIX_TICKET"
+id: "BUG-20260811-09"
+# ━━━
+update: "2026-08-11 18:43"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "CodeMirror WidgetType eq() 메서드 누락에 따른 DOM Thrashing 및 클릭 데드존 수리"
+status: "Done"
+# ━━━
+architecture_guidelines:
+  - "Widget Identity (eq method): `WidgetType`을 상속받는 모든 클래스에 `eq(other)` 메서드를 구현하여 불필요한 DOM 파괴 및 재생성을 차단."
+  - "Stable DOM Measurement: `eq()`를 통해 위젯 DOM이 안정적으로 유지되어 CodeMirror의 `posAtCoords` (클릭/방향키 좌표 역산)가 정상적으로 작동."
+# ━━━
+tasks:
+  - "[x] `ListDecorator.ts`: `BulletWidget` 클래스에 `eq` 추가."
+  - "[x] `HeadingDecorator.ts`: `HeadingBadgeWidget` 클래스에 `eq` 추가."
+  - "[x] `HorizontalRuleDecorator.ts`: `HRWidget` 클래스에 `eq` 추가 및 사용하지 않는 매개변수(`_other`) 처리."
+  - "[x] 기타: 빌드 에러를 유발했던 `BlockEditor.tsx`의 `markdownDecorationPlugin` 주석 제거 및 정상화."

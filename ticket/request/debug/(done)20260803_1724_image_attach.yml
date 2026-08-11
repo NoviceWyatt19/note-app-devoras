@@ -1,0 +1,22 @@
+# 🐛 FIX TICKET
+type: "FIX_TICKET"
+id: "BUG-20260803-01"
+# ━━━
+update: "2026-08-03 17:21"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "에디터 이미지 첨부(Drag&Paste) 동작 실패 수정"
+status: "Todo"
+# ━━━
+bug_report:
+  symptom: "에디터에 이미지를 Drag&Drop 하거나 Paste 했을 때, 파일이 디스크에 저장되지 않거나 마크다운 태그가 주입되지 않음."
+  expected: "Tauri FS를 통해 지정된 경로에 이미지가 저장되고, `![img](상대경로)` 포맷의 텍스트가 커서 위치에 삽입되어야 함."
+# ━━━
+harness:
+  path: "project/src/shared/lib/fs/__tests__/image_asset_harness.ts"
+  run_command: "pnpm test:image"
+  validation: "테스트 스위트가 에러 없이 100% 통과해야 함"
+# ━━━
+tasks:
+  - "[ ] image_asset_harness.ts 에 현재 버그를 재현하는 실패(Red) 테스트 케이스 추가 (필요 시)"
+  - "[ ] 원인 분석: CodeMirror 이벤트 캡처 누락, Tauri FS API 권한/경로 오류, Workspace 경로 계산 로직 등"
+  - "[ ] 버그 수정 및 하네스 테스트 통과(Green) 확인"

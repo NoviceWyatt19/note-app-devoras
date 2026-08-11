@@ -1,0 +1,17 @@
+# 🗂️ FIX TICKET
+type: "FIX_TICKET"
+id: "BUG-20260811-07"
+# ━━━
+update: "2026-08-11 18:04"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "CodeMirror 커서 Y축 어긋남 수정 및 블록 간 방향키 스킵(건너뜀) 버그 해결"
+status: "Done"
+# ━━━
+architecture_guidelines:
+  - "Strict Measurement Control: `.cm-line`의 높이를 강제(`lineHeight: '1.6em'`, `minHeight: '1.6em'`)하여 Y축 좌표 측정 캐시 오염 원천 차단 완료."
+  - "Event Delegation: `ArrowUp`, `ArrowDown` 로직에서 예측 기반의 상태 판단(`line.number`)을 제거하고, 텍스트 시작(`from === 0`)과 끝(`from === doc.length`)으로 단순화 완료."
+# ━━━
+tasks:
+  - "[x] `BlockEditor.tsx` 테마 수정: `EditorView.theme` 내부에 `.cm-line` 선택자 추가 완료."
+  - "[x] `BlockEditor.tsx` 키맵 수정: `ArrowUp` 로직을 `empty && from === 0` 조건으로 변경 완료."
+  - "[x] `BlockEditor.tsx` 키맵 수정: `ArrowDown` 로직을 `empty && from === view.state.doc.length` 조건으로 변경 완료."

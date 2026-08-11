@@ -1,0 +1,23 @@
+# 🐛 FIX TICKET
+type: "FIX_TICKET"
+id: "BUG-20260810-02"
+# ━━━
+update: "2026-08-10 17:46"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "IME 조합 중 CodeMirror 트랜잭션 충돌로 인한 텍스트 증식 버그 해결 (True Pass-through 적용)"
+status: "Todo"
+# ━━━
+bug_report:
+  symptom: "한글 입력 시 텍스트가 중복 증식('라라라라')하며, 터미널/콘솔에 `error messaging the mach port for IMKCFRunLoopWakeUpReliable` OS 레벨 에러가 발생함."
+  cause: "BlockEditor.tsx에서 `COMPOSITION_COMMIT` 수신 시 `dispatchImeCommit`을 호출하여 강제 트랜잭션을 발생시킴. 이로 인해 macOS IMK(입력기)가 쥐고 있던 DOM 노드가 CodeMirror에 의해 파괴(Re-render)되면서 통신이 단절되고 버퍼가 터지는 현상 발생."
+# ━━━
+architecture_guidelines:
+  - "True Pass-through: IME 조합(Preedit) 텍스트의 DOM 렌더링은 100% 브라우저(WebKit)와 CodeMirror 네이티브 로직에 위임한다."
+  - "No DOM Destruction: 한글 조합 프로세스(compositionstart ~ compositionend) 중에는 절대로 `view.dispatch`를 외부에서 호출하여 DOM을 덮어씌우지 않는다."
+  - "Store Sync Latch: 격리 레이어의 유일한 목적은 에디터 DOM 개입이 아니라, 조합이 안전하게 완료될 때까지 Zustand 스토어로 텍스트가 넘어가는 것(`onUpdate`)을 '차단(Block)'하는 것뿐이다."
+# ━━━
+tasks:
+  - "[ ] BlockEditor.tsx의 `useImeInputManager` 콜백에서 `dispatchImeCommit` 호출(강제 트랜잭션) 부분 완전히 제거"
+  - "[ ] ImeIsolation.ts에 구현된 무거운 `StateField` 상태 추적 및 `dispatch` 관련 로직 전면 폐기"
+  - "[ ] `useImeInputManager`를 무거운 Command Dispatcher가 아닌 가벼운 Latch(잠금장치) 훅으로 리팩토링 (예: `const isComposing = useImeInputManager()` 형태로 boolean 상태만 제공)"
+  - "[ ] BlockEditor.tsx의 `updateListener`에서 위 Latch 상태와 `update.view.composing`을 조합하여, 오직 `callbacksRef.current.onUpdate` 호출만 억제하도록 로직 간소화"

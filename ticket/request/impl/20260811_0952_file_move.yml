@@ -1,0 +1,20 @@
+# 🗂️ FEATURE TICKET
+type: "FEATURE_TICKET"
+id: "FEAT-20260811-02"
+# ━━━
+update: "2026-08-11 09:51"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "파일 탐색기 드래그 앤 드롭(Drag & Drop) 기반 파일/폴더 이동 기능 구현"
+status: "Todo"
+# ━━━
+architecture_guidelines:
+  - "Native HTML5 Drag API: 무거운 서드파티 라이브러리(`react-dnd` 등) 대신 HTML5 네이티브 `draggable` 속성과 `onDragStart`, `onDragOver`, `onDrop` 이벤트를 활용하여 가볍게 구현할 것."
+  - "Re-use Sync Logic: 파일 이동(Move)은 파일 시스템 관점에서 경로가 변경되는 것이므로, 이전에 만들어둔 `store.ts`의 `handleFileRenamed` 로직을 재사용하여 열려있는 탭의 경로를 동기화할 것."
+  - "Drag UX: 드래그 오버(`onDragOver`) 시 대상 폴더에 옅은 하이라이트 배경색(예: `bg-primary/20`)을 주어 드롭 타겟을 명확히 시각화할 것."
+# ━━━
+tasks:
+  - "[ ] `fs.ts` 레이어 확장: `moveEntry(oldPath: string, newPath: string): Promise<void>` 메서드 추가 (Tauri의 `rename` 네이티브 API 활용 가능)"
+  - "[ ] 워크스페이스 스토어 업데이트: 드롭 이벤트 발생 시 `moveEntry` 호출 및 완료 후 `documentStore`의 탭 경로 동기화 로직 연동"
+  - "[ ] `FileExplorer.tsx` UI 업데이트: `FileNode` 및 `FolderNode`에 `draggable={true}` 속성 추가 및 Drag & Drop 이벤트 핸들러 바인딩"
+  - "[ ] 예외 처리: 자기 자신의 하위 폴더로 이동 시도 시 차단 로직(Guard) 추가"
+  - "[ ] 예외 처리: 이동하려는 위치에 동일한 이름의 파일/폴더가 이미 존재할 경우 덮어쓰기 방지 처리"

@@ -1,0 +1,18 @@
+# 🗂️ FIX TICKET
+type: "FIX_TICKET"
+id: "BUG-20260811-05"
+# ━━━
+update: "2026-08-11 17:54"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "CodeMirror 커서 스킵(건너뜀) 및 클릭 데드존 버그 수정 (DOM Measurement 붕괴 복구)"
+status: "Done"
+# ━━━
+architecture_guidelines:
+  - "No Block Elements in Inline Widgets: `HorizontalRuleDecorator`의 `<div>`를 `<span>`으로 교체하고 CSS `display: inline-block; width: 100%;`로 우회하여 렌더링 엔진의 높이 맵핑 붕괴 차단 완료."
+  - "Event Passthrough: `ListDecorator`, `HeadingDecorator`, `LatexDecorator`, `HorizontalRuleDecorator` 등 텍스트를 치환하는 모든 `WidgetType` 클래스에 `ignoreEvent() { return false; }` 메서드를 추가하여 위젯 클릭 시 주변 텍스트로 커서 진입을 허용하도록 복구."
+# ━━━
+tasks:
+  - "[x] `HorizontalRuleDecorator.ts`: `span` 변경 및 `ignoreEvent()` 추가 완료."
+  - "[x] `ListDecorator.ts`: `BulletWidget` 클래스에 `ignoreEvent() { return false; }` 추가 완료."
+  - "[x] `HeadingDecorator.ts`: `HeadingBadgeWidget` 클래스에 `ignoreEvent() { return false; }` 추가 완료."
+  - "[x] `LatexDecorator.ts`: `WidgetType`을 상속받는 모든 클래스의 루트 요소를 `span`으로 변경하고 `ignoreEvent`를 `false` 반환으로 오버라이드 완료."

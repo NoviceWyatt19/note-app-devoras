@@ -225,3 +225,7 @@
   background: #334155;
   width: 100%;
 }
+
+/* Live Preview Widget spacings */
+.cm-blockquote-widget-block { padding: 0.2rem 0; }
+

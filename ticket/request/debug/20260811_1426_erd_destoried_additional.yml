@@ -1,0 +1,18 @@
+# 🚑 HOTFIX TICKET
+type: "FIX_TICKET"
+id: "BUG-20260811-03"
+# ━━━
+update: "2026-08-11 14:24"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "ERD 저장 권한 충돌, 드래그 상태 최적화 및 초기 파일 생성 에러 수정"
+status: "Todo"
+# ━━━
+architecture_guidelines:
+  - "Tauri FS Fault Tolerance: `fs.ts`의 `writeSpatialMetadata` 및 `readSpatialMetadata`가 권한 문제로 실패하더라도 본문 파일(`writeFile`)의 저장 프로세스가 중단되지 않도록 철저한 `try-catch` 예외 처리를 적용할 것."
+  - "Local UI State vs Global Data: `ErdDesigner.tsx`에서 React Flow의 `nodes`와 `edges`는 `useNodesState`를 사용하여 로컬에서 가볍게 처리하고, `onNodeDragStop`이나 구조 변경 액션 시에만 `props.onChange`를 통해 직렬화된 데이터를 전역 스토어로 던질 것."
+  - "JSON Initialization: `workspace/model/store.ts`의 `createFile` 액션에서 `.erd` 확장자일 경우 마크다운 헤딩 대신 유효한 초기 JSON 골격 문자열을 주입할 것."
+# ━━━
+tasks:
+  - "[ ] `fs.ts`: 메타데이터 읽기/쓰기 함수 내부에 `try-catch` 블록을 추가하여, 권한 에러 발생 시 콘솔 경고만 남기고 앱 크래시를 방지."
+  - "[ ] `workspace/model/store.ts`: `createFile` 로직 수정. `.erd` 파일 생성 시 `initialContent`에 유효한 JSON 객체를 `stringify` 하여 할당."
+  - "[ ] `ErdDesigner.tsx`: React Flow의 `useNodesState`, `useEdgesState` 훅을 도입하여 드래그 경고 에러(`error#015`) 해결 및 `onNodeDragStop` 시점에만 부모 컴포넌트에 상태 갱신 요청."

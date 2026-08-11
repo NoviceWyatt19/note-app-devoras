@@ -1,0 +1,15 @@
+# 📜 HISTORY TICKET  
+type: "HISTORY_TICKET"  
+id: "[ID]"  
+# ━━━  
+update: "[마지막 핸드오버 날짜 및 시간]"  
+# ━━━  
+project_ref: "[연결된 🛠 PROJECT TICKET 명칭/ID]"  
+# ━━━  
+cumulative_changes:  
+  - "[여러 세션에 걸쳐 누적 변경된 핵심 모듈/아키텍처 1]"  
+# ━━━  
+technical_debt:  
+  - "[리팩토링 대상, 임시로 덮어둔 버그 등 1]"  
+# ━━━  
+next_session_start: "[새로운 세션이 즉시 컨텍스트를 이어받아 시작할 작업]"

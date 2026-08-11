@@ -1,0 +1,19 @@
+# 🗂️ FEATURE TICKET
+type: "FEATURE_TICKET"
+id: "FEAT-20260811-01"
+# ━━━
+update: "2026-08-11 09:30"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "파일 탐색기 중첩 폴더(Tree View) 지원 및 CRUD 기능 고도화"
+status: "Todo"
+# ━━━
+architecture_guidelines:
+  - "Recursive Component: 하위 디렉터리를 렌더링할 때 재귀적(Recursive) 컴포넌트 호출 패턴을 사용하여 N-Depth 폴더 트리를 유연하게 지원할 것."
+  - "State Synchronization (Tell, Don't Ask): 파일/폴더의 이름 변경(Rename)이나 삭제(Delete) 시, 뷰가 직접 탭 상태를 조작하지 말고 스토어 액션에 위임하여 열려있는 탭(`openedTabs`) 상태와 안전하게 동기화할 것."
+  - "Design System: 미니멀하고 현대적인 어두운 테마를 유지하며, 폴더의 뎁스(Depth)를 나타내는 인덴트(Indent) 라인을 깔끔하게 렌더링할 것."
+# ━━━
+tasks:
+  - "[ ] `fs.ts` 레이어 확장: 중첩 디렉터리 재귀 스캔, 폴더 생성, 이름 변경, 삭제 인터페이스 및 Tauri 네이티브 연동 구현"[cite: 13]
+  - "[ ] 워크스페이스 스토어 업데이트: 재귀 스캔된 트리 구조(`FileEntry[]`)를 관리하고 캐싱하는 상태 로직 구축"[cite: 13]
+  - "[ ] `FileExplorer.tsx` 리팩토링: 트리 형태의 폴더 접기/펴기(Collapse/Expand) 상태를 유지하는 재귀 렌더링 위젯 구현"[cite: 13]
+  - "[ ] 우클릭 컨텍스트 메뉴(Context Menu) 추가: 트리 노드 위에서 새 파일/폴더 생성, 이름 변경(인라인 에디팅), 삭제 트리거 연결"[cite: 13]

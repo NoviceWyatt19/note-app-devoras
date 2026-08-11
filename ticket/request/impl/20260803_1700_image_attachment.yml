@@ -1,0 +1,31 @@
+# 🛠 IMPLEMENT TICKET
+type: "IMPLEMENT_TICKET"
+id: "SESS-20260803-01"
+# ━━━
+update: "2026-08-03 17:00"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "에디터 이미지 첨부(Drag&Paste) 및 동적 워크스페이스 저장 정책 연동"
+status: "In Progress"
+# ━━━
+spec:
+  inputs:
+    - "CodeMirror paste / drop 이벤트 (이미지 바이너리)"
+    - "WorkspaceConfig.imageSavePolicy ('workspace-root-hidden' | 'current-file-relative' | 'custom-folder')"
+  outputs:
+    - "로컬 디스크 내 이미지 파일 저장 (타임스탬프 난수 파일명)"
+    - "CodeMirror 커서 위치에 상대 경로 마크다운 태그(![img](path)) 자동 주입"
+  internal_logic:
+    - "1. Shared/FS 유틸(saveImageAsset): 현재 문서 경로 및 워크스페이스 config에 따른 타겟 저장 디렉터리 동적 계산"
+    - "2. Tauri FS API(createDir, writeBinaryFile)를 이용해 물리 파일 저장"
+    - "3. relative API 기반 문서 기준 상대 경로 및 URL encoding 변환 처리"
+    - "4. CodeMirror extension(imageDropPasteExtension) 구현 및 EditorView 이벤트 등록"
+# ━━━
+harness:
+  path: "project/src/shared/lib/fs/__tests__/image_asset_harness.ts"
+  run_command: "pnpm build"
+# ━━━
+tasks:
+  - "[ ] WorkspaceConfig 이미지 정책 타입 정의 (entities/workspace/model/types.ts)"
+  - "[ ] 동적 상대 경로 계산 및 저장 유틸리티 작성 (shared/lib/fs/imageAsset.ts)"
+  - "[ ] CodeMirror Paste/Drop 이벤트 가로채기 Extension 작성 (widgets/BlockEditor/lib/imageDropPasteExtension.ts)"
+  - "[ ] BlockEditor 인스턴스에 Extension 등록 및 동작 검증"

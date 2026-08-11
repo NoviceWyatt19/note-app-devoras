@@ -1,0 +1,25 @@
+# 🐛 FIX TICKET
+type: "FIX_TICKET"
+id: "BUG-20260810-04"
+# ━━━
+update: "2026-08-10 22:05"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "데코레이터 커서 트래핑 및 오프셋 어긋남 버그 수정 (Cursor-aware Decorators 및 레거시 Hack 제거)"
+status: "Todo"
+# ━━━
+bug_report:
+  symptom: "작성된 텍스트 사이(특히 `-` 또는 인라인 코드 주변)에 텍스트 삽입 시 데코레이터 위치가 어긋나며, 마우스 클릭이나 우측 방향키(`->`)로 커서 진입이 차단되는 현상 발생."
+  cause: "`Decoration.replace` 및 `mark`가 커서 위치를 고려하지 않고 무조건 적용되어 CodeMirror의 Atomic 경계선과 충돌함. 또한 이전에 적용된 인라인 코드 위치 고정용 우회 코드(Hack)가 네이티브 커서 매핑을 방해하여 문제를 가중시킴."
+# ━━━
+architecture_guidelines:
+  - "Clean Slate: 이전에 인라인 코드블록 렌더링 이동 방지를 위해 추가되었던 강제 고정 및 Atomic 관련 우회 코드(Hack)를 모두 롤백(Revert)하고 깨끗한 상태에서 시작할 것."
+  - "Cursor-aware: `DecorationOrchestrator` 및 각 `SyntaxDecorator`의 `update` 사이클은 `view.state.selection.ranges`(현재 커서 위치)를 참조해야 한다."
+  - "Reveal on Focus (Don't ask, tell): 커서가 데코레이션의 범위(`from`, `to`) 내부와 겹치거나 인접해 있을 경우, 텍스트를 숨기는 `Decoration.replace`를 반환하지 말고 원시 텍스트(Raw Text)를 노출하여 네이티브 편집을 보장할 것."
+  - "Inclusive Boundary: `Decoration.mark` 사용 시 타이핑으로 인한 영역 강제 확장을 막기 위해 `inclusive: false` 속성을 명확히 지정할 것."
+# ━━━
+tasks:
+  - "[ ] 기존 인라인 코드블록 데코레이터 내부에 적용된 위치 고정 및 렌더링 강제 제어 관련 레거시 우회 코드(Hack) 전면 제거 및 롤백"
+  - "[ ] `DecorationOrchestrator`의 데코레이션 빌드 로직에 `state.selection` 의존성 주입"
+  - "[ ] 인라인 코드, 볼드, 이탤릭 등 Inline Decorator들에 대해 커서 진입 시(Intersection) 원시 마크다운 기호를 노출하도록 조건부 렌더링 적용"
+  - "[ ] 리스트(`-`), 인용구 등 Block Decorator들에 대해 현재 활성화된 줄(Active Line)에 커서가 있을 경우 마커 강제 숨김 해제 적용"
+  - "[ ] 기존 생성된 데코레이터들의 `inclusive` 속성 검수 및 좌우 엣지 타이핑 버그 픽스"

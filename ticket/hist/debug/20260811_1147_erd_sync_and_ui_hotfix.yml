@@ -1,0 +1,19 @@
+# 🗂️ FIX TICKET
+type: "FIX_TICKET"
+id: "BUG-20260811-01"
+# ━━━
+update: "2026-08-11 11:47"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "ERD 렌더러 튕김 현상 수정 및 실시간 저장 동기화, UI 개선"
+status: "Done"
+# ━━━
+architecture_guidelines:
+  - "State Sync: 탭 전환 시에만 `selection`을 초기화하고, `onNodeDragStop` 및 `updateDocument` 실행 시 최신 데이터를 전역 스토어(`updateContent`)에 즉시 동기화할 것."
+  - "UI & Visibility: 어두운 테마 환경에서 `<input>`, `<select>` 태그의 배경이 하얗게 렌더링되어 글씨가 안 보이는 현상을 막기 위해, 명시적으로 다크 테마 Tailwind 클래스를 주입할 것."
+  - "Button Styling: 툴바 및 인스펙터 내부의 모든 `<button>`에 공통 다크 테마 유틸리티 클래스를 적용할 것."
+# ━━━
+tasks:
+  - "[x] `ErdDesigner.tsx`: `useEffect` 의존성을 수정하여 부모로부터 새로운 상태가 내려올 때 인스펙터 선택(Selection) 상태가 날아가지 않도록 방어 로직 추가."
+  - "[x] `ErdDesigner.tsx`: `onNodeDragStop` 콜백에서 `node.position`을 직접 추출하여 스토어에 갱신하고, `updateDocument` 완료 시에도 스토어 동기화 호출 연결."
+  - "[x] `Inspector` 컴포넌트: 모든 `input` 및 `select` 요소에 다크 테마 유틸리티 클래스 적용하여 텍스트 가시성 확보."
+  - "[x] 버튼 UI 개편: 상단 툴바 및 인스펙터 내부 버튼들에 공통 스타일 일괄 적용."

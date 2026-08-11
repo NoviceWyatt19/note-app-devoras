@@ -1,0 +1,30 @@
+# ⚙️ REFACTOR & IMPLEMENT TICKET
+type: "REFACTOR_TICKET"
+id: "RFC-20260810-01"
+# ━━━
+update: "2026-08-10 17:16"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "3단계: IME 스레드 분리 및 Raw Input 격리 파이프라인 구축"
+status: "Todo"
+# ━━━
+architecture_guidelines:
+  - "Humble Object Pattern: 이미지 레이어와 동일하게, 플랫폼(macOS WKWebView) 종속적인 IME(한글 조합) 이벤트를 CodeMirror 메인 로직에서 분리할 것."
+  - "Don't ask, tell: 에디터 컴포넌트는 입력 상태를 묻지 않고, 정규화된 Command(예: UPDATE_COMPOSITION, COMMIT_TEXT)만을 전달받아 트랜잭션을 수행할 것."
+# ━━━
+spec:
+  as_is:
+    - "CodeMirror의 기본 DOM 텍스트 입력 처리와 macOS WKWebView의 한글 IME(Composition) 이벤트가 트랜잭션 단위에서 충돌하여, 문자 씹힘, 중복 입력, 조합 끊김 버그가 발생함."
+  to_be:
+    - "1. 수신 계층: `useTauriInputManager` 확장 혹은 전용 Worker를 통해 `compositionstart`, `compositionupdate`, `compositionend`, `beforeinput` 등의 Raw Input 이벤트를 최전방에서 가로채고 격리함."
+    - "2. 정규화 계층: 가로챈 IME 조합 상태와 입력 텍스트 데이터를 정규화된 커맨드 객체로 변환하여 Dispatch함."
+    - "3. 비즈니스 계층: CodeMirror 내부 extension(예: ImeIsolationExtension)을 구현하여 자체적인 DOM 기반 IME 처리를 억제(Suppress)하고, 외부 Dispatcher가 지시(Tell)하는 커맨드에만 의존하여 텍스트를 렌더링함."
+# ━━━
+harness:
+  path: "project/src/widgets/BlockEditor/__tests__/ime_isolation_harness.ts"
+  run_command: "pnpm test:ime"
+# ━━━
+tasks:
+  - "[ ] Raw Input 및 IME Composition 이벤트를 독립적으로 수신/관리할 격리 계층(Worker 또는 커스텀 훅 확장) 구현"
+  - "[ ] 텍스트 입력 및 조합 상태를 표현하는 정규화 Command 타입 정의 및 Dispatcher 연동"
+  - "[ ] CodeMirror ImeIsolationExtension 작성 (기존 충돌 이벤트 차단 및 커맨드 수신 렌더링 로직)"
+  - "[ ] 하네스 검증: 한글 조합 중 트랜잭션 꼬임(씹힘/중복) 현상 및 다중 탭 환경에서의 상태 격리 테스트 수행"

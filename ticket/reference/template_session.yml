@@ -1,0 +1,23 @@
+# 🎫 SESSION SNAPSHOT TICKET  
+type: "SESSION_SNAPSHOT"  
+id: "[번호]"  
+# ━━━  
+update: "[YYYY-MM-DD HH:MM]"  
+# ━━━  
+subject: "[주제]"  
+# ━━━  
+context: "[이번 세션 맥락 한 줄 요약]"  
+# ━━━  
+decisions:  
+  - "[이번 세션에서 확정/합의된 사항 1]"  
+  - "[이번 세션에서 확정/합의된 사항 2]"  
+# ━━━  
+tasks:  
+  completed:  
+    - "[완료된 파일명/모듈 1]"  
+  pending:  
+    - "[대기 중이거나 이관할 작업 1]"  
+# ━━━  
+data:  
+  pr_url: "[참고할 PR URL 또는 N/A]"  
+  notes: "[기타 수치, 에러 코드 등 핵심 데이터]"

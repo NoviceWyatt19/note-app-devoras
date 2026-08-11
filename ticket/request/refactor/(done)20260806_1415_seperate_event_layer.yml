@@ -1,0 +1,27 @@
+# ⚙️ REFACTOR & FIX TICKET
+type: "REFACTOR_TICKET"
+id: "RFC-20260806-01"
+# ━━━
+update: "2026-08-06 14:13"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "에디터 입력 레이어 분리 및 Tauri 이미지 Drop/Paste 어댑터 구축"
+status: "Todo"
+# ━━━
+architecture_guidelines:
+  - "Humble Object Pattern: 플랫폼 종속적인 생(Raw) 이벤트(Tauri 네이티브, DOM) 수신은 커스텀 훅이 전담하며, 에디터 코어 로직과 완전히 격리할 것."
+  - "Don't ask, tell: 에디터 컴포넌트는 이벤트의 출처를 묻지 않고, 정규화된 Command만 전달받아 트랜잭션을 수행할 것."
+# ━━━
+spec:
+  as_is:
+    - "CodeMirror 내부 DOM 핸들러에 paste/drop 이벤트가 바인딩되어 있으나, Tauri/macOS 환경에서 클립보드 파일 이벤트가 유실되거나 충돌함."
+  to_be:
+    - "1. 수신 계층: CodeMirror 내부 extension에서 DOM 핸들러를 완전히 제거. 대신 document 레벨의 paste와 tauri://drag-drop 이벤트를 리스닝하는 `useTauriInputManager` 훅 작성."
+    - "2. 정규화 계층: 수신된 이벤트에서 파일 데이터를 추출하고, `{ type: 'INSERT_IMAGE', payload: { path, file } }` 형태의 표준 커맨드 객체로 변환하여 Dispatch."
+    - "3. 비즈니스 계층: BlockEditor.tsx는 Dispatch된 커맨드를 수신하면 출처를 묻지 않고 CodeMirror에 이미지 삽입 트랜잭션을 지시(Tell)함."
+# ━━━
+tasks:
+  - "[ ] CodeMirror extension에서 기존 DOM 이벤트(drop, paste) 리스너 제거"
+  - "[ ] 커스텀 훅 `useTauriInputManager` 및 Command Dispatcher 인터페이스 구현"
+  - "[ ] BlockEditor.tsx에 훅을 연동하고, Command 수신 시 `saveImageAsset` 및 마크다운 주입 로직 실행"
+  - "[ ] 빌드 후 테스트 스크립트를 통한 하네스 검증 수행"
+  

@@ -1,0 +1,23 @@
+# 🐛 DEBUG TICKET
+type: "DEBUG_TICKET"
+id: "BUG-[YYYYMMDD]-[순번]"
+# ━━━
+update: "YYYY-MM-DD HH:MM"
+component: "Editor / CodeMirror Decorator"
+priority: "High"
+# ━━━
+summary:
+  symptom: "[발생하는 버그 현상 요약]"
+  impact: "[영향을 받는 모듈/컴포넌트 범위]"
+# ━━━
+root_cause:
+  - "[원인 분석 1: IME Preedit Offset 변동]"
+  - "[원인 분석 2: view.composing 레이스 조건]"
+# ━━━
+harness:
+  path: "project/src/shared/lib/editor/decorators/__tests__/ime_harness.ts"
+  run_command: "pnpm ts-node ime_harness.ts"
+# ━━━
+verification_checklist:
+  - "[ ] 하네스 테스트 통과 여부"
+  - "[ ] 네이티브 환경(macOS/WebKit) 정상 동작 확인"

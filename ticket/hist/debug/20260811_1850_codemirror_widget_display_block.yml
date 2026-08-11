@@ -1,0 +1,16 @@
+# 🗂️ FIX TICKET
+type: "FIX_TICKET"
+id: "BUG-20260811-10"
+# ━━━
+update: "2026-08-11 18:50"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "CodeMirror 방향키 라인 스킵 버그 최종 수정 (Widget Display & Block 속성 교정)"
+status: "Done"
+# ━━━
+architecture_guidelines:
+  - "Inline Display Strictness: 인라인 위젯(`.cm-list-bullet`, `.cm-heading-badge` 등)을 `display: inline`으로 강제하여 커서 맵핑 튕김(Deflection) 차단."
+  - "Block Widget Declaration: 줄 전체를 차지하는 위젯(`HRWidget`, `KatexBlockWidget`)은 `Decoration.replace`에 `block: true`를 부여하여 라인 맵핑 우회 알고리즘 활성화."
+# ━━━
+tasks:
+  - "[x] `HeadingDecorator.ts`, `ListDecorator.ts`: `style.display = 'inline-block'`을 `inline`으로 변경."
+  - "[x] `HorizontalRuleDecorator.ts`, `LatexDecorator.ts`: 블록 치환 위젯 선언 시 `block: true` 옵션 추가."

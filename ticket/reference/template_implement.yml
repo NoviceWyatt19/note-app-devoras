@@ -1,0 +1,26 @@
+
+# 🛠 IMPLEMENT TICKET
+type: "IMPLEMENT_TICKET"
+id: "IMPL-[YYYYMMDD]-[순번]"
+# ━━━
+update: "YYYY-MM-DD HH:MM"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "[구현할 기능/모듈 명칭]"
+status: "현재 진행 상태 (예: Waiting, In Progress, Done, Hold)"
+# ━━━
+spec:
+  inputs:
+    - "[입력값 또는 이벤트 예: Cmd+V / dragAndDrop]"
+  outputs:
+    - "[출력값 또는 UI 변경 예: assets/images/ 내 이미지 저장 및 markdown 삽입]"
+  internal_logic:
+    - "[내부 동작 로직 step 1]"
+    - "[내부 동작 로직 step 2]"
+# ━━━
+harness:
+  path: "project/src/shared/lib/editor/decorators/__tests__/decorator_harness.ts"
+  run_command: "pnpm ts-node decorator_harness.ts"
+# ━━━
+tasks:
+  - "[x] 단위 모듈 작성"
+  - "[ ] 하네스 검증 및 빌드 확인"

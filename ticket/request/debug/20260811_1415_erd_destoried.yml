@@ -1,0 +1,18 @@
+# 🚑 HOTFIX TICKET
+type: "FIX_TICKET"
+id: "BUG-20260811-02"
+# ━━━
+update: "2026-08-11 14:16"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "ERD 렌더링 붕괴 및 저장 무시 버그 해결 (파생 상태 제거)"
+status: "Todo"
+# ━━━
+architecture_guidelines:
+  - "Single Source of Truth: `ErdDesigner` 컴포넌트 내부에 있는 `useState<ErdDocumentV1>(props.document)`와 이를 동기화하려는 `useEffect`를 완전히 제거할 것. 오직 `props.document`만 렌더링 소스로 사용해야 함."
+  - "Direct Store Update: `addTable`, `onNodeDragStop` 등의 액션 발생 시 로컬 상태를 변경하지 말고, 새로운 객체를 만들어 즉시 `props.onChange(nextDoc)`만 호출하도록 구조를 단순화할 것."
+  - "Init Fallback Sync: `ErdDesignerMainView`에서 파일이 비어있어 `createEmptyErdDocument()`로 초기화했다면, 즉시 `updateContent`를 호출하여 빈 JSON 문자열을 스토어에 물리적으로 기록해 데이터 불일치를 방지할 것."
+# ━━━
+tasks:
+  - "[ ] `ErdDesignerMainView.tsx`: `useEffect` 내에서 `createEmptyErdDocument()`로 폴백할 때, `setDocument`와 함께 `updateContent(JSON.stringify(...))`를 호출하여 초기 상태를 스토어에 즉시 저장하도록 수정."
+  - "[ ] `ErdDesigner.tsx`: `const [document, setDocument] = useState(...)` 및 관련된 `useEffect` 삭제."
+  - "[ ] `ErdDesigner.tsx`: `updateDocument`, `commitDocument`, `onNodeDragStop` 함수 내부 로직을 수정하여, `setDocument` 대신 `props.document`를 기반으로 새 객체를 계산하고 바로 `props.onChange`를 호출하도록 전면 리팩토링."

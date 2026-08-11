@@ -1,0 +1,22 @@
+# 🎨 REFACTOR TICKET
+type: "REFACTOR_TICKET"
+id: "REF-20260810-01"
+# ━━━
+update: "2026-08-10 17:18"
+# ━━━
+subject: "스플릿 뷰 패널 자동 정리 및 개별 패널 닫기(Cancel Split) 구현"
+# ━━━
+goal: "스플릿 뷰 분할 상태에서 탭이 하나도 남지 않은 빈 패널이 화면에 계속 유지되는 문제를 해결하고, 분할된 패널을 직관적으로 병합하거나 닫을 수 있는 UX 기능을 제공한다."
+# ━━━
+problems:
+  - "스플릿 뷰(Pane)에서 마지막 남은 탭을 닫았을 때, 빈 패널이 자동으로 정리되지 않고 화면에 잔존하여 공간을 낭비함"
+  - "사용자가 분할된 스플릿 뷰 자체를 명시적으로 해제하거나 취소(닫기)할 수 있는 직관적인 버튼이나 수단이 없음"
+# ━━━
+refactoring_steps:
+  - "빈 패널 자동 가비지 컬렉션 (Auto-Cleanup): closeTab 액션 수행 시, 탭이 제거된 후 특정 패널의 탭 목록이 빈 배열이 되는 경우(tabs.length === 0) 해당 패널을 panes 목록에서 자동 제거한다. 단, 화면에 최소 1개의 패널은 상시 유지되어야 함."
+  - "스플릿 패널 수동 닫기 액션 (closePane) 추가: useDocumentStore 내에 특정 패널을 삭제하는 `closePane(paneId: string): void` 액션을 정의한다. 닫히는 패널 내의 탭들은 사용자 데이터 유실 방지를 위해 다른 잔존 패널로 자동 병합(Merge)되도록 설계한다."
+  - "UI 닫기 버튼 배치: WorkspacePage의 패널 탭바 우측(분할 버튼 옆)에 패널의 개수가 2개 이상일 때 활성화되는 '패널 닫기' 버튼(X 마크 등)을 추가한다."
+# ━━━
+target_files:
+  - "entities/document/model/store.ts"
+  - "pages/WorkspacePage/WorkspacePage.tsx"

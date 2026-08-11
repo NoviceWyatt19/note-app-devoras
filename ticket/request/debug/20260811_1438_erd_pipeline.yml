@@ -1,0 +1,19 @@
+# 🚑 HOTFIX TICKET
+type: "FIX_TICKET"
+id: "BUG-20260811-04"
+# ━━━
+update: "2026-08-11 14:40"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "ERD 저장 파이프라인 수리, Tauri 권한 경고 억제, React Flow 상태 최적화"
+status: "Todo"
+# ━━━
+architecture_guidelines:
+  - "Save Pipeline Branching: `store.ts`의 `saveFile` 로직에서 현재 활성화된 탭의 `type`이 'erd'인 경우 `useBlockStore.getMergedContent()` 대신 `get().rawContent`를 저장하도록 분기 처리할 것."
+  - "Silent Fails for Metadata: `fs.ts`의 메타데이터(spatial.json) 읽기/쓰기 시 발생하는 `forbidden path` 에러 로그를 콘솔에 출력하지 않고 무시하도록 `catch` 블록을 수정할 것."
+  - "React Flow Identity: `ErdDesigner.tsx`에서 부모의 `document` 프롭스가 갱신될 때, `setNodes`를 통째로 갈아치우지 말고 기존 노드의 위치(`position`)를 유지하면서 병합(Merge)하여 `drag a node that is not initialized (#015)` 에러를 차단할 것."
+# ━━━
+tasks:
+  - "[ ] `entities/document/model/store.ts`: `saveFile` 내부에 ERD와 Markdown을 구분하여 저장 소스(`rawContent` vs `getMergedContent()`)를 분기하는 로직 작성."
+  - "[ ] `shared/api/fs.ts`: `TauriFileSystem`의 메타데이터 관련 함수 내부 `catch` 블록에서 권한 에러 메시지(`forbidden path`) 필터링."
+  - "[ ] `widgets/ErdDesigner/ui/ErdDesigner.tsx`: `useEffect` 내부의 `setNodes` 로직을 기존 `nodes`의 `position` 상태와 병합되도록 리팩토링 및 `onNodeDragStop` 로직 간소화."
+  - "[ ] `entities/workspace/model/store.ts`: `createFile` 액션에서 `.erd` 확장자 생성 시 빈 문자열 대신 뼈대 JSON 구조를 `initialContent`로 할당하여 초기 파싱 에러 방지."

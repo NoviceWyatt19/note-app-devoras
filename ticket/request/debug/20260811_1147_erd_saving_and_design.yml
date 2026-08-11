@@ -1,0 +1,19 @@
+# 🚑 HOTFIX TICKET
+type: "FIX_TICKET"
+id: "BUG-20260811-01"
+# ━━━
+update: "2026-08-11 11:46"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "ERD 상태 동기화 버그(튕김/저장 누락) 및 인스펙터 UI 가시성 전면 수정"
+status: "Todo"
+# ━━━
+architecture_guidelines:
+  - "State Sync: 탭 전환 시에만 `selection`을 초기화하고, `onNodeDragStop` 및 `updateDocument` 실행 시 최신 데이터를 전역 스토어(`updateContent`)에 즉시 동기화할 것."
+  - "UI & Visibility: 어두운 테마 환경에서 `<input>`, `<select>` 태그의 배경이 하얗게 렌더링되어 글씨가 안 보이는 현상을 막기 위해, 명시적으로 다크 테마 Tailwind 클래스(`bg-darkBg text-slate-200 border-darkBorder`)를 주입할 것."
+  - "Button Styling: 툴바 및 인스펙터 내부의 모든 `<button>`에 공통 다크 테마 유틸리티 클래스를 적용하여 조잡한 기본 브라우저 스타일을 덮어쓸 것."
+# ━━━
+tasks:
+  - "[ ] `ErdDesigner.tsx`: `useEffect` 의존성을 수정하여 부모로부터 새로운 상태가 내려올 때 인스펙터 선택(Selection) 상태가 날아가지 않도록 방어 로직 추가."
+  - "[ ] `ErdDesigner.tsx`: `onNodeDragStop` 콜백에서 `node.position`을 직접 추출하여 스토어에 갱신하고, `updateDocument` 완료 시에도 스토어 동기화 호출 연결."
+  - "[ ] `Inspector` 컴포넌트: 모든 `input` 및 `select` 요소에 `bg-darkBg text-slate-200 border border-darkBorder px-2 py-1.5 rounded-md focus:outline-none focus:border-primary` 클래스 적용하여 텍스트 가시성 확보."
+  - "[ ] 버튼 UI 개편: 상단 툴바 및 인스펙터 내부 버튼들에 `px-3 py-1.5 bg-darkPanel hover:bg-darkHover text-slate-200 border border-darkBorder rounded-md transition-colors text-sm` 스타일 일괄 적용 및 여백(Gap) 교정."

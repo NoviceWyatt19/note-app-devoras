@@ -1,0 +1,18 @@
+# 🚑 HOTFIX TICKET
+type: "FIX_TICKET"
+id: "BUG-20260811-01"
+# ━━━
+update: "2026-08-11 11:38"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "ERD 렌더러 튕김 현상(Selection Reset) 수정 및 실시간 저장 동기화, UI 개선"
+status: "Todo"
+# ━━━
+architecture_guidelines:
+  - "Controlled vs Uncontrolled: `ErdDesigner` 컴포넌트가 부모로부터 받는 `document` props와 내부 로컬 상태 간의 동기화 충돌을 막아야 함. 탭이 바뀔 때(ID 변경 시)만 `selection`을 초기화하도록 `useEffect` 의존성을 교정할 것."
+  - "Unidirectional Data Flow: 노드 위치 변경, 테이블 생성 등 `updateDocument`가 호출될 때마다 갱신된 JSON을 부모의 `onChange` (또는 `useDocumentStore().updateContent`) 콜백으로 즉시 넘겨주어 스토어 상태가 항상 최신을 유지하도록 연결할 것."
+  - "Tailwind Design System: 상단 툴바 버튼(`Add table`, `Layout`, `SVG` 등)에 `px-3 py-1.5 bg-darkPanel border border-darkBorder hover:bg-darkHover rounded-md text-sm text-slate-200` 등의 Tailwind 클래스를 적용하여 미니멀한 다크 톤으로 통일할 것."
+# ━━━
+tasks:
+  - "[ ] `ErdDesigner.tsx` 내 `useEffect` 리팩토링: `props.target.filePath`가 변경될 때만 `setSelection(null)`이 실행되도록 조건부 처리."
+  - "[ ] `ErdDesigner.tsx` 내 `updateDocument` 리팩토링: 내부 상태 변경 직후, 변경된 `ErdDocumentV1` 객체를 `JSON.stringify` 하여 부모의 저장 콜백으로 쏴주도록 연동."
+  - "[ ] `ErdDesigner.tsx` 상단 툴바 UI 개선: 불필요한 'Save to note' 버튼 제거 및 나머지 버튼에 Tailwind 다크 테마 스타일링 적용."

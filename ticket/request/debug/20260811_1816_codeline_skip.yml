@@ -1,0 +1,19 @@
+# 🚑 HOTFIX TICKET
+type: "FIX_TICKET"
+id: "BUG-20260811-08"
+# ━━━
+update: "2026-08-11 18:11"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "CodeMirror 6 수직 방향키(ArrowUp/Down) 라인 스킵 및 클릭 데드존 완벽 복구"
+status: "Todo"
+# ━━━
+architecture_guidelines:
+  - "Measurable Widget Bounds: `Decoration.replace`로 들어가는 모든 커스텀 위젯(Bullet, Heading, HR 등)은 엔진이 높이와 너비를 정확히 잴 수 있도록 반드시 `<span>` 태그를 사용하고 `display: inline-block` 스타일을 주입해야 함."
+  - "Bidi Isolation Disable: `Decoration.replace({ widget, bidiIsolate: false })` 속성을 명시적으로 추가하여, 위젯 경계선에서 방향키 X좌표 추적이 튕겨나가는(Deflection) 현상을 방지할 것."
+  - "Event Swallowing Fix: 모든 `WidgetType` 상속 클래스에 `ignoreEvent() { return false; }`를 오버라이딩하여 마우스 클릭 데드존을 없앨 것."
+# ━━━
+tasks:
+  - "[ ] `ListDecorator.ts`: `BulletWidget` 클래스에 `ignoreEvent() { return false; }` 추가. `toDOM()` 반환 요소에 `span.style.display = 'inline-block'` 적용. `Decoration.replace` 옵션에 `bidiIsolate: false` 추가."
+  - "[ ] `HorizontalRuleDecorator.ts`: `HRWidget`의 `document.createElement('div')`를 모두 `'span'`으로 변경하고 `span.style.display = 'inline-block'`, `span.style.width = '100%'` 적용. `ignoreEvent` 및 `bidiIsolate: false` 추가."
+  - "[ ] `HeadingDecorator.ts`: `HeadingBadgeWidget`에 동일하게 `ignoreEvent` 및 `inline-block` 적용, `bidiIsolate: false` 추가."
+  - "[ ] `BlockEditor.tsx`: `ArrowUp` 키맵 로직이 `line.number === 1`로 남아있어 블록을 의도치 않게 넘나드는 문제를 막기 위해, `if (empty && from === 0)`일 때만 `onFocusPrev()`가 호출되도록 조건문 교정."

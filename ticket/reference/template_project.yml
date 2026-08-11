@@ -1,0 +1,18 @@
+# 🛠 PROJECT BLUEPRINT TICKET  
+type: "PROJECT_TICKET"  
+id: "[프로젝트명 또는 마일스톤명]"  
+# ━━━  
+goal: "[프로젝트가 달성해야 할 최종 비즈니스/기능 목표]"  
+# ━━━  
+tech_stack:  
+  language: "[사용 언어 및 버전]"  
+  framework: "[프레임워크 및 핵심 라이브러리]"  
+# ━━━  
+current_progress: "[전체 마일스톤 기준 구현/검증 완료 단계]"  
+# ━━━  
+pending_issues:  
+  - "[현재 블로킹된 버그]"  
+  - "[다음 마일스톤 작업]"  
+# ━━━  
+constraints:  
+  - "[아키텍처 제약, 비용, 성능 등 기술적 제약 1]"

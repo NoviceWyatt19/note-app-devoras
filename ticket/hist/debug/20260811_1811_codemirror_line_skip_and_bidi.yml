@@ -1,0 +1,20 @@
+# 🗂️ FIX TICKET
+type: "FIX_TICKET"
+id: "BUG-20260811-08"
+# ━━━
+update: "2026-08-11 18:11"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "CodeMirror 6 수직 방향키(ArrowUp/Down) 라인 스킵 및 클릭 데드존 완벽 복구"
+status: "Done"
+# ━━━
+architecture_guidelines:
+  - "Measurable Widget Bounds: 커스텀 위젯들에 `display: inline-block` 속성 주입 완료."
+  - "Bidi Isolation Disable: `Decoration.replace` 옵션에 `bidiIsolate: false` 추가하여 좌우 튕김 및 Y축 측정 오류 해결 완료."
+  - "Event Swallowing Fix: 모든 `WidgetType`에 `ignoreEvent() { return false; }` 오버라이드 완료."
+# ━━━
+tasks:
+  - "[x] `ListDecorator.ts`: `inline-block`, `bidiIsolate: false` 적용."
+  - "[x] `HorizontalRuleDecorator.ts`: `bidiIsolate: false` 추가."
+  - "[x] `HeadingDecorator.ts`: `inline-block`, `bidiIsolate: false` 적용."
+  - "[x] `CheckboxDecorator.ts` 및 `LatexDecorator.ts`: 누락된 `inline-block`, `bidiIsolate: false` 일괄 적용 완료."
+  - "[x] `BlockEditor.tsx`: `ArrowUp` 및 `ArrowDown` 조건문 확인 (이전 0.5.11 핫픽스로 이미 처리 완료됨 확인)."
