@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Marked } from 'marked';
 import { invoke } from '@tauri-apps/api/core';
 import { Bold, Italic, Strikethrough, Highlighter, GripVertical } from 'lucide-react';
-import { useBlockStore } from '@/entities/block/model/store';
+import { useBlockStore, flattenTree } from '@/entities/block/model/store';
 import { useDocumentStore } from '@/entities/document/model/store';
 import { useWorkspaceStore } from '@/entities/workspace/model/store';
 
@@ -232,26 +232,30 @@ export const ReadView: React.FC = () => {
 
   // ── Drag-and-drop reordering ───────────────────────────────────────────────
 
-  const handleDragStart = (e: React.DragEvent, idx: number) => {
+  const handleDragStart = (e: React.DragEvent, id: string) => {
     e.dataTransfer.effectAllowed = 'move';
-    setDraggedIdx(idx);
+    const flatBlocks = flattenTree(useBlockStore.getState().blocks);
+    setDraggedIdx(flatBlocks.findIndex(b => b.id === id));
   };
 
-  const handleDragOver = (e: React.DragEvent, idx: number) => {
+  const handleDragOver = (e: React.DragEvent, id: string) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-    if (dropTargetIdx !== idx) setDropTargetIdx(idx);
+    const flatBlocks = flattenTree(useBlockStore.getState().blocks);
+    const targetIdx = flatBlocks.findIndex(b => b.id === id);
+    if (dropTargetIdx !== targetIdx) setDropTargetIdx(targetIdx);
   };
 
-  const handleDrop = async (toIdx: number) => {
-    if (draggedIdx === null || draggedIdx === toIdx) {
+  const handleDrop = async (id: string) => {
+    const flatBlocks = flattenTree(useBlockStore.getState().blocks);
+    const toIdx = flatBlocks.findIndex(b => b.id === id);
+    if (draggedIdx === null || draggedIdx === toIdx || toIdx === -1) {
       setDraggedIdx(null);
       setDropTargetIdx(null);
       return;
     }
 
     reorderBlocks(draggedIdx, toIdx);
-    // getMergedContent reads from the Zustand store synchronously after the reorder
     const merged = useBlockStore.getState().getMergedContent();
     updateContent(merged);
     await saveFile();
@@ -265,13 +269,9 @@ export const ReadView: React.FC = () => {
     setDropTargetIdx(null);
   };
 
-  // ── Render ─────────────────────────────────────────────────────────────────
-
   return (
     <div className="flex-1 overflow-y-auto" onMouseUp={handleMouseUp}>
       <div className="w-full min-w-0 px-4 sm:px-6 lg:px-8 py-6 pb-24">
-
-        {/* ── Floating format toolbar (fixed to viewport, above selection) ── */}
         {floatingBar && (
           <div
             ref={toolbarRef}
@@ -303,54 +303,105 @@ export const ReadView: React.FC = () => {
           </div>
         )}
 
-        {/* ── Block cards ── */}
         <div className="space-y-3">
-          {blocks.map((block, idx) => (
-            <div
-              key={block.id}
-              data-block-id={block.id}
-              draggable
-              onDragStart={(e) => handleDragStart(e, idx)}
-              onDragOver={(e) => handleDragOver(e, idx)}
-              onDrop={() => handleDrop(idx)}
+          {blocks.map((rootBlock) => (
+            <ReadBlockNode
+              key={rootBlock.id}
+              block={rootBlock}
+              workspacePath={workspacePath}
+              draggedIdx={draggedIdx}
+              dropTargetIdx={dropTargetIdx}
+              onDragStart={handleDragStart}
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
               onDragEnd={handleDragEnd}
-              onDoubleClick={() => handleDoubleClick(block.id)}
-              className={[
-                'group relative rounded-xl border transition-all duration-150',
-                'bg-darkPanel/70 select-text',
-                'cursor-grab active:cursor-grabbing',
-                draggedIdx === idx
-                  ? 'opacity-40 scale-[0.98]'
-                  : 'opacity-100',
-                dropTargetIdx === idx && draggedIdx !== null && draggedIdx !== idx
-                  ? 'border-indigo-500/60 shadow-[0_0_0_2px_rgba(99,102,241,0.18)]'
-                  : 'border-darkBorder/40 hover:border-darkBorder/70',
-              ].join(' ')}
-            >
-              {/* Drag handle (shows on hover) */}
-              <div className="absolute right-3 top-3.5 opacity-0 group-hover:opacity-25
-                transition-opacity pointer-events-none">
-                <GripVertical size={13} className="text-slate-400" />
-              </div>
-
-              {/* Rendered markdown content */}
-              <div
-                className="rv-content px-7 py-5"
-                // The content is local markdown authored by the user — XSS is not a concern
-                dangerouslySetInnerHTML={{
-                  __html: renderBlockToHtml(block.content, workspacePath),
-                }}
-              />
-
-              {/* Hint: double-click to edit (shows on hover) */}
-              <div className="absolute bottom-2 right-3 opacity-0 group-hover:opacity-20
-                transition-opacity select-none pointer-events-none text-[10px] text-slate-400">
-                더블클릭으로 편집
-              </div>
-            </div>
+              onDoubleClick={handleDoubleClick}
+            />
           ))}
         </div>
       </div>
     </div>
   );
 };
+
+import { EditorBlock } from '@/entities/block/model/store';
+
+const ReadBlockNode = React.memo<{
+  block: EditorBlock;
+  workspacePath: string | null;
+  draggedIdx: number | null;
+  dropTargetIdx: number | null;
+  onDragStart: (e: React.DragEvent, id: string) => void;
+  onDragOver: (e: React.DragEvent, id: string) => void;
+  onDrop: (id: string) => void;
+  onDragEnd: () => void;
+  onDoubleClick: (id: string) => void;
+}>(({ block, workspacePath, draggedIdx, dropTargetIdx, onDragStart, onDragOver, onDrop, onDragEnd, onDoubleClick }) => {
+  
+  const getLevelStyles = (level: number) => {
+    switch(level) {
+      case 1: 
+        return 'mb-6 p-5 rounded-2xl bg-[#141520] border border-darkBorder/40 shadow-md'; 
+      case 2: 
+        return 'mt-4 p-4 rounded-xl bg-[#1d1f30] border border-darkBorder/40';
+      case 3: 
+        return 'mt-4 p-4 rounded-xl bg-[#252840] border border-darkBorder/40';
+      default: 
+        return 'mt-2 pl-2 border-l-2 border-transparent hover:border-darkBorder/40';
+    }
+  };
+
+  const isBox = block.level > 0;
+  
+  return (
+    <div
+      data-block-id={block.id}
+      draggable={isBox}
+      onDragStart={(e) => isBox && onDragStart(e, block.id)}
+      onDragOver={(e) => isBox && onDragOver(e, block.id)}
+      onDrop={() => isBox && onDrop(block.id)}
+      onDragEnd={onDragEnd}
+      onDoubleClick={(e) => {
+        e.stopPropagation();
+        onDoubleClick(block.id);
+      }}
+      className={[
+        'group relative transition-all duration-150',
+        isBox ? 'cursor-grab active:cursor-grabbing' : '',
+        getLevelStyles(block.level)
+      ].join(' ')}
+    >
+      {isBox && (
+         <div className="absolute right-3 top-3.5 opacity-0 group-hover:opacity-25 transition-opacity pointer-events-none">
+            <GripVertical size={13} className="text-slate-400" />
+         </div>
+      )}
+
+      <div
+        className={`rv-content`}
+        dangerouslySetInnerHTML={{
+          __html: renderBlockToHtml(block.content, workspacePath),
+        }}
+      />
+      
+      {block.children.length > 0 && (
+        <div className={`block-children ${block.level > 0 ? 'mt-4' : 'mt-1'}`}>
+          {block.children.map(child => (
+            <ReadBlockNode
+              key={child.id}
+              block={child}
+              workspacePath={workspacePath}
+              draggedIdx={draggedIdx}
+              dropTargetIdx={dropTargetIdx}
+              onDragStart={onDragStart}
+              onDragOver={onDragOver}
+              onDrop={onDrop}
+              onDragEnd={onDragEnd}
+              onDoubleClick={onDoubleClick}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+});

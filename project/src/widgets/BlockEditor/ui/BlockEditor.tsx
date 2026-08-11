@@ -218,7 +218,7 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
   return (
     <div
       className={`group relative py-1 transition-all duration-200 ${
-        isFocused ? 'bg-primary/5' : 'hover:bg-darkPanel/20'
+        isFocused ? 'bg-primary/10 rounded-lg' : 'hover:bg-darkPanel/30 rounded-lg'
       }`}
     >
       {/* 
@@ -248,17 +248,21 @@ const BlockNode = React.memo<{
   
   const getLevelStyles = (level: number) => {
     switch(level) {
-      case 1: return 'mb-6'; // H1은 독립된 큰 섹션
-      case 2: return 'ml-4 pl-4 border-l-2 border-slate-700/50 mt-2';
-      case 3: return 'ml-8 pl-4 border-l-2 border-slate-700/30 mt-2';
-      default: return 'ml-2 pl-2 border-l-2 border-transparent'; // 일반 텍스트
+      case 1: 
+        return 'mb-6 p-5 rounded-2xl bg-[#141520] border border-darkBorder/40 shadow-md'; 
+      case 2: 
+        return 'mt-4 p-4 rounded-xl bg-[#1d1f30] border border-darkBorder/40';
+      case 3: 
+        return 'mt-4 p-4 rounded-xl bg-[#252840] border border-darkBorder/40';
+      default: 
+        return 'mt-2 pl-2'; // 일반 텍스트는 패딩/배경 없이
     }
   };
 
   const blockIndex = useMemo(() => flatBlocks.findIndex(b => b.id === block.id), [flatBlocks, block.id]);
 
   return (
-    <div className={`block-node-wrapper ${getLevelStyles(block.level)}`}>
+    <div className={`block-node-wrapper transition-colors duration-200 ${getLevelStyles(block.level)}`}>
       <CodeMirrorBlock
         block={block}
         index={blockIndex}
@@ -275,7 +279,7 @@ const BlockNode = React.memo<{
         onSelect={() => focusBlock(block.id)}
       />
       {block.children.length > 0 && (
-        <div className="block-children">
+        <div className={`block-children ${block.level > 0 ? 'mt-4' : 'mt-1'}`}>
           {block.children.map(child => (
             <BlockNode
               key={child.id}
