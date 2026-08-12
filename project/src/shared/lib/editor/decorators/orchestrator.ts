@@ -117,9 +117,8 @@ const decorationBaseTheme = EditorView.baseTheme({
   },
 
   // Code-fence block line background
-  '&.cm-editor .cm-code-block': {
+  '&.cm-editor .cm-code-block-line': {
     backgroundColor: 'rgba(0,0,0,0.22)',
-    display: 'block',
   },
 
   // Inline math  $...$  (visual hint; replaced by KaTeX widget when rendered)

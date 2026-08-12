@@ -12,7 +12,7 @@ const INLINE_CODE_RE = /`([^`\n]+?)`/g;
 
 // inclusive: false prevents edge-typing from expanding the mark span (BUG-20260810-04)
 const INLINE_CODE_MARK = Decoration.mark({ class: 'cm-inline-code', inclusive: false });
-const CODE_BLOCK_MARK  = Decoration.mark({ class: 'cm-code-block' });
+const CODE_BLOCK_LINE  = Decoration.line({ class: 'cm-code-block-line' });
 
 /**
  * Decorates inline code (`code`) and code-fence blocks (``` ... ```).
@@ -47,16 +47,16 @@ export class CodeBlockDecorator implements SyntaxDecorator {
         if (!inFence) {
           inFence = true;
           fenceChar = markerChar;
-          builder.add(lineFrom, lineTo, CODE_BLOCK_MARK);
+          builder.add(lineFrom, lineFrom, CODE_BLOCK_LINE);
         } else if (markerChar === fenceChar) {
           inFence = false;
           fenceChar = '';
-          builder.add(lineFrom, lineTo, CODE_BLOCK_MARK);
+          builder.add(lineFrom, lineFrom, CODE_BLOCK_LINE);
         } else {
-          builder.add(lineFrom, lineTo, CODE_BLOCK_MARK);
+          builder.add(lineFrom, lineFrom, CODE_BLOCK_LINE);
         }
       } else if (inFence) {
-        builder.add(lineFrom, lineTo, CODE_BLOCK_MARK);
+        builder.add(lineFrom, lineFrom, CODE_BLOCK_LINE);
       } else {
         // Regular line — cursor-aware inline code decoration.
         INLINE_CODE_RE.lastIndex = 0;
