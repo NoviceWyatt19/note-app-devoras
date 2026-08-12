@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useWorkspaceStore } from '@/entities/workspace/model/store';
 import { useDocumentStore } from '@/entities/document/model/store';
 import { useBlockStore } from '@/entities/block/model/store';
-import { FolderOpen, FileText, Plus, RefreshCw, Loader, ChevronRight, ChevronDown, File, Trash, Edit2, FolderPlus } from 'lucide-react';
+import { FolderOpen, FileText, Plus, RefreshCw, Loader, ChevronRight, ChevronDown, File, Trash, Edit2, FolderPlus, Database } from 'lucide-react';
 import { FileEntry } from '@/shared/api/fs';
 
 interface ContextMenuData {
@@ -14,6 +14,7 @@ interface ContextMenuData {
 type CreatingNode = {
   parentPath: string;
   isDir: boolean;
+  isErd?: boolean;
 } | null;
 
 interface TreeNodeProps {
@@ -80,7 +81,9 @@ const TreeNode: React.FC<TreeNodeProps> = (props) => {
           {entry.isDir ? (
             isExpanded ? <ChevronDown className="w-3.5 h-3.5 text-slate-500" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
           ) : (
-            <FileText className={`w-3.5 h-3.5 ${isSelected ? 'text-primary' : 'text-slate-400'}`} />
+            entry.name.endsWith('.erd') 
+              ? <Database className={`w-3.5 h-3.5 ${isSelected ? 'text-primary' : 'text-slate-400'}`} />
+              : <FileText className={`w-3.5 h-3.5 ${isSelected ? 'text-primary' : 'text-slate-400'}`} />
           )}
         </div>
 
@@ -108,13 +111,13 @@ const TreeNode: React.FC<TreeNodeProps> = (props) => {
           {isCreatingHere && (
             <div className="flex items-center space-x-1.5 px-2 py-1.5" style={{ paddingLeft: `${(depth + 1) * 12 + 8}px` }}>
               <div className="flex-shrink-0 flex items-center justify-center w-4 h-4">
-                {creatingNode.isDir ? <FolderOpen className="w-3.5 h-3.5 text-slate-500" /> : <FileText className="w-3.5 h-3.5 text-slate-400" />}
+                {creatingNode.isDir ? <FolderOpen className="w-3.5 h-3.5 text-slate-500" /> : (creatingNode.isErd ? <Database className="w-3.5 h-3.5 text-slate-400" /> : <FileText className="w-3.5 h-3.5 text-slate-400" />)}
               </div>
               <input
                 autoFocus
                 className="flex-1 bg-darkBg border border-primary px-1 rounded text-slate-100 outline-none text-xs min-w-0"
                 value={createValue}
-                placeholder={creatingNode.isDir ? "새 폴더명..." : "새 파일명..."}
+                placeholder={creatingNode.isDir ? "새 폴더명..." : (creatingNode.isErd ? "새 ERD 문서명..." : "새 파일명...")}
                 onChange={(e) => setCreateValue(e.target.value)}
                 onBlur={handleCreateSubmit}
                 onKeyDown={(e) => {
@@ -186,13 +189,13 @@ export const FileExplorer: React.FC = () => {
     setContextMenu({ x: e.pageX, y: e.pageY, entry });
   };
 
-  const handleCreateNew = async (isFolder: boolean) => {
+  const handleCreateNew = async (type: 'file' | 'folder' | 'erd') => {
     if (!workspacePath) return;
     const parentPath = contextMenu?.entry?.isDir 
       ? contextMenu.entry.path 
       : (contextMenu?.entry ? contextMenu.entry.path.substring(0, contextMenu.entry.path.lastIndexOf('/')) : workspacePath);
     
-    setCreatingNode({ parentPath, isDir: isFolder });
+    setCreatingNode({ parentPath, isDir: type === 'folder', isErd: type === 'erd' });
     setCreateValue('');
     setContextMenu(null);
     
@@ -208,12 +211,16 @@ export const FileExplorer: React.FC = () => {
       setCreatingNode(null);
       return;
     }
-    const { parentPath, isDir } = creatingNode;
+    const { parentPath, isDir, isErd } = creatingNode;
     try {
       if (isDir) {
         await createFolder(parentPath, createValue);
       } else {
-        await createFile(parentPath, createValue);
+        let finalName = createValue.trim();
+        if (isErd && !finalName.endsWith('.erd')) {
+          finalName += '.erd';
+        }
+        await createFile(parentPath, finalName);
       }
     } catch (e) {
       alert('생성 실패');
@@ -305,7 +312,7 @@ export const FileExplorer: React.FC = () => {
           {workspacePath && (
             <>
               <button
-                onClick={() => { setContextMenu(null); handleCreateNew(false); }}
+                onClick={() => { setContextMenu(null); handleCreateNew('file'); }}
                 className="p-1 hover:bg-darkBorder rounded text-mutedText hover:text-slate-100 transition-colors"
                 title="새 파일"
               >
@@ -344,13 +351,13 @@ export const FileExplorer: React.FC = () => {
             {isCreatingInRoot && (
               <div className="flex items-center space-x-1.5 px-2 py-1.5 pl-2">
                 <div className="flex-shrink-0 flex items-center justify-center w-4 h-4">
-                  {creatingNode.isDir ? <FolderOpen className="w-3.5 h-3.5 text-slate-500" /> : <FileText className="w-3.5 h-3.5 text-slate-400" />}
+                  {creatingNode.isDir ? <FolderOpen className="w-3.5 h-3.5 text-slate-500" /> : (creatingNode.isErd ? <Database className="w-3.5 h-3.5 text-slate-400" /> : <FileText className="w-3.5 h-3.5 text-slate-400" />)}
                 </div>
                 <input
                   autoFocus
                   className="flex-1 bg-darkBg border border-primary px-1 rounded text-slate-100 outline-none text-xs min-w-0"
                   value={createValue}
-                  placeholder={creatingNode.isDir ? "새 폴더명..." : "새 파일명..."}
+                  placeholder={creatingNode.isDir ? "새 폴더명..." : (creatingNode.isErd ? "새 ERD 문서명..." : "새 파일명...")}
                   onChange={(e) => setCreateValue(e.target.value)}
                   onBlur={handleCreateSubmit}
                   onKeyDown={(e) => {
@@ -405,13 +412,19 @@ export const FileExplorer: React.FC = () => {
             <>
               <button 
                 className="flex items-center space-x-2 px-3 py-1.5 text-xs text-slate-200 hover:bg-primary/20 hover:text-primary transition-colors text-left"
-                onClick={() => handleCreateNew(false)}
+                onClick={() => handleCreateNew('file')}
               >
                 <File className="w-3.5 h-3.5" /> <span>새 문서</span>
               </button>
               <button 
                 className="flex items-center space-x-2 px-3 py-1.5 text-xs text-slate-200 hover:bg-primary/20 hover:text-primary transition-colors text-left"
-                onClick={() => handleCreateNew(true)}
+                onClick={() => handleCreateNew('erd')}
+              >
+                <Database className="w-3.5 h-3.5" /> <span>새 ERD 문서</span>
+              </button>
+              <button 
+                className="flex items-center space-x-2 px-3 py-1.5 text-xs text-slate-200 hover:bg-primary/20 hover:text-primary transition-colors text-left"
+                onClick={() => handleCreateNew('folder')}
               >
                 <FolderPlus className="w-3.5 h-3.5" /> <span>새 폴더</span>
               </button>
