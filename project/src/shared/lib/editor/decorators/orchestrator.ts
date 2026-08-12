@@ -118,7 +118,19 @@ const decorationBaseTheme = EditorView.baseTheme({
 
   // Code-fence block line background
   '&.cm-editor .cm-code-block-line': {
-    backgroundColor: 'rgba(0,0,0,0.22)',
+    backgroundColor: '#1a1b26',
+    borderLeft: '1px solid rgba(255,255,255,0.05)',
+    borderRight: '1px solid rgba(255,255,255,0.05)',
+  },
+  '&.cm-editor .cm-code-block-top': {
+    borderTopLeftRadius: '0.75rem',
+    borderTopRightRadius: '0.75rem',
+    borderTop: '1px solid rgba(255,255,255,0.05)',
+  },
+  '&.cm-editor .cm-code-block-bottom': {
+    borderBottomLeftRadius: '0.75rem',
+    borderBottomRightRadius: '0.75rem',
+    borderBottom: '1px solid rgba(255,255,255,0.05)',
   },
 
   // Inline math  $...$  (visual hint; replaced by KaTeX widget when rendered)

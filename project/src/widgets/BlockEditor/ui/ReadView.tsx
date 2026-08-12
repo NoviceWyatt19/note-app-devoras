@@ -9,8 +9,35 @@ import { useWorkspaceStore } from '@/entities/workspace/model/store';
 // ---------------------------------------------------------------------------
 // Marked instance (module-level singleton)
 // ---------------------------------------------------------------------------
+import hljs from 'highlight.js';
+import 'highlight.js/styles/atom-one-dark.css';
 
 const markedParser = new Marked({ gfm: true, breaks: true });
+
+markedParser.use({
+  renderer: {
+    code(token) {
+      const { text, lang } = token;
+      const language = (lang && hljs.getLanguage(lang)) ? lang : 'plaintext';
+      const codeText = text || '';
+      const highlighted = hljs.highlight(codeText, { language }).value;
+      const safeText = codeText.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      
+      return `
+        <div class="code-block-wrapper relative group my-4 rounded-xl overflow-hidden border border-darkBorder/40">
+          <div class="flex items-center justify-between px-4 py-1.5 bg-[#141520] border-b border-darkBorder/40">
+            <span class="text-[11px] font-mono text-slate-400 uppercase tracking-wider">${language}</span>
+            <button class="opacity-0 group-hover:opacity-100 transition-opacity hover:text-primary text-slate-400 rv-copy-btn p-1 flex items-center gap-1 cursor-pointer" data-code="${safeText}" title="Copy">
+              <span class="text-[10px] copy-feedback hidden">Copied!</span>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            </button>
+          </div>
+          <pre class="!m-0 !bg-[#1a1b26] !p-4"><code class="hljs language-${language} text-xs font-mono">${highlighted}</code></pre>
+        </div>
+      `;
+    }
+  }
+});
 
 // ---------------------------------------------------------------------------
 // Markdown rendering helpers
@@ -144,6 +171,32 @@ export const ReadView: React.FC = () => {
 
   fetchImages();
 }, [blocks, workspacePath]); // 블록이 렌더링된 이후마다 실행
+
+  // ── Copy Button Delegation ──────────────────────────────────────────────────
+  useEffect(() => {
+    const handleCopyClick = async (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const btn = target.closest('.rv-copy-btn') as HTMLButtonElement;
+      if (!btn) return;
+      
+      const code = btn.dataset.code;
+      if (!code) return;
+
+      try {
+        await navigator.clipboard.writeText(code);
+        const feedback = btn.querySelector('.copy-feedback');
+        if (feedback) {
+          feedback.classList.remove('hidden');
+          setTimeout(() => feedback.classList.add('hidden'), 2000);
+        }
+      } catch (err) {
+        console.error('Failed to copy text', err);
+      }
+    };
+
+    document.addEventListener('click', handleCopyClick);
+    return () => document.removeEventListener('click', handleCopyClick);
+  }, []);
 
   // ── Selection → floating toolbar ───────────────────────────────────────────
 

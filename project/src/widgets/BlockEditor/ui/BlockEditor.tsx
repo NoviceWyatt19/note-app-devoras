@@ -7,6 +7,7 @@ import { EditorView, keymap, drawSelection} from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap, indentMore, indentLess } from '@codemirror/commands';
 
 import { markdown } from '@codemirror/lang-markdown';
+import { languages } from '@codemirror/language-data';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { FileEdit } from 'lucide-react';
 import { FormatToolbar } from './FormatToolbar';
@@ -124,7 +125,7 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
     const state = EditorState.create({
       doc: block.content,
       extensions: [
-        markdown(),
+        markdown({ codeLanguages: languages }),
         EditorView.lineWrapping,
         oneDark,
         history(),
