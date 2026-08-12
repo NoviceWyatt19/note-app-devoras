@@ -121,16 +121,22 @@ const decorationBaseTheme = EditorView.baseTheme({
     backgroundColor: '#1a1b26',
     borderLeft: '1px solid rgba(255,255,255,0.05)',
     borderRight: '1px solid rgba(255,255,255,0.05)',
+    marginLeft: '1rem',
+    marginRight: '1rem',
+    paddingLeft: '1rem',
+    paddingRight: '1rem',
   },
   '&.cm-editor .cm-code-block-top': {
     borderTopLeftRadius: '0.75rem',
     borderTopRightRadius: '0.75rem',
     borderTop: '1px solid rgba(255,255,255,0.05)',
+    marginTop: '1rem',
   },
   '&.cm-editor .cm-code-block-bottom': {
     borderBottomLeftRadius: '0.75rem',
     borderBottomRightRadius: '0.75rem',
     borderBottom: '1px solid rgba(255,255,255,0.05)',
+    marginBottom: '1rem',
   },
 
   // Inline math  $...$  (visual hint; replaced by KaTeX widget when rendered)

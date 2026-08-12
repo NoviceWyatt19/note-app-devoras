@@ -24,7 +24,7 @@ markedParser.use({
       const safeText = codeText.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
       
       return `
-        <div class="code-block-wrapper relative group my-4 rounded-xl overflow-hidden border border-darkBorder/40">
+        <div class="code-block-wrapper relative group my-4 mx-4 rounded-xl overflow-hidden border border-darkBorder/40">
           <div class="flex items-center justify-between px-4 py-1.5 bg-[#141520] border-b border-darkBorder/40">
             <span class="text-[11px] font-mono text-slate-400 uppercase tracking-wider">${language}</span>
             <button class="opacity-0 group-hover:opacity-100 transition-opacity hover:text-primary text-slate-400 rv-copy-btn p-1 flex items-center gap-1 cursor-pointer" data-code="${safeText}" title="Copy">
