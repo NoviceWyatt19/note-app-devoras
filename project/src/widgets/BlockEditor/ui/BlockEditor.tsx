@@ -249,13 +249,14 @@ const BlockNode = React.memo<{
   const getLevelStyles = (level: number) => {
     switch(level) {
       case 1: 
-        return 'mb-6 p-5 rounded-2xl bg-[#141520] border border-darkBorder/40 shadow-md'; 
+        return 'mb-8 bg-transparent'; // H1은 박스 제거, 투명한 기본 컨테이너
       case 2: 
-        return 'mt-4 p-4 rounded-xl bg-[#1d1f30] border border-darkBorder/40';
+        // H2부터 실질적인 중첩 박스 시작 (가장 바깥쪽 박스 역할)
+        return 'mt-6 p-5 rounded-2xl bg-[#141520] border border-darkBorder/40 shadow-md';
       case 3: 
-        return 'mt-4 p-4 rounded-xl bg-[#252840] border border-darkBorder/40';
+        return 'mt-4 p-4 rounded-xl bg-[#1d1f30] border border-darkBorder/40';
       default: 
-        return 'mt-2 pl-2'; // 일반 텍스트는 패딩/배경 없이
+        return 'mt-2 pl-2'; // 일반 텍스트
     }
   };
 
@@ -263,21 +264,23 @@ const BlockNode = React.memo<{
 
   return (
     <div className={`block-node-wrapper transition-colors duration-200 ${getLevelStyles(block.level)}`}>
-      <CodeMirrorBlock
-        block={block}
-        index={blockIndex}
-        isFocused={activeBlockId === block.id}
-        focusOffset={activeBlockId === block.id ? focusOffset : 0}
-        onUpdate={(text, offset) => handleBlockUpdate(block.id, text, offset)}
-        onMerge={() => handleMerge(block.id)}
-        onFocusPrev={() => {
-          if (blockIndex > 0) focusBlock(flatBlocks[blockIndex - 1].id, flatBlocks[blockIndex - 1].content.length);
-        }}
-        onFocusNext={() => {
-          if (blockIndex < flatBlocks.length - 1) focusBlock(flatBlocks[blockIndex + 1].id, 0);
-        }}
-        onSelect={() => focusBlock(block.id)}
-      />
+      <div className={block.level === 1 ? 'pb-3 mb-5 border-b-2 border-darkBorder/40' : ''}>
+        <CodeMirrorBlock
+          block={block}
+          index={blockIndex}
+          isFocused={activeBlockId === block.id}
+          focusOffset={activeBlockId === block.id ? focusOffset : 0}
+          onUpdate={(text, offset) => handleBlockUpdate(block.id, text, offset)}
+          onMerge={() => handleMerge(block.id)}
+          onFocusPrev={() => {
+            if (blockIndex > 0) focusBlock(flatBlocks[blockIndex - 1].id, flatBlocks[blockIndex - 1].content.length);
+          }}
+          onFocusNext={() => {
+            if (blockIndex < flatBlocks.length - 1) focusBlock(flatBlocks[blockIndex + 1].id, 0);
+          }}
+          onSelect={() => focusBlock(block.id)}
+        />
+      </div>
       {block.children.length > 0 && (
         <div className={`block-children ${block.level > 0 ? 'mt-4' : 'mt-1'}`}>
           {block.children.map(child => (

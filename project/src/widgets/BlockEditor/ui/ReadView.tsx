@@ -341,11 +341,11 @@ const ReadBlockNode = React.memo<{
   const getLevelStyles = (level: number) => {
     switch(level) {
       case 1: 
-        return 'mb-6 p-5 rounded-2xl bg-[#141520] border border-darkBorder/40 shadow-md'; 
+        return 'mb-8 bg-transparent'; 
       case 2: 
-        return 'mt-4 p-4 rounded-xl bg-[#1d1f30] border border-darkBorder/40';
+        return 'mt-6 p-5 rounded-2xl bg-[#141520] border border-darkBorder/40 shadow-md';
       case 3: 
-        return 'mt-4 p-4 rounded-xl bg-[#252840] border border-darkBorder/40';
+        return 'mt-4 p-4 rounded-xl bg-[#1d1f30] border border-darkBorder/40';
       default: 
         return 'mt-2 pl-2 border-l-2 border-transparent hover:border-darkBorder/40';
     }
@@ -378,7 +378,7 @@ const ReadBlockNode = React.memo<{
       )}
 
       <div
-        className={`rv-content`}
+        className={`rv-content ${block.level === 1 ? 'pb-3 mb-5 border-b-2 border-darkBorder/40' : ''}`}
         dangerouslySetInnerHTML={{
           __html: renderBlockToHtml(block.content, workspacePath),
         }}
