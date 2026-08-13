@@ -1,6 +1,5 @@
 import { Decoration, DecorationSet } from '@codemirror/view';
-import { EditorState } from '@codemirror/state';
-import { RangeSetBuilder } from '@codemirror/state';
+import { EditorState, Range } from '@codemirror/state';
 import { SyntaxDecorator } from '../types';
 
 // Matches opening/closing code fences: ``` or ~~~
@@ -25,10 +24,10 @@ const INLINE_CODE_MARK = Decoration.mark({ class: 'cm-inline-code', inclusive: f
 export class CodeBlockDecorator implements SyntaxDecorator {
   readonly name = 'code-block';
 
-  createDecorations(state: EditorState, _from: number, _to: number): DecorationSet {
-    const { doc } = state;
+  createDecorations(state: EditorState): DecorationSet {
+    const doc = state.doc;
     const cursorHead = state.selection.main.head;
-    const builder = new RangeSetBuilder<Decoration>();
+    const decs: Range<Decoration>[] = [];
 
     // Pass 1: Identify fence blocks
     interface Fence {
@@ -91,8 +90,6 @@ export class CodeBlockDecorator implements SyntaxDecorator {
 
     // Pass 2: Build decorations
     let currentFenceIdx = 0;
-    interface DecInfo { from: number; to: number; dec: Decoration; isLine: boolean }
-    const allDecs: DecInfo[] = [];
     
     for (let i = 1; i <= doc.lines; i++) {
       const line = doc.line(i);
@@ -130,11 +127,11 @@ export class CodeBlockDecorator implements SyntaxDecorator {
             const widget = new CodeBlockHeaderWidget(fence.lang, fence.codeContent, fence.title);
             
             // Insert header widget above the fence line
-            allDecs.push({ from: lineFrom, to: lineFrom, dec: Decoration.widget({ widget, block: true, side: -1 }), isLine: false });
+            decs.push(Decoration.widget({ widget, block: true, side: -1 }).range(lineFrom));
             // Hide the text of the opening fence (leave newline)
-            allDecs.push({ from: lineFrom, to: lineTo, dec: Decoration.replace({}), isLine: false });
+            decs.push(Decoration.replace({}).range(lineFrom, lineTo));
             // Visually hide the empty line
-            allDecs.push({ from: lineFrom, to: lineFrom, dec: Decoration.line({ class: 'cm-code-block-hidden-fence' }), isLine: true });
+            decs.push(Decoration.line({ class: 'cm-code-block-hidden-fence' }).range(lineFrom));
           }
         }
         
@@ -142,9 +139,9 @@ export class CodeBlockDecorator implements SyntaxDecorator {
           if (fence.closeLineFrom !== null && lineFrom === fence.closeLineFrom) {
             applyBackground = false; 
             // Hide the text of the closing fence (leave newline)
-            allDecs.push({ from: lineFrom, to: lineTo, dec: Decoration.replace({}), isLine: false });
+            decs.push(Decoration.replace({}).range(lineFrom, lineTo));
             // Visually hide the empty line
-            allDecs.push({ from: lineFrom, to: lineFrom, dec: Decoration.line({ class: 'cm-code-block-hidden-fence' }), isLine: true });
+            decs.push(Decoration.line({ class: 'cm-code-block-hidden-fence' }).range(lineFrom));
           }
         }
         
@@ -172,38 +169,28 @@ export class CodeBlockDecorator implements SyntaxDecorator {
             lineClass += ' cm-code-block-bottom';
           }
           
-          allDecs.push({ from: lineFrom, to: lineFrom, dec: Decoration.line({ class: lineClass }), isLine: true });
+          decs.push(Decoration.line({ class: lineClass }).range(lineFrom));
         }
       } else {
         // Regular line — cursor-aware inline code decoration.
         INLINE_CODE_RE.lastIndex = 0;
-        let m: RegExpExecArray | null;
-        while ((m = INLINE_CODE_RE.exec(text)) !== null) {
-          const s = lineFrom + m.index;
-          const e = s + m[0].length;
+        let match;
+        while ((match = INLINE_CODE_RE.exec(text)) !== null) {
+          const s = lineFrom + match.index;
+          const e = s + match[0].length;
 
-          if (e > lineTo) continue;
+          // Skip styling if the cursor is touching or inside this span
           if (cursorHead >= s && cursorHead <= e) continue;
 
-          allDecs.push({ from: s, to: s + 1, dec: Decoration.replace({}), isLine: false });
-          allDecs.push({ from: s + 1, to: e - 1, dec: INLINE_CODE_MARK, isLine: false });
-          allDecs.push({ from: e - 1, to: e, dec: Decoration.replace({}), isLine: false });
+          decs.push(Decoration.replace({}).range(s, s + 1));
+          decs.push(INLINE_CODE_MARK.range(s + 1, e - 1));
+          decs.push(Decoration.replace({}).range(e - 1, e));
         }
       }
     }
 
-    // Sort decorations: Line decorations must come before marks/widgets at the same position
-    allDecs.sort((a, b) => {
-      if (a.from !== b.from) return a.from - b.from;
-      if (a.isLine !== b.isLine) return a.isLine ? -1 : 1;
-      return a.to - b.to;
-    });
-
-    for (const d of allDecs) {
-      builder.add(d.from, d.to, d.dec);
-    }
-
-    return builder.finish();
+    // Decoration.set automatically sorts them properly
+    return Decoration.set(decs, true);
   }
 }
 
