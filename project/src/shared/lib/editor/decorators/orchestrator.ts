@@ -132,6 +132,9 @@ const decorationBaseTheme = EditorView.baseTheme({
     borderTop: '1rem solid transparent',
     boxShadow: 'inset 1px 0 0 rgba(255,255,255,0.05), inset -1px 0 0 rgba(255,255,255,0.05), inset 0 1px 0 rgba(255,255,255,0.05)',
   },
+  '&.cm-editor .cm-code-block-flat-top': {
+    borderTop: '1rem solid transparent',
+  },
   '&.cm-editor .cm-code-block-bottom': {
     borderBottomLeftRadius: '0.75rem',
     borderBottomRightRadius: '0.75rem',

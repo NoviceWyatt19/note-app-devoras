@@ -123,20 +123,43 @@ export class CodeBlockDecorator implements SyntaxDecorator {
         // If cursor is OUTSIDE, we apply Live Preview (hide fence markers)
         if (!isCursorInside) {
           if (lineFrom === fence.openLineFrom) {
-            applyBackground = false; // Widget will provide styling
+            applyBackground = true; // Apply background to merged first line
             const widget = new CodeBlockHeaderWidget(fence.lang, fence.codeContent, fence.title);
-            const replaceTo = Math.min(lineTo + 1, doc.length);
-            allDecs.push({ from: lineFrom, to: replaceTo, dec: Decoration.replace({ widget, block: true }), isLine: false });
+            
+            if (fence.closeLineFrom !== null && fence.openLineTo + 1 === fence.closeLineFrom) {
+              // Empty code block
+              allDecs.push({ from: lineFrom, to: fence.closeLineTo!, dec: Decoration.replace({ widget, block: true }), isLine: false });
+            } else {
+              // Merge with first line of code
+              allDecs.push({ from: lineFrom, to: lineTo + 1, dec: Decoration.replace({ widget, block: true }), isLine: false });
+            }
           } else if (fence.closeLineFrom !== null && lineFrom === fence.closeLineFrom) {
-            applyBackground = false; // Line is completely hidden
-            const replaceTo = Math.min(lineTo + 1, doc.length);
-            allDecs.push({ from: lineFrom, to: replaceTo, dec: Decoration.replace({ block: true }), isLine: false });
+            applyBackground = false; 
+            if (fence.openLineTo + 1 !== fence.closeLineFrom) {
+              // Merge closing fence UP into the last line of code
+              const replaceFrom = lineFrom > 0 ? lineFrom - 1 : lineFrom;
+              allDecs.push({ from: replaceFrom, to: lineTo, dec: Decoration.replace({}), isLine: false });
+            }
           }
         }
         
         if (applyBackground) {
           let lineClass = 'cm-code-block-line';
-          if (lineFrom === fence.openLineFrom) lineClass += ' cm-code-block-top';
+          if (lineFrom === fence.openLineFrom) {
+            if (isCursorInside) {
+              lineClass += ' cm-code-block-top';
+            } else {
+              lineClass += ' cm-code-block-flat-top';
+              // If it's a 1-line block, it all merges into i=1
+              if (fence.closeLineFrom !== null) {
+                const firstCodeLineFrom = fence.openLineTo + 1;
+                const lastCodeLineFrom = doc.lineAt(fence.closeLineFrom - 1).from;
+                if (firstCodeLineFrom === lastCodeLineFrom) {
+                  lineClass += ' cm-code-block-bottom';
+                }
+              }
+            }
+          }
           
           if (fence.closeLineFrom !== null) {
             const bottomLineFrom = isCursorInside 
