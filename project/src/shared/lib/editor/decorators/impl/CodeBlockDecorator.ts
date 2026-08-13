@@ -126,22 +126,20 @@ export class CodeBlockDecorator implements SyntaxDecorator {
             applyBackground = false; 
             const widget = new CodeBlockHeaderWidget(fence.lang, fence.codeContent, fence.title);
             
-            // Insert header widget above the fence line
-            decs.push(Decoration.widget({ widget, block: true, side: -1 }).range(lineFrom));
-            // Hide the text of the opening fence (leave newline)
-            decs.push(Decoration.replace({}).range(lineFrom, lineTo));
-            // Visually hide the empty line
-            decs.push(Decoration.line({ class: 'cm-code-block-hidden-fence' }).range(lineFrom));
+            // Replace the text with the block widget (keeps the newline intact)
+            decs.push(Decoration.replace({ widget, block: true }).range(lineFrom, lineTo));
+            // Apply special class to remove padding/margins from the original line wrapper
+            decs.push(Decoration.line({ class: 'cm-code-block-widget-line' }).range(lineFrom));
           }
         }
         
         if (!showCloseFence) {
           if (fence.closeLineFrom !== null && lineFrom === fence.closeLineFrom) {
             applyBackground = false; 
-            // Hide the text of the closing fence (leave newline)
-            decs.push(Decoration.replace({}).range(lineFrom, lineTo));
-            // Visually hide the empty line
-            decs.push(Decoration.line({ class: 'cm-code-block-hidden-fence' }).range(lineFrom));
+            // Replace the closing fence text with an empty block widget to maintain clickability
+            const emptyWidget = document.createElement('span');
+            decs.push(Decoration.replace({ widget: new (class extends WidgetType { toDOM() { return emptyWidget; } })(), block: true }).range(lineFrom, lineTo));
+            decs.push(Decoration.line({ class: 'cm-code-block-widget-line' }).range(lineFrom));
           }
         }
         

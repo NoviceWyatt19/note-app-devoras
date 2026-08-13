@@ -148,6 +148,12 @@ const decorationBaseTheme = EditorView.baseTheme({
   '&.cm-editor .cm-code-block-hidden-fence br': {
     display: 'none',
   },
+  '&.cm-editor .cm-code-block-widget-line': {
+    padding: '0 !important',
+    margin: '0 !important',
+    border: '0 !important',
+    background: 'transparent !important',
+  },
   '&.cm-editor .cm-code-block-bottom': {
     borderBottomLeftRadius: '0.75rem',
     borderBottomRightRadius: '0.75rem',
