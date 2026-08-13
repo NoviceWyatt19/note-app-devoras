@@ -119,24 +119,24 @@ const decorationBaseTheme = EditorView.baseTheme({
   // Code-fence block line background
   '&.cm-editor .cm-code-block-line': {
     backgroundColor: '#1a1b26',
-    borderLeft: '1px solid rgba(255,255,255,0.05)',
-    borderRight: '1px solid rgba(255,255,255,0.05)',
-    marginLeft: '1rem',
-    marginRight: '1rem',
+    backgroundClip: 'padding-box',
+    borderLeft: '1rem solid transparent',
+    borderRight: '1rem solid transparent',
+    boxShadow: 'inset 1px 0 0 rgba(255,255,255,0.05), inset -1px 0 0 rgba(255,255,255,0.05)',
     paddingLeft: '1rem',
     paddingRight: '1rem',
   },
   '&.cm-editor .cm-code-block-top': {
     borderTopLeftRadius: '0.75rem',
     borderTopRightRadius: '0.75rem',
-    borderTop: '1px solid rgba(255,255,255,0.05)',
-    marginTop: '1rem',
+    borderTop: '1rem solid transparent',
+    boxShadow: 'inset 1px 0 0 rgba(255,255,255,0.05), inset -1px 0 0 rgba(255,255,255,0.05), inset 0 1px 0 rgba(255,255,255,0.05)',
   },
   '&.cm-editor .cm-code-block-bottom': {
     borderBottomLeftRadius: '0.75rem',
     borderBottomRightRadius: '0.75rem',
-    borderBottom: '1px solid rgba(255,255,255,0.05)',
-    marginBottom: '1rem',
+    borderBottom: '1rem solid transparent',
+    boxShadow: 'inset 1px 0 0 rgba(255,255,255,0.05), inset -1px 0 0 rgba(255,255,255,0.05), inset 0 -1px 0 rgba(255,255,255,0.05)',
   },
 
   // Inline math  $...$  (visual hint; replaced by KaTeX widget when rendered)

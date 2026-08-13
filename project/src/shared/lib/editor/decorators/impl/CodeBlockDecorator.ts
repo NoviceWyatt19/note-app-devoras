@@ -171,8 +171,14 @@ class CodeBlockHeaderWidget extends WidgetType {
   }
 
   toDOM() {
+    const container = document.createElement('div');
+    container.className = 'w-full box-border';
+    container.style.paddingTop = '1rem';
+    container.style.paddingLeft = '1rem';
+    container.style.paddingRight = '1rem';
+    
     const wrap = document.createElement('div');
-    wrap.className = 'cm-code-block-header flex items-center justify-between px-4 py-1.5 bg-[#141520] border-b border-white/5 select-none w-auto mx-4 mt-4 box-border rounded-t-xl border-t border-l border-r border-white/5';
+    wrap.className = 'cm-code-block-header flex items-center justify-between px-4 py-1.5 bg-[#141520] border-b border-white/5 select-none w-full box-border rounded-t-xl border-t border-l border-r border-white/5';
     
     const langSpan = document.createElement('span');
     langSpan.className = 'text-[11px] font-mono text-slate-400 uppercase tracking-wider';
@@ -207,6 +213,7 @@ class CodeBlockHeaderWidget extends WidgetType {
 
     wrap.appendChild(langSpan);
     wrap.appendChild(btn);
-    return wrap;
+    container.appendChild(wrap);
+    return container;
   }
 }
