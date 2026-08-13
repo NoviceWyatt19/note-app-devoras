@@ -126,48 +126,37 @@ export class CodeBlockDecorator implements SyntaxDecorator {
         
         if (!showOpenFence) {
           if (lineFrom === fence.openLineFrom) {
-            applyBackground = true; 
+            applyBackground = false; 
             const widget = new CodeBlockHeaderWidget(fence.lang, fence.codeContent, fence.title);
             
-            if (fence.closeLineFrom !== null && fence.openLineTo + 1 === fence.closeLineFrom) {
-              allDecs.push({ from: lineFrom, to: fence.closeLineTo!, dec: Decoration.replace({ widget, block: true }), isLine: false });
-            } else {
-              allDecs.push({ from: lineFrom, to: lineTo + 1, dec: Decoration.replace({ widget, block: true }), isLine: false });
-            }
+            // Insert header widget above the fence line
+            allDecs.push({ from: lineFrom, to: lineFrom, dec: Decoration.widget({ widget, block: true, side: -1 }), isLine: false });
+            // Hide the text of the opening fence (leave newline)
+            allDecs.push({ from: lineFrom, to: lineTo, dec: Decoration.replace({}), isLine: false });
+            // Visually hide the empty line
+            allDecs.push({ from: lineFrom, to: lineFrom, dec: Decoration.line({ class: 'cm-code-block-hidden-fence' }), isLine: true });
           }
         }
         
         if (!showCloseFence) {
           if (fence.closeLineFrom !== null && lineFrom === fence.closeLineFrom) {
             applyBackground = false; 
-            if (fence.openLineTo + 1 !== fence.closeLineFrom) {
-              const replaceFrom = lineFrom > 0 ? lineFrom - 1 : lineFrom;
-              allDecs.push({ from: replaceFrom, to: lineTo, dec: Decoration.replace({}), isLine: false });
-            }
+            // Hide the text of the closing fence (leave newline)
+            allDecs.push({ from: lineFrom, to: lineTo, dec: Decoration.replace({}), isLine: false });
+            // Visually hide the empty line
+            allDecs.push({ from: lineFrom, to: lineFrom, dec: Decoration.line({ class: 'cm-code-block-hidden-fence' }), isLine: true });
           }
         }
         
         if (applyBackground) {
-          // Prevent CodeMirror RangeSetBuilder crash
-          if (!showOpenFence && fence.closeLineFrom !== null && fence.openLineTo + 1 !== fence.closeLineFrom) {
-            if (lineFrom === fence.openLineTo + 1) {
-              continue;
-            }
-          }
-
           let lineClass = 'cm-code-block-line';
-          if (lineFrom === fence.openLineFrom) {
-            if (showOpenFence) {
-              lineClass += ' cm-code-block-top';
-            } else {
-              lineClass += ' cm-code-block-flat-top';
-              if (fence.closeLineFrom !== null) {
-                const firstCodeLineFrom = fence.openLineTo + 1;
-                const lastCodeLineFrom = doc.lineAt(fence.closeLineFrom - 1).from;
-                if (firstCodeLineFrom === lastCodeLineFrom) {
-                  lineClass += ' cm-code-block-bottom';
-                }
-              }
+          if (lineFrom === fence.openLineFrom && showOpenFence) {
+            lineClass += ' cm-code-block-top';
+          } else if (lineFrom === fence.openLineTo + 1 && !showOpenFence) {
+            lineClass += ' cm-code-block-flat-top';
+            // If it's a 1-line block, apply bottom radius too
+            if (fence.closeLineFrom !== null && lineFrom === doc.lineAt(fence.closeLineFrom - 1).from) {
+              lineClass += ' cm-code-block-bottom';
             }
           }
           
@@ -175,7 +164,8 @@ export class CodeBlockDecorator implements SyntaxDecorator {
             const bottomLineFrom = showCloseFence 
               ? fence.closeLineFrom 
               : (fence.closeLineFrom > 0 ? doc.lineAt(fence.closeLineFrom - 1).from : 0);
-            if (lineFrom === bottomLineFrom) {
+            
+            if (lineFrom === bottomLineFrom && !(lineFrom === fence.openLineTo + 1 && !showOpenFence)) {
               lineClass += ' cm-code-block-bottom';
             }
           } else if (lineTo === doc.length) {
