@@ -38,6 +38,7 @@ export class CodeBlockDecorator implements SyntaxDecorator {
       closeLineTo: number | null;
       fenceChar: string;
       lang: string;
+      title: string;
       codeContent: string;
     }
     const fences: Fence[] = [];
@@ -50,6 +51,16 @@ export class CodeBlockDecorator implements SyntaxDecorator {
 
       if (match) {
         const char = match[1][0];
+        let rawLang = text.slice(match[0].length).trim();
+        let title = '';
+        
+        // Parse |title|="My Title" or |tile|="My Title" with optional spaces
+        const titleMatch = rawLang.match(/\|(title|tile)\|\s*=\s*"([^"]+)"/);
+        if (titleMatch) {
+          title = titleMatch[2];
+          rawLang = rawLang.replace(titleMatch[0], '').trim();
+        }
+
         if (!currentFence) {
           currentFence = {
             openLineFrom: line.from,
@@ -57,7 +68,8 @@ export class CodeBlockDecorator implements SyntaxDecorator {
             closeLineFrom: null,
             closeLineTo: null,
             fenceChar: char,
-            lang: text.slice(match[0].length).trim(),
+            lang: rawLang,
+            title: title,
             codeContent: ''
           };
         } else if (char === currentFence.fenceChar) {
@@ -79,6 +91,8 @@ export class CodeBlockDecorator implements SyntaxDecorator {
 
     // Pass 2: Build decorations
     let currentFenceIdx = 0;
+    interface DecInfo { from: number; to: number; dec: Decoration; isLine: boolean }
+    const allDecs: DecInfo[] = [];
     
     for (let i = 1; i <= doc.lines; i++) {
       const line = doc.line(i);
@@ -110,13 +124,13 @@ export class CodeBlockDecorator implements SyntaxDecorator {
         if (!isCursorInside) {
           if (lineFrom === fence.openLineFrom) {
             applyBackground = false; // Widget will provide styling
-            const widget = new CodeBlockHeaderWidget(fence.lang, fence.codeContent);
+            const widget = new CodeBlockHeaderWidget(fence.lang, fence.codeContent, fence.title);
             const replaceTo = Math.min(lineTo + 1, doc.length);
-            builder.add(lineFrom, replaceTo, Decoration.replace({ widget, block: true }));
+            allDecs.push({ from: lineFrom, to: replaceTo, dec: Decoration.replace({ widget, block: true }), isLine: false });
           } else if (fence.closeLineFrom !== null && lineFrom === fence.closeLineFrom) {
             applyBackground = false; // Line is completely hidden
             const replaceTo = Math.min(lineTo + 1, doc.length);
-            builder.add(lineFrom, replaceTo, Decoration.replace({ block: true }));
+            allDecs.push({ from: lineFrom, to: replaceTo, dec: Decoration.replace({ block: true }), isLine: false });
           }
         }
         
@@ -135,7 +149,7 @@ export class CodeBlockDecorator implements SyntaxDecorator {
             lineClass += ' cm-code-block-bottom';
           }
           
-          builder.add(lineFrom, lineFrom, Decoration.line({ class: lineClass }));
+          allDecs.push({ from: lineFrom, to: lineFrom, dec: Decoration.line({ class: lineClass }), isLine: true });
         }
       } else {
         // Regular line — cursor-aware inline code decoration.
@@ -148,11 +162,22 @@ export class CodeBlockDecorator implements SyntaxDecorator {
           if (e > lineTo) continue;
           if (cursorHead >= s && cursorHead <= e) continue;
 
-          builder.add(s,     s + 1, Decoration.replace({})); 
-          builder.add(s + 1, e - 1, INLINE_CODE_MARK);       
-          builder.add(e - 1, e,     Decoration.replace({})); 
+          allDecs.push({ from: s, to: s + 1, dec: Decoration.replace({}), isLine: false });
+          allDecs.push({ from: s + 1, to: e - 1, dec: INLINE_CODE_MARK, isLine: false });
+          allDecs.push({ from: e - 1, to: e, dec: Decoration.replace({}), isLine: false });
         }
       }
+    }
+
+    // Sort decorations: Line decorations must come before marks/widgets at the same position
+    allDecs.sort((a, b) => {
+      if (a.from !== b.from) return a.from - b.from;
+      if (a.isLine !== b.isLine) return a.isLine ? -1 : 1;
+      return a.to - b.to;
+    });
+
+    for (const d of allDecs) {
+      builder.add(d.from, d.to, d.dec);
     }
 
     return builder.finish();
@@ -162,12 +187,12 @@ export class CodeBlockDecorator implements SyntaxDecorator {
 import { WidgetType } from '@codemirror/view';
 
 class CodeBlockHeaderWidget extends WidgetType {
-  constructor(readonly lang: string, readonly code: string) {
+  constructor(readonly lang: string, readonly code: string, readonly title: string) {
     super();
   }
   
   eq(other: CodeBlockHeaderWidget) {
-    return other.lang === this.lang && other.code === this.code;
+    return other.lang === this.lang && other.code === this.code && other.title === this.title;
   }
 
   toDOM() {
@@ -178,12 +203,21 @@ class CodeBlockHeaderWidget extends WidgetType {
     container.style.paddingRight = '1rem';
     
     const wrap = document.createElement('div');
-    wrap.className = 'cm-code-block-header flex items-center justify-between px-4 py-1.5 bg-[#141520] border-b border-white/5 select-none w-full box-border rounded-t-xl border-t border-l border-r border-white/5';
+    wrap.className = 'cm-code-block-header flex items-center justify-between px-4 py-1.5 bg-[#141520] border-b border-white/5 select-none w-full box-border rounded-t-xl border-t border-l border-r border-white/5 relative';
     
     const langSpan = document.createElement('span');
     langSpan.className = 'text-[11px] font-mono text-slate-400 uppercase tracking-wider';
     langSpan.textContent = this.lang || 'plaintext';
     
+    wrap.appendChild(langSpan);
+
+    if (this.title) {
+      const titleSpan = document.createElement('span');
+      titleSpan.className = 'text-[12px] font-medium text-slate-300 absolute left-1/2 -translate-x-1/2';
+      titleSpan.textContent = this.title;
+      wrap.appendChild(titleSpan);
+    }
+
     const btn = document.createElement('button');
     btn.className = 'opacity-0 group-hover:opacity-100 transition-opacity hover:text-primary text-slate-400 rv-copy-btn p-1 flex items-center gap-1 cursor-pointer';
     btn.title = 'Copy';
