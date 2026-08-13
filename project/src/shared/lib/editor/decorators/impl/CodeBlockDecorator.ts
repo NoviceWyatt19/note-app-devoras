@@ -126,8 +126,9 @@ export class CodeBlockDecorator implements SyntaxDecorator {
             applyBackground = false; 
             const widget = new CodeBlockHeaderWidget(fence.lang, fence.codeContent, fence.title, lineFrom);
             
-            // We use block: true again, but we fix the inaccessibility via the codeBlockInteractionPlugin
-            decs.push(Decoration.replace({ widget, block: true }).range(lineFrom, lineTo));
+            // By using block: false, the widget becomes an INLINE element.
+            // Inline elements are NOT skipped by CodeMirror's vertical arrow key motion!
+            decs.push(Decoration.replace({ widget, block: false }).range(lineFrom, lineTo));
             decs.push(Decoration.line({ class: 'cm-code-block-widget-line' }).range(lineFrom));
           }
         }
@@ -136,7 +137,7 @@ export class CodeBlockDecorator implements SyntaxDecorator {
           if (fence.closeLineFrom !== null && lineFrom === fence.closeLineFrom) {
             applyBackground = false; 
             const widget = new CodeBlockFooterWidget(lineFrom);
-            decs.push(Decoration.replace({ widget, block: true }).range(lineFrom, lineTo));
+            decs.push(Decoration.replace({ widget, block: false }).range(lineFrom, lineTo));
             decs.push(Decoration.line({ class: 'cm-code-block-widget-line' }).range(lineFrom));
           }
         }
