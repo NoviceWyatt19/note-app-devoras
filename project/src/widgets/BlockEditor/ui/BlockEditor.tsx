@@ -22,7 +22,7 @@ import { createDecorationPlugin } from '@/shared/lib/editor/decorators/orchestra
 import { BoldItalicDecorator } from '@/shared/lib/editor/decorators/impl/BoldItalicDecorator';
 import { StrikethroughDecorator } from '@/shared/lib/editor/decorators/impl/StrikethroughDecorator';
 import { CheckboxDecorator } from '@/shared/lib/editor/decorators/impl/CheckboxDecorator';
-import { CodeBlockDecorator } from '@/shared/lib/editor/decorators/impl/CodeBlockDecorator';
+import { CodeBlockDecorator, codeBlockInteractionPlugin } from '@/shared/lib/editor/decorators/impl/CodeBlockDecorator';
 import { LatexDecorator } from '@/shared/lib/editor/decorators/impl/LatexDecorator';
 import { HyperlinkDecorator } from '@/shared/lib/editor/decorators/impl/HyperlinkDecorator';
 import { ImageDecorator } from '@/shared/lib/editor/decorators/impl/ImageDecorator';
@@ -133,6 +133,7 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
         keymap.of([...defaultKeymap, ...historyKeymap]),
         blockKeymap,
         markdownDecorationPlugin,
+        codeBlockInteractionPlugin,
         createImeIsolationExtension(),
         EditorView.domEventHandlers({
           input(event, view) {

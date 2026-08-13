@@ -124,11 +124,10 @@ export class CodeBlockDecorator implements SyntaxDecorator {
         if (!showOpenFence) {
           if (lineFrom === fence.openLineFrom) {
             applyBackground = false; 
-            const widget = new CodeBlockHeaderWidget(fence.lang, fence.codeContent, fence.title);
+            const widget = new CodeBlockHeaderWidget(fence.lang, fence.codeContent, fence.title, lineFrom);
             
-            // Replace the text with an INLINE widget (block: false) so cursor can enter the line
-            decs.push(Decoration.replace({ widget, block: false }).range(lineFrom, lineTo));
-            // Apply special class to remove padding/margins from the original line wrapper
+            // We use block: true again, but we fix the inaccessibility via the codeBlockInteractionPlugin
+            decs.push(Decoration.replace({ widget, block: true }).range(lineFrom, lineTo));
             decs.push(Decoration.line({ class: 'cm-code-block-widget-line' }).range(lineFrom));
           }
         }
@@ -136,10 +135,9 @@ export class CodeBlockDecorator implements SyntaxDecorator {
         if (!showCloseFence) {
           if (fence.closeLineFrom !== null && lineFrom === fence.closeLineFrom) {
             applyBackground = false; 
-            // Hide the text of the closing fence
-            decs.push(Decoration.replace({}).range(lineFrom, lineTo));
-            // Use 4px hidden fence so it is reachable by arrow keys/clicks
-            decs.push(Decoration.line({ class: 'cm-code-block-hidden-fence' }).range(lineFrom));
+            const widget = new CodeBlockFooterWidget(lineFrom);
+            decs.push(Decoration.replace({ widget, block: true }).range(lineFrom, lineTo));
+            decs.push(Decoration.line({ class: 'cm-code-block-widget-line' }).range(lineFrom));
           }
         }
         
@@ -192,15 +190,33 @@ export class CodeBlockDecorator implements SyntaxDecorator {
   }
 }
 
-import { WidgetType } from '@codemirror/view';
+import { WidgetType, ViewPlugin, EditorView } from '@codemirror/view';
+
+export const codeBlockInteractionPlugin = ViewPlugin.fromClass(class {
+  constructor(private view: EditorView) {
+    view.dom.addEventListener('code-block-click', this.onClick as EventListener);
+  }
+  
+  destroy() {
+    this.view.dom.removeEventListener('code-block-click', this.onClick as EventListener);
+  }
+  
+  onClick = (e: CustomEvent) => {
+    if (e.detail && typeof e.detail.pos === 'number') {
+      const pos = e.detail.pos;
+      this.view.dispatch({ selection: { anchor: pos } });
+      this.view.focus();
+    }
+  }
+});
 
 class CodeBlockHeaderWidget extends WidgetType {
-  constructor(readonly lang: string, readonly code: string, readonly title: string) {
+  constructor(readonly lang: string, readonly code: string, readonly title: string, readonly pos: number) {
     super();
   }
   
   eq(other: CodeBlockHeaderWidget) {
-    return other.lang === this.lang && other.code === this.code && other.title === this.title;
+    return other.lang === this.lang && other.code === this.code && other.title === this.title && other.pos === this.pos;
   }
 
   toDOM() {
@@ -209,6 +225,17 @@ class CodeBlockHeaderWidget extends WidgetType {
     container.style.paddingTop = '1rem';
     container.style.paddingLeft = '1rem';
     container.style.paddingRight = '1rem';
+    container.style.cursor = 'text';
+
+    container.addEventListener('mousedown', (e) => {
+      if ((e.target as HTMLElement).closest('.rv-copy-btn')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      container.dispatchEvent(new CustomEvent('code-block-click', {
+        bubbles: true,
+        detail: { pos: this.pos }
+      }));
+    });
     
     const wrap = document.createElement('div');
     wrap.className = 'cm-code-block-header flex items-center justify-between px-4 py-1.5 bg-[#141520] border-b border-white/5 select-none w-full box-border rounded-t-xl border-t border-l border-r border-white/5 relative';
@@ -256,6 +283,34 @@ class CodeBlockHeaderWidget extends WidgetType {
     wrap.appendChild(langSpan);
     wrap.appendChild(btn);
     container.appendChild(wrap);
+    return container;
+  }
+}
+
+class CodeBlockFooterWidget extends WidgetType {
+  constructor(readonly pos: number) {
+    super();
+  }
+
+  eq(other: CodeBlockFooterWidget) {
+    return other.pos === this.pos;
+  }
+
+  toDOM() {
+    const container = document.createElement('div');
+    container.className = 'w-full block';
+    container.style.height = '1rem';
+    container.style.cursor = 'text';
+
+    container.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      container.dispatchEvent(new CustomEvent('code-block-click', {
+        bubbles: true,
+        detail: { pos: this.pos }
+      }));
+    });
+    
     return container;
   }
 }
