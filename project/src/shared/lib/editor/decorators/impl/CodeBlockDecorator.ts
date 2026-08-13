@@ -111,10 +111,12 @@ export class CodeBlockDecorator implements SyntaxDecorator {
           if (lineFrom === fence.openLineFrom) {
             applyBackground = false; // Widget will provide styling
             const widget = new CodeBlockHeaderWidget(fence.lang, fence.codeContent);
-            builder.add(lineFrom, lineTo, Decoration.replace({ widget, block: true }));
+            const replaceTo = Math.min(lineTo + 1, doc.length);
+            builder.add(lineFrom, replaceTo, Decoration.replace({ widget, block: true }));
           } else if (fence.closeLineFrom !== null && lineFrom === fence.closeLineFrom) {
             applyBackground = false; // Line is completely hidden
-            builder.add(lineFrom, lineTo, Decoration.replace({}));
+            const replaceTo = Math.min(lineTo + 1, doc.length);
+            builder.add(lineFrom, replaceTo, Decoration.replace({ block: true }));
           }
         }
         
@@ -185,10 +187,12 @@ class CodeBlockHeaderWidget extends WidgetType {
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
     `;
     
-    // Add click event for copy right here on the DOM node since it's a widget
-    btn.addEventListener('click', async (e) => {
+    // Add mousedown event for copy right here on the DOM node since it's a widget
+    // Using mousedown prevents CodeMirror from stealing focus and hiding the widget before the click registers
+    btn.addEventListener('mousedown', async (e) => {
       e.preventDefault();
-      e.stopPropagation(); // prevent editor from stealing focus/selection if possible
+      e.stopPropagation();
+      e.stopImmediatePropagation();
       try {
         await navigator.clipboard.writeText(this.code);
         const feedback = btn.querySelector('.copy-feedback');
