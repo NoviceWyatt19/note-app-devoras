@@ -126,8 +126,8 @@ export class CodeBlockDecorator implements SyntaxDecorator {
             applyBackground = false; 
             const widget = new CodeBlockHeaderWidget(fence.lang, fence.codeContent, fence.title);
             
-            // Replace the text with the block widget (keeps the newline intact)
-            decs.push(Decoration.replace({ widget, block: true }).range(lineFrom, lineTo));
+            // Replace the text with an INLINE widget (block: false) so cursor can enter the line
+            decs.push(Decoration.replace({ widget, block: false }).range(lineFrom, lineTo));
             // Apply special class to remove padding/margins from the original line wrapper
             decs.push(Decoration.line({ class: 'cm-code-block-widget-line' }).range(lineFrom));
           }
@@ -136,10 +136,10 @@ export class CodeBlockDecorator implements SyntaxDecorator {
         if (!showCloseFence) {
           if (fence.closeLineFrom !== null && lineFrom === fence.closeLineFrom) {
             applyBackground = false; 
-            // Replace the closing fence text with an empty block widget to maintain clickability
-            const emptyWidget = document.createElement('span');
-            decs.push(Decoration.replace({ widget: new (class extends WidgetType { toDOM() { return emptyWidget; } })(), block: true }).range(lineFrom, lineTo));
-            decs.push(Decoration.line({ class: 'cm-code-block-widget-line' }).range(lineFrom));
+            // Hide the text of the closing fence
+            decs.push(Decoration.replace({}).range(lineFrom, lineTo));
+            // Use 4px hidden fence so it is reachable by arrow keys/clicks
+            decs.push(Decoration.line({ class: 'cm-code-block-hidden-fence' }).range(lineFrom));
           }
         }
         
@@ -205,7 +205,7 @@ class CodeBlockHeaderWidget extends WidgetType {
 
   toDOM() {
     const container = document.createElement('div');
-    container.className = 'w-full box-border';
+    container.className = 'w-full box-border block';
     container.style.paddingTop = '1rem';
     container.style.paddingLeft = '1rem';
     container.style.paddingRight = '1rem';

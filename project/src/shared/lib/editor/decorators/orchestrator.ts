@@ -129,21 +129,22 @@ const decorationBaseTheme = EditorView.baseTheme({
   '&.cm-editor .cm-code-block-top': {
     borderTopLeftRadius: '0.75rem',
     borderTopRightRadius: '0.75rem',
-    borderTop: '1rem solid transparent',
+    paddingTop: '1rem',
     boxShadow: 'inset 1px 0 0 rgba(255,255,255,0.05), inset -1px 0 0 rgba(255,255,255,0.05), inset 0 1px 0 rgba(255,255,255,0.05)',
   },
   '&.cm-editor .cm-code-block-flat-top': {
-    borderTop: '1rem solid transparent',
+    paddingTop: '1rem',
   },
   '&.cm-editor .cm-code-block-hidden-fence': {
-    height: '0 !important',
-    minHeight: '0 !important',
+    height: '4px !important',
+    minHeight: '4px !important',
     padding: '0 !important',
     margin: '0 !important',
     border: '0 !important',
     overflow: 'hidden !important',
     fontSize: '0 !important',
     lineHeight: '0 !important',
+    background: 'transparent !important',
   },
   '&.cm-editor .cm-code-block-hidden-fence br': {
     display: 'none',
@@ -157,7 +158,7 @@ const decorationBaseTheme = EditorView.baseTheme({
   '&.cm-editor .cm-code-block-bottom': {
     borderBottomLeftRadius: '0.75rem',
     borderBottomRightRadius: '0.75rem',
-    borderBottom: '1rem solid transparent',
+    paddingBottom: '1rem',
     boxShadow: 'inset 1px 0 0 rgba(255,255,255,0.05), inset -1px 0 0 rgba(255,255,255,0.05), inset 0 -1px 0 rgba(255,255,255,0.05)',
   },
 
