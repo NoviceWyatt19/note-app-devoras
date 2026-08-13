@@ -114,29 +114,33 @@ export class CodeBlockDecorator implements SyntaxDecorator {
       }
 
       if (inCurrentFence && fence) {
-        const fenceEnd = fence.closeLineTo !== null ? fence.closeLineTo : doc.length;
-        const isCursorInside = cursorHead >= fence.openLineFrom && cursorHead <= fenceEnd;
+        const isCursorOnOpenFence = cursorHead >= fence.openLineFrom && cursorHead <= fence.openLineTo;
+        const isCursorOnCloseFence = fence.closeLineFrom !== null && cursorHead >= fence.closeLineFrom && cursorHead <= fence.closeLineTo!;
+        
+        // Hide fences unless the cursor is directly on them
+        const showOpenFence = isCursorOnOpenFence;
+        const showCloseFence = isCursorOnCloseFence;
 
         // Line styling (background)
         let applyBackground = true;
         
-        // If cursor is OUTSIDE, we apply Live Preview (hide fence markers)
-        if (!isCursorInside) {
+        if (!showOpenFence) {
           if (lineFrom === fence.openLineFrom) {
-            applyBackground = true; // Apply background to merged first line
+            applyBackground = true; 
             const widget = new CodeBlockHeaderWidget(fence.lang, fence.codeContent, fence.title);
             
             if (fence.closeLineFrom !== null && fence.openLineTo + 1 === fence.closeLineFrom) {
-              // Empty code block
               allDecs.push({ from: lineFrom, to: fence.closeLineTo!, dec: Decoration.replace({ widget, block: true }), isLine: false });
             } else {
-              // Merge with first line of code
               allDecs.push({ from: lineFrom, to: lineTo + 1, dec: Decoration.replace({ widget, block: true }), isLine: false });
             }
-          } else if (fence.closeLineFrom !== null && lineFrom === fence.closeLineFrom) {
+          }
+        }
+        
+        if (!showCloseFence) {
+          if (fence.closeLineFrom !== null && lineFrom === fence.closeLineFrom) {
             applyBackground = false; 
             if (fence.openLineTo + 1 !== fence.closeLineFrom) {
-              // Merge closing fence UP into the last line of code
               const replaceFrom = lineFrom > 0 ? lineFrom - 1 : lineFrom;
               allDecs.push({ from: replaceFrom, to: lineTo, dec: Decoration.replace({}), isLine: false });
             }
@@ -144,13 +148,19 @@ export class CodeBlockDecorator implements SyntaxDecorator {
         }
         
         if (applyBackground) {
+          // Prevent CodeMirror RangeSetBuilder crash
+          if (!showOpenFence && fence.closeLineFrom !== null && fence.openLineTo + 1 !== fence.closeLineFrom) {
+            if (lineFrom === fence.openLineTo + 1) {
+              continue;
+            }
+          }
+
           let lineClass = 'cm-code-block-line';
           if (lineFrom === fence.openLineFrom) {
-            if (isCursorInside) {
+            if (showOpenFence) {
               lineClass += ' cm-code-block-top';
             } else {
               lineClass += ' cm-code-block-flat-top';
-              // If it's a 1-line block, it all merges into i=1
               if (fence.closeLineFrom !== null) {
                 const firstCodeLineFrom = fence.openLineTo + 1;
                 const lastCodeLineFrom = doc.lineAt(fence.closeLineFrom - 1).from;
@@ -162,7 +172,7 @@ export class CodeBlockDecorator implements SyntaxDecorator {
           }
           
           if (fence.closeLineFrom !== null) {
-            const bottomLineFrom = isCursorInside 
+            const bottomLineFrom = showCloseFence 
               ? fence.closeLineFrom 
               : (fence.closeLineFrom > 0 ? doc.lineAt(fence.closeLineFrom - 1).from : 0);
             if (lineFrom === bottomLineFrom) {
