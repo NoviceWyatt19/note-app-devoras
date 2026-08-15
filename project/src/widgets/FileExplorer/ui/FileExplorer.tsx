@@ -64,7 +64,7 @@ const TreeNode: React.FC<TreeNodeProps> = (props) => {
     <div className="w-full">
       <div
         draggable={true}
-        style={{ paddingLeft: `${depth * 12 + 8}px`, WebkitUserDrag: 'element' }}
+        style={{ paddingLeft: `${depth * 12 + 8}px`, WebkitUserDrag: 'element', userSelect: 'auto' }}
         onDragStart={(e) => handleDragStart(e, entry)}
         onDragEnter={(e) => e.preventDefault()}
         onDragOver={(e) => handleDragOver(e, entry)}
