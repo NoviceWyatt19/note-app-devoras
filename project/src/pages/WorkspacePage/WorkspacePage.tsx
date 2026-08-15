@@ -15,6 +15,7 @@ import {
   Columns,
   FolderOpen,
   ChevronDown,
+  Loader,
 } from 'lucide-react';
 
 export const WorkspacePage: React.FC = () => {
@@ -34,7 +35,7 @@ export const WorkspacePage: React.FC = () => {
     getCurrentFile,
   } = useDocumentStore();
 
-  const { openWorkspace } = useWorkspaceStore();
+  const { openWorkspace, isLoading, workspacePath } = useWorkspaceStore();
   const currentFile = getCurrentFile();
 
   // Cmd+S 저장 / Cmd+\ 사이드바 토글 / Cmd+O 워크스페이스 열기
@@ -95,6 +96,18 @@ export const WorkspacePage: React.FC = () => {
 
   return (
     <div className="absolute inset-0 flex min-h-0 bg-darkBg text-slate-200">
+      {/* 0. Loading Overlay */}
+      {isLoading && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-darkBg/80 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-4">
+            <Loader className="w-8 h-8 text-primary animate-spin" />
+            <div className="text-sm font-medium tracking-wide text-slate-300">
+              {workspacePath ? '워크스페이스 동기화 중...' : '워크스페이스 불러오는 중...'}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 1. File Explorer Sidebar */}
       {isSidebarOpen && (
         <>
