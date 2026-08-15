@@ -22,7 +22,6 @@
         "fullscreen": false,
         "hiddenTitle": true,
         "titleBarStyle": "Overlay",
-        "fileDropEnabled": false,
         "visible": false
       },
       {
