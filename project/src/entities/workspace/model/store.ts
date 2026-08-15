@@ -26,7 +26,7 @@ const initialPath = localStorage.getItem('devoras_workspace_path') || null;
 export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   workspacePath: initialPath,
   files: [],
-  isLoading: false,
+  isLoading: initialPath !== null,
   config: DEFAULT_WORKSPACE_CONFIG,
 
   setWorkspacePath: (path) => set({ workspacePath: path }),
@@ -35,17 +35,17 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     set((state) => ({ config: { ...state.config, ...partial } })),
 
   openWorkspace: async () => {
-    set({ isLoading: true });
     try {
       const selectedPath = await fileSystemRepository.openDirectory();
       if (selectedPath && selectedPath !== get().workspacePath) {
+        set({ isLoading: true }); // Show loading view before remounting
         localStorage.setItem('devoras_workspace_path', selectedPath);
-        window.location.reload(); // Refresh the app to clear all stale states
+        useDocumentStore.getState().resetDocumentState();
+        set({ workspacePath: selectedPath });
+        // scanWorkspace will be triggered automatically by WorkspacePage's useEffect upon remount.
       }
     } catch (e) {
       console.error('Failed to open workspace directory:', e);
-    } finally {
-      set({ isLoading: false });
     }
   },
 
