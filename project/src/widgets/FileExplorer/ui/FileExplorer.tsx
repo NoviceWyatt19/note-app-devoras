@@ -64,6 +64,7 @@ const TreeNode: React.FC<TreeNodeProps> = (props) => {
     <div className="w-full">
       <div
         draggable={true}
+        style={{ paddingLeft: `${depth * 12 + 8}px`, WebkitUserDrag: 'element' }}
         onDragStart={(e) => handleDragStart(e, entry)}
         onDragEnter={(e) => e.preventDefault()}
         onDragOver={(e) => handleDragOver(e, entry)}
@@ -81,7 +82,6 @@ const TreeNode: React.FC<TreeNodeProps> = (props) => {
                 ? 'bg-primary/15 text-primary font-medium border-l-2 border-primary cursor-pointer'
                 : 'hover:bg-darkBorder/40 text-slate-300 hover:text-slate-100 border-l-2 border-transparent cursor-pointer'
         }`}
-        style={{ paddingLeft: `${depth * 12 + 8}px` }}
       >
         <div className="flex-shrink-0 flex items-center justify-center w-4 h-4 pointer-events-none">
           {entry.isDir ? (
@@ -160,7 +160,7 @@ export const FileExplorer: React.FC = () => {
   
   // Drag and Drop state
   const [dragOverPath, setDragOverPath] = useState<string | null>(null);
-  const [draggedPath, setDraggedPath] = useState<string | null>(null);
+  const draggedPathRef = React.useRef<string | null>(null);
 
   // Clipboard state for Cmd+C / Cmd+V
   const [clipboardPath, setClipboardPath] = useState<string | null>(null);
@@ -287,28 +287,22 @@ export const FileExplorer: React.FC = () => {
   // --- Drag and Drop Handlers ---
   const handleDragStart = (e: React.DragEvent, entry: FileEntry) => {
     e.stopPropagation();
-    setDraggedPath(entry.path);
-    e.dataTransfer.setData('text/plain', entry.path);
-    e.dataTransfer.effectAllowed = 'move';
+    draggedPathRef.current = entry.path;
+    try {
+      e.dataTransfer.setData('text/plain', entry.path);
+      e.dataTransfer.setData('text', entry.path); // Safari fallback
+      e.dataTransfer.effectAllowed = 'move';
+    } catch(err) {}
   };
 
   const handleDragOver = (e: React.DragEvent, entry: FileEntry | null) => {
-    e.preventDefault();
+    e.preventDefault(); // Necessary to allow dropping
     e.stopPropagation();
-    e.dataTransfer.dropEffect = 'move';
+    try { e.dataTransfer.dropEffect = 'move'; } catch(err) {}
     
     // Only highlight if dropping on a directory or root
     const targetPath = entry?.isDir ? entry.path : (entry ? entry.path.substring(0, entry.path.lastIndexOf('/')) : workspacePath);
     
-    // Prevent dropping a folder into itself or its own subdirectories visually
-    if (draggedPath && targetPath) {
-      if (targetPath === draggedPath || targetPath.startsWith(draggedPath + '/')) {
-        e.dataTransfer.dropEffect = 'none';
-        if (dragOverPath !== null) setDragOverPath(null);
-        return;
-      }
-    }
-
     if (targetPath && targetPath !== dragOverPath) {
       setDragOverPath(targetPath);
     }
@@ -325,7 +319,7 @@ export const FileExplorer: React.FC = () => {
     e.preventDefault();
     e.stopPropagation();
     setDragOverPath(null);
-    setDraggedPath(null);
+    draggedPathRef.current = null;
   };
 
   const handleDrop = async (e: React.DragEvent, targetEntry: FileEntry | null) => {
@@ -333,11 +327,13 @@ export const FileExplorer: React.FC = () => {
     e.stopPropagation();
     setDragOverPath(null);
 
-    // Safari/Tauri webview might clear dataTransfer, so we fallback to our state.
-    const oldPath = e.dataTransfer.getData('text/plain') || draggedPath;
-    setDraggedPath(null);
-
-    if (!oldPath || !workspacePath) return;
+    // Safari/Tauri webview might clear dataTransfer, so we fallback to our ref.
+    const oldPath = e.dataTransfer.getData('text/plain') || draggedPathRef.current;
+    
+    if (!oldPath || !workspacePath) {
+        draggedPathRef.current = null;
+        return;
+    }
 
     // Determine the actual destination directory directly from the drop target
     const targetDirPath = targetEntry?.isDir
@@ -346,7 +342,14 @@ export const FileExplorer: React.FC = () => {
           ? targetEntry.path.substring(0, targetEntry.path.lastIndexOf('/'))
           : workspacePath);
     
+    // Prevent dropping a folder into itself or its own subdirectories
+    if (oldPath === targetDirPath || targetDirPath.startsWith(oldPath + '/')) {
+        draggedPathRef.current = null;
+        return;
+    }
+
     await moveEntry(oldPath, targetDirPath);
+    draggedPathRef.current = null;
   };
 
   const isCreatingInRoot = creatingNode?.parentPath === workspacePath;
