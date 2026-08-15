@@ -41,6 +41,7 @@ interface TreeNodeProps {
   handleDragOver: (e: React.DragEvent, entry: FileEntry) => void;
   handleDragLeave: (e: React.DragEvent) => void;
   handleDrop: (e: React.DragEvent, targetEntry: FileEntry | null) => void;
+  handleDragEnd: (e: React.DragEvent) => void;
   dragOverPath: string | null;
 }
 
@@ -49,7 +50,7 @@ const TreeNode: React.FC<TreeNodeProps> = (props) => {
     entry, depth, expandedFolders, renamingPath, renameValue, setRenameValue, 
     currentFilePath, handleFileSelect, handleContextMenu, handleRenameSubmit, 
     setRenamingPath, creatingNode, createValue, setCreateValue, handleCreateSubmit, 
-    setCreatingNode, handleDragStart, handleDragOver, handleDragLeave, handleDrop, dragOverPath 
+    setCreatingNode, handleDragStart, handleDragOver, handleDragLeave, handleDrop, handleDragEnd, dragOverPath 
   } = props;
 
   const isExpanded = expandedFolders.has(entry.path);
@@ -68,6 +69,7 @@ const TreeNode: React.FC<TreeNodeProps> = (props) => {
         onDragOver={(e) => handleDragOver(e, entry)}
         onDragLeave={handleDragLeave}
         onDrop={(e) => handleDrop(e, entry)}
+        onDragEnd={handleDragEnd}
         onClick={() => { if (isSupported) handleFileSelect(entry); }}
         onContextMenu={(e) => { if (isSupported) handleContextMenu(e, entry); }}
         className={`group flex items-center space-x-1.5 px-2 py-1.5 rounded text-xs transition-colors ${
@@ -158,6 +160,7 @@ export const FileExplorer: React.FC = () => {
   
   // Drag and Drop state
   const [dragOverPath, setDragOverPath] = useState<string | null>(null);
+  const [draggedPath, setDraggedPath] = useState<string | null>(null);
 
   // Clipboard state for Cmd+C / Cmd+V
   const [clipboardPath, setClipboardPath] = useState<string | null>(null);
@@ -284,6 +287,7 @@ export const FileExplorer: React.FC = () => {
   // --- Drag and Drop Handlers ---
   const handleDragStart = (e: React.DragEvent, entry: FileEntry) => {
     e.stopPropagation();
+    setDraggedPath(entry.path);
     e.dataTransfer.setData('text/plain', entry.path);
     e.dataTransfer.effectAllowed = 'move';
   };
@@ -295,6 +299,16 @@ export const FileExplorer: React.FC = () => {
     
     // Only highlight if dropping on a directory or root
     const targetPath = entry?.isDir ? entry.path : (entry ? entry.path.substring(0, entry.path.lastIndexOf('/')) : workspacePath);
+    
+    // Prevent dropping a folder into itself or its own subdirectories visually
+    if (draggedPath && targetPath) {
+      if (targetPath === draggedPath || targetPath.startsWith(draggedPath + '/')) {
+        e.dataTransfer.dropEffect = 'none';
+        if (dragOverPath !== null) setDragOverPath(null);
+        return;
+      }
+    }
+
     if (targetPath && targetPath !== dragOverPath) {
       setDragOverPath(targetPath);
     }
@@ -303,7 +317,15 @@ export const FileExplorer: React.FC = () => {
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    // Do not clear dragOverPath here to avoid flickering.
+    // It will be overwritten by the next element's dragOver, or cleared in dragEnd/drop.
+  };
+
+  const handleDragEnd = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     setDragOverPath(null);
+    setDraggedPath(null);
   };
 
   const handleDrop = async (e: React.DragEvent, targetEntry: FileEntry | null) => {
@@ -311,11 +333,13 @@ export const FileExplorer: React.FC = () => {
     e.stopPropagation();
     setDragOverPath(null);
 
-    const oldPath = e.dataTransfer.getData('text/plain');
+    // Safari/Tauri webview might clear dataTransfer, so we fallback to our state.
+    const oldPath = e.dataTransfer.getData('text/plain') || draggedPath;
+    setDraggedPath(null);
+
     if (!oldPath || !workspacePath) return;
 
-    // Determine the actual destination directory directly from the drop target,
-    // without relying on the dragOverPath state (which can be stale).
+    // Determine the actual destination directory directly from the drop target
     const targetDirPath = targetEntry?.isDir
       ? targetEntry.path
       : (targetEntry
@@ -335,6 +359,7 @@ export const FileExplorer: React.FC = () => {
       onDragOver={(e) => handleDragOver(e, null)}
       onDragLeave={handleDragLeave}
       onDrop={(e) => handleDrop(e, null)}
+      onDragEnd={handleDragEnd}
     >
       <div
         data-tauri-drag-region
