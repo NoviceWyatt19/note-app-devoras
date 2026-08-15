@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FileExplorer } from '@/widgets/FileExplorer';
 import { BlockEditor } from '@/widgets/BlockEditor';
 import { MindView } from '@/widgets/MindView';
+import { ErdDesignerMainView } from '@/widgets/ErdDesigner/ui/ErdDesignerMainView';
 import { useDocumentStore, SplitPane } from '@/entities/document/model/store';
 import {
   LayoutPanelTop,
@@ -283,6 +284,8 @@ const PaneContainer: React.FC<{
           </div>
         ) : activeTab.type === 'mindmap-global' ? (
           <MindView isStandalone={true} />
+        ) : activeTab.type === 'erd' ? (
+          <ErdDesignerMainView />
         ) : (
           <BlockEditor />
         )}
