@@ -57,10 +57,10 @@ export const WorkspacePage: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [saveFile, openWorkspace]);
 
-  // 초기에 workspacePath가 있으면 스캔
+  // 최초 로드 시 한 번만 스캔 (이후 워크스페이스 변경은 openWorkspace가 직접 처리)
   useEffect(() => {
-    const { workspacePath, scanWorkspace } = useWorkspaceStore.getState();
-    if (workspacePath) {
+    const { workspacePath, files, scanWorkspace } = useWorkspaceStore.getState();
+    if (workspacePath && files.length === 0) {
       scanWorkspace();
     }
   }, []);

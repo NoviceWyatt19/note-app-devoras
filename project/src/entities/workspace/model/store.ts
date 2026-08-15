@@ -38,14 +38,17 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     try {
       const selectedPath = await fileSystemRepository.openDirectory();
       if (selectedPath && selectedPath !== get().workspacePath) {
-        set({ isLoading: true }); // Show loading view before remounting
+        // 즉시 파일 목록과 탭 상태를 비워 이전 워크스페이스의 잔재를 지우고 로딩 상태 진입
+        set({ isLoading: true, files: [], workspacePath: selectedPath });
         localStorage.setItem('devoras_workspace_path', selectedPath);
         useDocumentStore.getState().resetDocumentState();
-        set({ workspacePath: selectedPath });
-        // scanWorkspace will be triggered automatically by WorkspacePage's useEffect upon remount.
+        
+        // 직접 스캔 실행 (useEffect 의존하지 않음)
+        await get().scanWorkspace();
       }
     } catch (e) {
       console.error('Failed to open workspace directory:', e);
+      set({ isLoading: false });
     }
   },
 
