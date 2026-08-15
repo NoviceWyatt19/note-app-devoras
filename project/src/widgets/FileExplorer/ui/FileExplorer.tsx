@@ -446,10 +446,9 @@ export const FileExplorer: React.FC = () => {
                   setCreateValue={setCreateValue}
                   handleCreateSubmit={handleCreateSubmit}
                   setCreatingNode={setCreatingNode}
-                  handleDragStart={handleDragStart}
-                  handleDragOver={handleDragOver}
-                  handleDragLeave={handleDragLeave}
-                  handleDrop={handleDrop}
+                  handlePointerDown={handlePointerDown}
+                  handlePointerEnter={handlePointerEnter}
+                  handlePointerUp={handlePointerUp}
                   dragOverPath={dragOverPath}
                 />
               ))
