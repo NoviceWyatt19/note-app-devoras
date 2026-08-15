@@ -138,7 +138,7 @@ const TreeNode: React.FC<TreeNodeProps> = (props) => {
 };
 
 export const FileExplorer: React.FC = () => {
-  const { workspacePath, files, isLoading, openWorkspace, scanWorkspace, createFile, createFolder, renameEntry, deleteEntry, moveEntry } = useWorkspaceStore();
+  const { workspacePath, files, isLoading, openWorkspace, scanWorkspace, createFile, createFolder, renameEntry, deleteEntry, moveEntry, copyEntry } = useWorkspaceStore();
   const { getCurrentFile, loadFile, isDirty } = useDocumentStore();
   const currentFile = getCurrentFile();
   const { setBlocksFromContent } = useBlockStore();
@@ -153,11 +153,34 @@ export const FileExplorer: React.FC = () => {
   // Drag and Drop state
   const [dragOverPath, setDragOverPath] = useState<string | null>(null);
 
+  // Clipboard state for Cmd+C / Cmd+V
+  const [clipboardPath, setClipboardPath] = useState<string | null>(null);
+
   useEffect(() => {
     const closeMenu = () => setContextMenu(null);
     window.addEventListener('click', closeMenu);
     return () => window.removeEventListener('click', closeMenu);
   }, []);
+
+  // Cmd+C / Cmd+V clipboard handler
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      if (e.key === 'c' && currentFile && !currentFile.isDir) {
+        setClipboardPath(currentFile.path);
+      }
+      if (e.key === 'v' && clipboardPath && workspacePath) {
+        e.preventDefault();
+        // Paste into the directory of the currently open file, or workspace root
+        const destDir = currentFile
+          ? (currentFile.isDir ? currentFile.path : currentFile.path.substring(0, currentFile.path.lastIndexOf('/')))
+          : workspacePath;
+        copyEntry(clipboardPath, destDir);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [clipboardPath, currentFile, workspacePath, copyEntry]);
 
   const handleFileSelect = async (file: FileEntry) => {
     if (file.isDir) {
@@ -285,10 +308,13 @@ export const FileExplorer: React.FC = () => {
     const oldPath = e.dataTransfer.getData('text/plain');
     if (!oldPath || !workspacePath) return;
 
-    // Determine the actual destination directory
-    const targetDirPath = targetEntry?.isDir 
-      ? targetEntry.path 
-      : (targetEntry ? targetEntry.path.substring(0, targetEntry.path.lastIndexOf('/')) : workspacePath);
+    // Determine the actual destination directory directly from the drop target,
+    // without relying on the dragOverPath state (which can be stale).
+    const targetDirPath = targetEntry?.isDir
+      ? targetEntry.path
+      : (targetEntry
+          ? targetEntry.path.substring(0, targetEntry.path.lastIndexOf('/'))
+          : workspacePath);
     
     await moveEntry(oldPath, targetDirPath);
   };

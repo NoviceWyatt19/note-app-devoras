@@ -13,6 +13,7 @@ export interface FileSystemRepository {
   createDirectory(dirPath: string): Promise<void>;
   renameEntry(oldPath: string, newPath: string): Promise<void>;
   moveEntry(oldPath: string, newPath: string): Promise<void>;
+  copyEntry(srcPath: string, destPath: string): Promise<void>;
   deleteEntry(path: string, isDir: boolean): Promise<void>;
   readSpatialMetadata(workspacePath: string): Promise<Record<string, any>>;
   writeSpatialMetadata(workspacePath: string, metadata: Record<string, any>): Promise<void>;
@@ -147,6 +148,21 @@ export class MockFileSystem implements FileSystemRepository {
     return this.renameEntry(oldPath, newPath);
   }
 
+  async copyEntry(srcPath: string, destPath: string): Promise<void> {
+    const entry = this.virtualFs[srcPath];
+    if (!entry) throw new Error(`Entry not found: ${srcPath}`);
+    // Deep copy the entry
+    this.virtualFs[destPath] = JSON.parse(JSON.stringify(entry));
+    // Add to parent directory
+    const destParentPath = destPath.substring(0, destPath.lastIndexOf('/'));
+    const destName = destPath.substring(destPath.lastIndexOf('/') + 1);
+    const destParentDir = this.virtualFs[destParentPath];
+    if (destParentDir && destParentDir.entries) {
+      const isDir = entry.entries !== undefined;
+      destParentDir.entries.push({ name: destName, path: destPath, isDir });
+    }
+  }
+
   async deleteEntry(path: string, _isDir: boolean): Promise<void> {
     delete this.virtualFs[path];
     const parentPath = path.substring(0, path.lastIndexOf('/'));
@@ -273,6 +289,16 @@ export class TauriFileSystem implements FileSystemRepository {
       await rename(oldPath, newPath);
     } catch (e) {
       console.error('Tauri moveEntry error:', e);
+      throw e;
+    }
+  }
+
+  async copyEntry(srcPath: string, destPath: string): Promise<void> {
+    try {
+      const { copyFile } = await import('@tauri-apps/plugin-fs');
+      await copyFile(srcPath, destPath);
+    } catch (e) {
+      console.error('Tauri copyEntry error:', e);
       throw e;
     }
   }

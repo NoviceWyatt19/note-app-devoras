@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { FileExplorer } from '@/widgets/FileExplorer';
 import { BlockEditor } from '@/widgets/BlockEditor';
 import { MindView } from '@/widgets/MindView';
 import { ErdDesignerMainView } from '@/widgets/ErdDesigner/ui/ErdDesignerMainView';
 import { useDocumentStore, SplitPane } from '@/entities/document/model/store';
+import { useWorkspaceStore } from '@/entities/workspace/model/store';
 import {
   LayoutPanelTop,
   PanelLeftClose,
@@ -12,6 +13,8 @@ import {
   FileText,
   Network,
   Columns,
+  FolderOpen,
+  ChevronDown,
 } from 'lucide-react';
 
 export const WorkspacePage: React.FC = () => {
@@ -21,6 +24,8 @@ export const WorkspacePage: React.FC = () => {
   const [isResizingMindView, setIsResizingMindView] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMindViewOpen, setIsMindViewOpen] = useState(false);
+  const [isFileMenuOpen, setIsFileMenuOpen] = useState(false);
+  const fileMenuRef = useRef<HTMLDivElement>(null);
 
   const {
     panes,
@@ -31,9 +36,10 @@ export const WorkspacePage: React.FC = () => {
     getCurrentFile,
   } = useDocumentStore();
 
+  const { openWorkspace } = useWorkspaceStore();
   const currentFile = getCurrentFile();
 
-  // Cmd+\ 사이드바 토글 및 저장 단축키
+  // Cmd+S 저장 / Cmd+\ 사이드바 토글 / Cmd+O 워크스페이스 열기
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 's') {
@@ -44,10 +50,25 @@ export const WorkspacePage: React.FC = () => {
         e.preventDefault();
         setIsSidebarOpen((prev) => !prev);
       }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'o') {
+        e.preventDefault();
+        openWorkspace();
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [saveFile]);
+  }, [saveFile, openWorkspace]);
+
+  // File 메뉴 외부 클릭 시 닫기
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (fileMenuRef.current && !fileMenuRef.current.contains(e.target as Node)) {
+        setIsFileMenuOpen(false);
+      }
+    };
+    window.addEventListener('mousedown', handleClickOutside);
+    return () => window.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Sidebar resizer
   useEffect(() => {
@@ -105,6 +126,31 @@ export const WorkspacePage: React.FC = () => {
           className="h-10 border-b border-darkBorder flex items-center justify-between px-4 flex-shrink-0 bg-darkPanel/50"
         >
           <div className="flex items-center gap-2">
+            {/* File 메뉴 드롭다운 */}
+            <div className="relative" ref={fileMenuRef}>
+              <button
+                onClick={() => setIsFileMenuOpen((prev) => !prev)}
+                className="flex items-center gap-1 px-2 py-1 text-[11px] text-mutedText hover:text-slate-200 hover:bg-white/10 rounded transition-colors"
+              >
+                <span>파일</span>
+                <ChevronDown size={10} />
+              </button>
+              {isFileMenuOpen && (
+                <div className="absolute left-0 top-full mt-1 bg-darkPanel border border-darkBorder rounded-md shadow-xl py-1 z-50 min-w-[180px]">
+                  <button
+                    onClick={() => { openWorkspace(); setIsFileMenuOpen(false); }}
+                    className="w-full flex items-center justify-between gap-2 px-3 py-1.5 text-xs text-slate-200 hover:bg-primary/20 hover:text-primary transition-colors text-left"
+                  >
+                    <div className="flex items-center gap-2">
+                      <FolderOpen size={13} />
+                      <span>워크스페이스 열기…</span>
+                    </div>
+                    <span className="text-[10px] text-mutedText/60">⌘O</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
             <button
               onClick={() => setIsSidebarOpen((prev) => !prev)}
               title={isSidebarOpen ? '사이드바 닫기 (Cmd+\\)' : '사이드바 열기 (Cmd+\\)'}

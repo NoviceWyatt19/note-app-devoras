@@ -17,6 +17,7 @@ interface WorkspaceState {
   createFolder: (parentPath: string, name: string) => Promise<void>;
   renameEntry: (oldPath: string, newPath: string, newName: string) => Promise<void>;
   moveEntry: (oldPath: string, targetDirPath: string) => Promise<void>;
+  copyEntry: (srcPath: string, targetDirPath: string) => Promise<void>;
   deleteEntry: (path: string, isDir: boolean) => Promise<void>;
 }
 
@@ -138,6 +139,26 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     } catch (e) {
       console.error('Failed to move entry:', e);
       alert('이동에 실패했습니다. 대상 폴더에 동일한 이름이 이미 존재할 수 있습니다.');
+    }
+  },
+
+  copyEntry: async (srcPath: string, targetDirPath: string) => {
+    const name = srcPath.split('/').pop();
+    if (!name) return;
+
+    // Generate a unique name: insert "_copy" before the extension
+    const dotIdx = name.lastIndexOf('.');
+    const baseName = dotIdx > 0 ? name.substring(0, dotIdx) : name;
+    const ext = dotIdx > 0 ? name.substring(dotIdx) : '';
+    const destName = `${baseName}_copy${ext}`;
+    const destPath = `${targetDirPath}/${destName}`;
+
+    try {
+      await fileSystemRepository.copyEntry(srcPath, destPath);
+      await get().scanWorkspace();
+    } catch (e) {
+      console.error('Failed to copy entry:', e);
+      alert('복사에 실패했습니다.');
     }
   },
 
