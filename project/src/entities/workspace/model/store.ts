@@ -21,8 +21,10 @@ interface WorkspaceState {
   deleteEntry: (path: string, isDir: boolean) => Promise<void>;
 }
 
+const initialPath = localStorage.getItem('devoras_workspace_path') || null;
+
 export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
-  workspacePath: null,
+  workspacePath: initialPath,
   files: [],
   isLoading: false,
   config: DEFAULT_WORKSPACE_CONFIG,
@@ -36,9 +38,9 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     set({ isLoading: true });
     try {
       const selectedPath = await fileSystemRepository.openDirectory();
-      if (selectedPath) {
-        set({ workspacePath: selectedPath });
-        await get().scanWorkspace();
+      if (selectedPath && selectedPath !== get().workspacePath) {
+        localStorage.setItem('devoras_workspace_path', selectedPath);
+        window.location.reload(); // Refresh the app to clear all stale states
       }
     } catch (e) {
       console.error('Failed to open workspace directory:', e);
@@ -63,7 +65,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
           if (entry.isDir) {
             const children = await buildTree(entry.path);
             result.push({ ...entry, children });
-          } else if (entry.name.endsWith('.md') || entry.name.endsWith('.erd')) {
+          } else {
             result.push(entry);
           }
         }
@@ -119,7 +121,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
 
   moveEntry: async (oldPath: string, targetDirPath: string) => {
     // Guard 1: Cannot move into itself or its own subdirectories
-    if (targetDirPath.startsWith(oldPath)) {
+    if (targetDirPath === oldPath || targetDirPath.startsWith(oldPath + '/')) {
       alert('자기 자신 또는 하위 디렉터리로 이동할 수 없습니다.');
       return;
     }

@@ -54,6 +54,7 @@ const TreeNode: React.FC<TreeNodeProps> = (props) => {
 
   const isExpanded = expandedFolders.has(entry.path);
   const isRenaming = renamingPath === entry.path;
+  const isSupported = entry.isDir || entry.name.endsWith('.md') || entry.name.endsWith('.erd');
   const isSelected = currentFilePath === entry.path;
   const isCreatingHere = creatingNode?.parentPath === entry.path;
   const isDragOver = dragOverPath === entry.path;
@@ -63,17 +64,20 @@ const TreeNode: React.FC<TreeNodeProps> = (props) => {
       <div
         draggable={true}
         onDragStart={(e) => handleDragStart(e, entry)}
+        onDragEnter={(e) => e.preventDefault()}
         onDragOver={(e) => handleDragOver(e, entry)}
         onDragLeave={handleDragLeave}
         onDrop={(e) => handleDrop(e, entry)}
-        onClick={() => handleFileSelect(entry)}
-        onContextMenu={(e) => handleContextMenu(e, entry)}
-        className={`group flex items-center space-x-1.5 px-2 py-1.5 rounded cursor-pointer text-xs transition-colors ${
-          isDragOver 
-            ? 'bg-primary/20 text-primary border-l-2 border-primary'
-            : isSelected
-              ? 'bg-primary/15 text-primary font-medium border-l-2 border-primary'
-              : 'hover:bg-darkBorder/40 text-slate-300 hover:text-slate-100 border-l-2 border-transparent'
+        onClick={() => { if (isSupported) handleFileSelect(entry); }}
+        onContextMenu={(e) => { if (isSupported) handleContextMenu(e, entry); }}
+        className={`group flex items-center space-x-1.5 px-2 py-1.5 rounded text-xs transition-colors ${
+          !isSupported 
+            ? 'text-slate-500 opacity-60 cursor-default'
+            : isDragOver 
+              ? 'bg-primary/20 text-primary border-l-2 border-primary cursor-pointer'
+              : isSelected
+                ? 'bg-primary/15 text-primary font-medium border-l-2 border-primary cursor-pointer'
+                : 'hover:bg-darkBorder/40 text-slate-300 hover:text-slate-100 border-l-2 border-transparent cursor-pointer'
         }`}
         style={{ paddingLeft: `${depth * 12 + 8}px` }}
       >
@@ -81,9 +85,11 @@ const TreeNode: React.FC<TreeNodeProps> = (props) => {
           {entry.isDir ? (
             isExpanded ? <ChevronDown className="w-3.5 h-3.5 text-slate-500" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
           ) : (
-            entry.name.endsWith('.erd') 
-              ? <Database className={`w-3.5 h-3.5 ${isSelected ? 'text-primary' : 'text-slate-400'}`} />
-              : <FileText className={`w-3.5 h-3.5 ${isSelected ? 'text-primary' : 'text-slate-400'}`} />
+            !isSupported
+              ? <File className="w-3.5 h-3.5 text-slate-500" />
+              : entry.name.endsWith('.erd') 
+                ? <Database className={`w-3.5 h-3.5 ${isSelected ? 'text-primary' : 'text-slate-400'}`} />
+                : <FileText className={`w-3.5 h-3.5 ${isSelected ? 'text-primary' : 'text-slate-400'}`} />
           )}
         </div>
 
@@ -325,6 +331,7 @@ export const FileExplorer: React.FC = () => {
     <div 
       className="flex-1 flex flex-col min-h-0 select-none relative" 
       onContextMenu={(e) => handleContextMenu(e, null)}
+      onDragEnter={(e) => e.preventDefault()}
       onDragOver={(e) => handleDragOver(e, null)}
       onDragLeave={handleDragLeave}
       onDrop={(e) => handleDrop(e, null)}
@@ -337,6 +344,13 @@ export const FileExplorer: React.FC = () => {
         <div className="flex items-center space-x-1">
           {workspacePath && (
             <>
+              <button
+                onClick={() => { setContextMenu(null); openWorkspace(); }}
+                className="p-1 hover:bg-darkBorder rounded text-mutedText hover:text-slate-100 transition-colors"
+                title="워크스페이스 열기"
+              >
+                <FolderOpen className="w-3.5 h-3.5" />
+              </button>
               <button
                 onClick={() => { setContextMenu(null); handleCreateNew('file'); }}
                 className="p-1 hover:bg-darkBorder rounded text-mutedText hover:text-slate-100 transition-colors"

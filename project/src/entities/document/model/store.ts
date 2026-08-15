@@ -47,6 +47,7 @@ interface DocumentState {
   setActiveTab: (paneId: string, tabId: string) => void;
   setActivePane: (paneId: string) => void;
   splitPane: (sourcePaneId: string, direction: 'horizontal' | 'vertical') => void;
+  resetDocumentState: () => void;
 
   // ── Document/Editor 액션 ─────────────────────────────────────────
   updateContent: (content: string) => void;

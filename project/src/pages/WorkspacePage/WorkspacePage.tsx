@@ -24,8 +24,6 @@ export const WorkspacePage: React.FC = () => {
   const [isResizingMindView, setIsResizingMindView] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMindViewOpen, setIsMindViewOpen] = useState(false);
-  const [isFileMenuOpen, setIsFileMenuOpen] = useState(false);
-  const fileMenuRef = useRef<HTMLDivElement>(null);
 
   const {
     panes,
@@ -59,15 +57,12 @@ export const WorkspacePage: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [saveFile, openWorkspace]);
 
-  // File 메뉴 외부 클릭 시 닫기
+  // 초기에 workspacePath가 있으면 스캔
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (fileMenuRef.current && !fileMenuRef.current.contains(e.target as Node)) {
-        setIsFileMenuOpen(false);
-      }
-    };
-    window.addEventListener('mousedown', handleClickOutside);
-    return () => window.removeEventListener('mousedown', handleClickOutside);
+    const { workspacePath, scanWorkspace } = useWorkspaceStore.getState();
+    if (workspacePath) {
+      scanWorkspace();
+    }
   }, []);
 
   // Sidebar resizer
@@ -126,31 +121,6 @@ export const WorkspacePage: React.FC = () => {
           className="h-10 border-b border-darkBorder flex items-center justify-between px-4 flex-shrink-0 bg-darkPanel/50"
         >
           <div className="flex items-center gap-2">
-            {/* File 메뉴 드롭다운 */}
-            <div className="relative" ref={fileMenuRef}>
-              <button
-                onClick={() => setIsFileMenuOpen((prev) => !prev)}
-                className="flex items-center gap-1 px-2 py-1 text-[11px] text-mutedText hover:text-slate-200 hover:bg-white/10 rounded transition-colors"
-              >
-                <span>파일</span>
-                <ChevronDown size={10} />
-              </button>
-              {isFileMenuOpen && (
-                <div className="absolute left-0 top-full mt-1 bg-darkPanel border border-darkBorder rounded-md shadow-xl py-1 z-50 min-w-[180px]">
-                  <button
-                    onClick={() => { openWorkspace(); setIsFileMenuOpen(false); }}
-                    className="w-full flex items-center justify-between gap-2 px-3 py-1.5 text-xs text-slate-200 hover:bg-primary/20 hover:text-primary transition-colors text-left"
-                  >
-                    <div className="flex items-center gap-2">
-                      <FolderOpen size={13} />
-                      <span>워크스페이스 열기…</span>
-                    </div>
-                    <span className="text-[10px] text-mutedText/60">⌘O</span>
-                  </button>
-                </div>
-              )}
-            </div>
-
             <button
               onClick={() => setIsSidebarOpen((prev) => !prev)}
               title={isSidebarOpen ? '사이드바 닫기 (Cmd+\\)' : '사이드바 열기 (Cmd+\\)'}
