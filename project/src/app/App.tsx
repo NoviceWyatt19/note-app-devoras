@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { WorkspacePage } from '@/pages/WorkspacePage/WorkspacePage';
+import { useWorkspaceStore } from '@/entities/workspace/model/store';
 
 // Detect Tauri 2 runtime — same dual-check as fs.ts
 const isTauri =
@@ -22,12 +23,16 @@ async function revealWindow(): Promise<void> {
 }
 
 function App() {
+  const { workspacePath } = useWorkspaceStore();
   // 초기 렌더링(DOM + 테마 적용)이 완전히 끝난 직후 윈도우를 노출.
-  // requestAnimationFrame으로 첫 실제 페인트(paint) 이후로 지연하여
-  // 어두운 배경이 완전히 그려진 상태의 윈도우만 사용자에게 보인다.
   useEffect(() => {
-    requestAnimationFrame(() => {
-      revealWindow();
+    // 폰트 로드 및 브라우저의 실제 페인트 타이밍을 기다린 뒤 창을 표시합니다.
+    document.fonts.ready.then(() => {
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          revealWindow();
+        }, 50); // React DOM 파싱 및 렌더링 후 Tauri 웹뷰가 화면을 칠할 수 있는 약간의 여유 시간 부여
+      });
     });
   }, []);
 
@@ -52,7 +57,7 @@ function App() {
 
       {/* Main Workspace Area */}
       <main className="flex-1 min-h-0 relative">
-        <WorkspacePage />
+        <WorkspacePage key={workspacePath || 'empty'} />
       </main>
     </div>
   );
