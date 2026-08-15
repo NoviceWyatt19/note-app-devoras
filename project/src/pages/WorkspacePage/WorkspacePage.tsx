@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FileExplorer } from '@/widgets/FileExplorer';
 import { BlockEditor } from '@/widgets/BlockEditor';
 import { MindView } from '@/widgets/MindView';
@@ -13,8 +13,6 @@ import {
   FileText,
   Network,
   Columns,
-  FolderOpen,
-  ChevronDown,
 } from 'lucide-react';
 
 export const WorkspacePage: React.FC = () => {
@@ -24,6 +22,7 @@ export const WorkspacePage: React.FC = () => {
   const [isResizingMindView, setIsResizingMindView] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMindViewOpen, setIsMindViewOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const {
     panes,
@@ -37,18 +36,36 @@ export const WorkspacePage: React.FC = () => {
   const { openWorkspace } = useWorkspaceStore();
   const currentFile = getCurrentFile();
 
-  // Cmd+S 저장 / Cmd+\ 사이드바 토글 / Cmd+O 워크스페이스 열기
+  const executeSave = async () => {
+    setIsSaving(true);
+    await saveFile();
+    setTimeout(() => setIsSaving(false), 400); // 400ms 애니메이션 유지
+  };
+
+  // Cmd+S 저장 / Cmd+\ 사이드바 토글 / Cmd+O 워크스페이스 열기 / Cmd+W 탭 닫기
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+      // 1. 저장 (Cmd+S)
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
-        saveFile();
+        executeSave();
       }
+      // 2. 탭 닫기 (Cmd+W)
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'w') {
+        e.preventDefault();
+        const { panes, activePaneId, closeTab } = useDocumentStore.getState();
+        const activePane = panes.find((p) => p.id === activePaneId);
+        if (activePane && activePane.activeTabId) {
+          closeTab(activePane.id, activePane.activeTabId);
+        }
+      }
+      // 3. 사이드바 토글 (Cmd+\)
       if ((e.metaKey || e.ctrlKey) && e.key === '\\') {
         e.preventDefault();
         setIsSidebarOpen((prev) => !prev);
       }
-      if ((e.metaKey || e.ctrlKey) && e.key === 'o') {
+      // 4. 워크스페이스 열기 (Cmd+O)
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'o') {
         e.preventDefault();
         openWorkspace();
       }
@@ -158,14 +175,24 @@ export const WorkspacePage: React.FC = () => {
 
             {currentFile && (
               <button
-                onClick={saveFile}
-                className={`text-[10px] px-2.5 py-1 rounded font-bold uppercase tracking-wider transition-all border ${
-                  isDirty
+                onClick={executeSave}
+                disabled={isSaving}
+                className={`relative flex items-center justify-center text-[10px] px-3 py-1 rounded font-bold uppercase tracking-wider transition-all border overflow-hidden ${
+                  isSaving 
+                    ? 'bg-primary/20 border-primary/50 text-primary cursor-wait'
+                    : isDirty
                     ? 'bg-primary/10 border-primary text-primary hover:bg-primary hover:text-white'
                     : 'border-darkBorder text-mutedText hover:bg-white/5 hover:text-slate-200'
                 }`}
               >
-                저장 (Cmd+S)
+                <span className={`transition-opacity duration-200 ${isSaving ? 'opacity-0' : 'opacity-100'}`}>
+                  저장 (Cmd+S)
+                </span>
+                {isSaving && (
+                  <span className="absolute inset-0 flex items-center justify-center">
+                    <span className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin"></span>
+                  </span>
+                )}
               </button>
             )}
           </div>
