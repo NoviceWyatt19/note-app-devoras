@@ -10,15 +10,32 @@ const isTauri =
 
 // Removed startWindowDrag to prevent blocking window reveal
 
-/// Start Hidden & Reveal: 첫 렌더링 후 Rust 커맨드로 윈도우 노출.
+/// Start Hidden & Reveal: 첫 렌더링 후 Rust 커맨드(또는 Tauri 내장 API)로 윈도우 노출.
 async function revealWindow(): Promise<void> {
-  if (!isTauri) return;
+  const isTauriEnv =
+    typeof window !== 'undefined' &&
+    ((window as any).__TAURI__ !== undefined ||
+      (window as any).__TAURI_INTERNALS__ !== undefined ||
+      (window as any).__TAURI_IPC__ !== undefined);
+
+  if (!isTauriEnv) {
+    console.log('[Devoras] Not running in Tauri environment. revealWindow skipped.');
+    return;
+  }
+
   try {
-    const { invoke } = await import('@tauri-apps/api/core');
-    await invoke('show_main_window');
-    console.log('[Devoras] window revealed');
-  } catch (e) {
-    console.warn('[Devoras] show_main_window failed:', e);
+    const { getCurrentWindow } = await import('@tauri-apps/api/window');
+    await getCurrentWindow().show();
+    console.log('[Devoras] window revealed via getCurrentWindow()');
+  } catch (err) {
+    console.warn('[Devoras] getCurrentWindow failed, trying invoke fallback:', err);
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('show_main_window');
+      console.log('[Devoras] window revealed via invoke(show_main_window)');
+    } catch (e) {
+      console.error('[Devoras] All attempts to reveal window failed:', e);
+    }
   }
 }
 
