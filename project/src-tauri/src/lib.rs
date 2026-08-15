@@ -60,6 +60,19 @@ async fn read_image_base64(path: String) -> Result<String, String> {
 ///   React DOM 렌더링 + 테마 적용이 끝난 뒤 이 커맨드를 invoke()하여
 ///   완성된 상태의 윈도우를 부드럽게 노출한다.
 #[tauri::command]
+fn close_splashscreen(window: tauri::Window) {
+    use tauri::Manager;
+    // Close splashscreen
+    if let Some(splashscreen) = window.get_webview_window("splashscreen") {
+        splashscreen.close().unwrap();
+    }
+    // Show main window
+    if let Some(main_window) = window.get_webview_window("main") {
+        main_window.show().unwrap();
+    }
+}
+
+#[tauri::command]
 fn show_main_window(window: tauri::Window) -> Result<(), String> {
     window
         .show()
@@ -73,7 +86,7 @@ pub fn run() {
     .plugin(tauri_plugin_dialog::init())
     .plugin(tauri_plugin_shell::init())
     // 기존 배열에 read_image_base64를 반드시 추가해야 합니다.
-    .invoke_handler(tauri::generate_handler![save_image_file, read_image_base64, show_main_window])
+    .invoke_handler(tauri::generate_handler![save_image_file, read_image_base64, show_main_window, close_splashscreen])
     .setup(|app| {
       if cfg!(debug_assertions) {
         app.handle().plugin(

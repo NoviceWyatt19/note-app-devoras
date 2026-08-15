@@ -12,6 +12,7 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "Devoras",
         "width": 1280,
         "height": 800,
@@ -22,6 +23,17 @@
         "hiddenTitle": true,
         "titleBarStyle": "Overlay",
         "visible": false
+      },
+      {
+        "label": "splashscreen",
+        "url": "/splash.html",
+        "width": 400,
+        "height": 250,
+        "decorations": false,
+        "transparent": true,
+        "resizable": false,
+        "center": true,
+        "visible": true
       }
     ],
     "security": {

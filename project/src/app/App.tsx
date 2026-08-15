@@ -24,15 +24,15 @@ async function revealWindow(): Promise<void> {
   }
 
   try {
-    const { getCurrentWindow } = await import('@tauri-apps/api/window');
-    await getCurrentWindow().show();
-    console.log('[Devoras] window revealed via getCurrentWindow()');
+    const { invoke } = await import('@tauri-apps/api/core');
+    await invoke('close_splashscreen');
+    console.log('[Devoras] window revealed and splash closed via invoke');
   } catch (err) {
-    console.warn('[Devoras] getCurrentWindow failed, trying invoke fallback:', err);
+    console.warn('[Devoras] invoke(close_splashscreen) failed, trying fallback:', err);
     try {
-      const { invoke } = await import('@tauri-apps/api/core');
-      await invoke('show_main_window');
-      console.log('[Devoras] window revealed via invoke(show_main_window)');
+      const { getCurrentWindow } = await import('@tauri-apps/api/window');
+      await getCurrentWindow().show();
+      console.log('[Devoras] window revealed via getCurrentWindow()');
     } catch (e) {
       console.error('[Devoras] All attempts to reveal window failed:', e);
     }
