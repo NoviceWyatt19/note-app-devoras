@@ -15,10 +15,11 @@ Welcome, Claude Code! This document provides the necessary context to continue d
 
 ## 🔄 Recent Accomplishments
 
-1. **CodeMirror 6 Decorators**: Implemented a robust `Decorator Orchestrator` pattern handling markdown syntax (Bold, Italic, Images, LaTeX, Code Blocks) with cursor-aware revealing.
-2. **Korean IME Handling**: Implemented a 3-layer defense (`useImeInputManager`, `setImeEffect`) to prevent CodeMirror/Zustand sync issues during Korean IME composition.
-3. **Workspace Operations**: Fixed drag-and-drop file moving bugs, implemented `Cmd+C`/`Cmd+V` file copying, and added a `Cmd+O` (File menu) workspace opener.
-4. **ERD Designer Integration**: Updated the project to use `@xyflow/react` for the ERD Canvas, removing old Obsidian dependencies.
+1. **CodeMirror 6 Decorators & Korean IME Handling**: Solved complex React state/CodeMirror sync issues during IME composition using a 3-layer latch defense system.
+2. **Splash Screen Deadlock Resolution**: Implemented a multi-window architecture in `tauri.conf.json` and `App.tsx` (using an explicit `setTimeout` fallback instead of `requestAnimationFrame`) to fix the white screen of death caused by window initialization deadlocks.
+3. **100% Custom Pointer Events Drag & Drop**: Bypassed flaky WebKit/HTML5 Drag and Drop restrictions completely by implementing a robust, custom `onPointerDown`/`Enter`/`Up` solution for the file explorer.
+4. **UX Enhancements**: Redefined `Cmd+W` strictly for tab closure (reserving `Cmd+Q` for app quit) and added a subtle save animation for `Cmd+S`.
+5. **Advanced Rendering & Memory Optimization Planning**: Drafted `advanced_rendering_optimization.md` to outline TTL-based unmounting, Web Workers, and multi-window isolation for heavy 3D/Scheduler views.
 
 ## 🔴 Current Critical Bugs (Priority: Immediate)
 
@@ -45,7 +46,8 @@ A recent codebase audit discovered the following critical bugs that need to be a
 
 1. Read through `src/entities/document/model/store.ts` and `src/widgets/BlockEditor/ui/BlockEditor.tsx` to familiarize yourself with the state management and editor implementation.
 2. **Start by fixing the "Data Loss on Tab Switch" bug** mentioned in the Critical Bugs section above. This is the highest priority.
-3. Refer to the `code_review.md` artifact from previous sessions for a more detailed breakdown of technical debt and architectural improvements.
+3. Refer to the `code_review.md` artifact from previous sessions for a detailed breakdown of technical debt.
+4. Read `advanced_rendering_optimization.md` when preparing to implement heavy views (3D, Scheduler).
 4. Ensure you follow the project's strict `.eslintrc` rules and `prettier` formatting on all changes.
 5. **Remember**: The project uses `pnpm`. Use `pnpm dev` for browser testing and `pnpm tauri:dev` for native desktop testing.
 

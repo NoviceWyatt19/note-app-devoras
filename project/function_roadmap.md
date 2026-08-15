@@ -22,21 +22,29 @@
 ## 🎯 Phase 3: 파일 시스템 및 워크스페이스 확장 (✅ 완료)
 - **[✅]** 워크스페이스 열기 (`Cmd+O` 및 파일 메뉴)
 - **[✅]** 트리 기반 파일 탐색기 및 폴더/파일 CRUD
-- **[✅]** 파일 드래그 앤 드롭 이동 및 `Cmd+C`/`Cmd+V` 복사
+- **[✅]** 파일 드래그 앤 드롭 이동 (Custom Pointer Events 기반 구현) 및 복사/붙여넣기
 - **[✅]** ERD Designer (`@xyflow/react`) 네이티브 통합
+- **[✅]** Splash Screen 도입 및 Tauri 초기 로드 화면 Deadlock 해소
+- **[✅]** 단축키 UX 개선 (`Cmd+W` 탭 닫기 전용, `Cmd+Q` 앱 종료 분리, `Cmd+S` 애니메이션)
 
 ## 📍 현재 위치 (You are here)
 > **플랫폼 이전 (Antigravity → Claude Code)**
 > 모든 MVP Phase 2 핵심 기획안이 `ticket/impl/` 및 `ticket/request/impl/`에서 완료(`(done)`) 처리되었습니다.
 
-## 🏃 Phase 4: 리팩토링 및 기술 부채 상환 (⏳ 예정)
-*(이 단계는 Claude Code에서 우선적으로 착수할 영역입니다. 상세 내용은 `code_review.md` 참조)*
+## 🏃 Phase 4: 성능 최적화 및 렌더링 아키텍처 (⏳ 예정)
+*(3D 뷰, 스케줄러, TODO 특화 문서 등 무거운 뷰의 추가에 대비한 최적화)*
+- **[ ]** 뷰(View) 렌더링 스레드 분리 및 최적화
+- **[ ]** LRU 기반 WebView 메모리 캐싱 및 TTL(Time-To-Live) 기반 언마운트
 - **[ ]** `documentStore` 전역 상태 충돌 방지를 위한 탭별 로컬 캐시 도입 (Critical)
-- **[ ]** `BlockEditor` 입력 시 O(N) 연산 병목 최적화 (성능 개선)
+
+## 🏃 Phase 5: 리팩토링 및 기술 부채 상환 (⏳ 예정)
+*(상세 내용은 `code_review.md` 참조)*
+- **[ ]** `BlockEditor` 입력 시 O(N) 연산 병목 최적화
 - **[ ]** `ReadView` 중첩 블록 포맷팅 버그(`applyFormat` 트리 순회) 수정
 - **[ ]** 파일 시스템 스코프 전역 키보드 이벤트 간섭 해결
 
-## 🏃 Phase 5: 고급 기능 및 완성도 (⏳ 예정)
+## 🏃 Phase 6: 고급 뷰 및 사용자 정의 기능 (⏳ 예정)
 - **[ ]** 마인드 뷰 캔버스 미니맵 및 자유형 노드 추가
+- **[ ]** 아키텍처 뷰용 3D Freeform 캔버스 도입
 - **[ ]** 애플리케이션 사용자 설정 파일(`.devoras/settings.json`) 저장 연동
 - **[ ]** 단일 블록 포커스 에디팅 (Zen Mode)

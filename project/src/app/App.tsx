@@ -1,12 +1,6 @@
 import { useEffect } from 'react';
 import { WorkspacePage } from '@/pages/WorkspacePage/WorkspacePage';
 
-// Detect Tauri 2 runtime — same dual-check as fs.ts
-const isTauri =
-  typeof window !== 'undefined' &&
-  ((window as any).__TAURI__ !== undefined ||
-    (window as any).__TAURI_INTERNALS__ !== undefined);
-
 // Removed startWindowDrag to prevent blocking window reveal
 
 /// Start Hidden & Reveal: 첫 렌더링 후 Rust 커맨드(또는 Tauri 내장 API)로 윈도우 노출.
