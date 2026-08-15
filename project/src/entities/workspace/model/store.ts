@@ -21,12 +21,10 @@ interface WorkspaceState {
   deleteEntry: (path: string, isDir: boolean) => Promise<void>;
 }
 
-const initialPath = localStorage.getItem('devoras_workspace_path') || null;
-
 export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
-  workspacePath: initialPath,
+  workspacePath: null,
   files: [],
-  isLoading: initialPath !== null,
+  isLoading: false,
   config: DEFAULT_WORKSPACE_CONFIG,
 
   setWorkspacePath: (path) => set({ workspacePath: path }),
@@ -40,7 +38,6 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       if (selectedPath && selectedPath !== get().workspacePath) {
         // 즉시 파일 목록과 탭 상태를 비워 이전 워크스페이스의 잔재를 지우고 로딩 상태 진입
         set({ isLoading: true, files: [], workspacePath: selectedPath });
-        localStorage.setItem('devoras_workspace_path', selectedPath);
         useDocumentStore.getState().resetDocumentState();
         
         // 직접 스캔 실행 (useEffect 의존하지 않음)

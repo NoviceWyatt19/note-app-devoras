@@ -21,7 +21,7 @@
         "fullscreen": false,
         "hiddenTitle": true,
         "titleBarStyle": "Overlay",
-        "visible": true
+        "visible": false
       }
     ],
     "security": {

@@ -238,6 +238,17 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     set({ panes: updatedPanes, activePaneId: paneId });
   },
 
+  resetDocumentState: () => {
+    set({
+      panes: [{ id: 'pane-main', tabs: [], activeTabId: '' }],
+      activePaneId: 'pane-main',
+      rawContent: '',
+      nodes: [],
+      spatialData: {},
+      isDirty: false,
+    });
+  },
+
   closeTab: (paneId, tabId) => {
     const { panes, activePaneId } = get();
 
