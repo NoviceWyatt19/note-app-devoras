@@ -43,14 +43,12 @@ function App() {
   const { workspacePath } = useWorkspaceStore();
   // 초기 렌더링(DOM + 테마 적용)이 완전히 끝난 직후 윈도우를 노출.
   useEffect(() => {
-    // 폰트 로드 및 브라우저의 실제 페인트 타이밍을 기다린 뒤 창을 표시합니다.
-    document.fonts.ready.then(() => {
-      requestAnimationFrame(() => {
-        setTimeout(() => {
-          revealWindow();
-        }, 50); // React DOM 파싱 및 렌더링 후 Tauri 웹뷰가 화면을 칠할 수 있는 약간의 여유 시간 부여
-      });
-    });
+    // 주의: tauri.conf.json에서 visible: false 인 경우 requestAnimationFrame이나 
+    // document.fonts.ready가 영원히 실행되지 않는 데드락이 발생할 수 있습니다.
+    // 따라서 순수 setTimeout만 사용하여 윈도우를 띄워줍니다.
+    setTimeout(() => {
+      revealWindow();
+    }, 100);
   }, []);
 
   return (
