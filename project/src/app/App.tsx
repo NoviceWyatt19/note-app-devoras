@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 import { WorkspacePage } from '@/pages/WorkspacePage/WorkspacePage';
-import { useWorkspaceStore } from '@/entities/workspace/model/store';
 
 // Detect Tauri 2 runtime — same dual-check as fs.ts
 const isTauri =
@@ -40,7 +39,6 @@ async function revealWindow(): Promise<void> {
 }
 
 function App() {
-  const { workspacePath } = useWorkspaceStore();
   // 초기 렌더링(DOM + 테마 적용)이 완전히 끝난 직후 윈도우를 노출.
   useEffect(() => {
     // 주의: tauri.conf.json에서 visible: false 인 경우 requestAnimationFrame이나 
