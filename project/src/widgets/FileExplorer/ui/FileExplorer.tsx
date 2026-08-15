@@ -36,12 +36,9 @@ interface TreeNodeProps {
   handleCreateSubmit: () => void;
   setCreatingNode: (val: CreatingNode) => void;
 
-  // Drag and Drop
-  handleDragStart: (e: React.DragEvent, entry: FileEntry) => void;
-  handleDragOver: (e: React.DragEvent, entry: FileEntry) => void;
-  handleDragLeave: (e: React.DragEvent) => void;
-  handleDrop: (e: React.DragEvent, targetEntry: FileEntry | null) => void;
-  handleDragEnd: (e: React.DragEvent) => void;
+  handlePointerDown: (e: React.PointerEvent, entry: FileEntry) => void;
+  handlePointerEnter: (e: React.PointerEvent, entry: FileEntry | null) => void;
+  handlePointerUp: (e: React.PointerEvent, entry: FileEntry | null) => void;
   dragOverPath: string | null;
 }
 
@@ -50,7 +47,7 @@ const TreeNode: React.FC<TreeNodeProps> = (props) => {
     entry, depth, expandedFolders, renamingPath, renameValue, setRenameValue, 
     currentFilePath, handleFileSelect, handleContextMenu, handleRenameSubmit, 
     setRenamingPath, creatingNode, createValue, setCreateValue, handleCreateSubmit, 
-    setCreatingNode, handleDragStart, handleDragOver, handleDragLeave, handleDrop, handleDragEnd, dragOverPath 
+    setCreatingNode, handlePointerDown, handlePointerEnter, handlePointerUp, dragOverPath 
   } = props;
 
   const isExpanded = expandedFolders.has(entry.path);
@@ -63,14 +60,9 @@ const TreeNode: React.FC<TreeNodeProps> = (props) => {
   return (
     <div className="w-full">
       <div
-        draggable={true}
-        style={{ paddingLeft: `${depth * 12 + 8}px`, WebkitUserDrag: 'element', userSelect: 'auto' }}
-        onDragStart={(e) => handleDragStart(e, entry)}
-        onDragEnter={(e) => e.preventDefault()}
-        onDragOver={(e) => handleDragOver(e, entry)}
-        onDragLeave={handleDragLeave}
-        onDrop={(e) => handleDrop(e, entry)}
-        onDragEnd={handleDragEnd}
+        onPointerDown={(e) => handlePointerDown(e, entry)}
+        onPointerEnter={(e) => handlePointerEnter(e, entry)}
+        onPointerUp={(e) => handlePointerUp(e, entry)}
         onClick={() => { if (isSupported) handleFileSelect(entry); }}
         onContextMenu={(e) => { if (isSupported) handleContextMenu(e, entry); }}
         className={`group flex items-center space-x-1.5 px-2 py-1.5 rounded text-xs transition-colors ${
@@ -82,6 +74,7 @@ const TreeNode: React.FC<TreeNodeProps> = (props) => {
                 ? 'bg-primary/15 text-primary font-medium border-l-2 border-primary cursor-pointer'
                 : 'hover:bg-darkBorder/40 text-slate-300 hover:text-slate-100 border-l-2 border-transparent cursor-pointer'
         }`}
+        style={{ paddingLeft: `${depth * 12 + 8}px` }}
       >
         <div className="flex-shrink-0 flex items-center justify-center w-4 h-4 pointer-events-none">
           {entry.isDir ? (
@@ -164,6 +157,15 @@ export const FileExplorer: React.FC = () => {
 
   // Clipboard state for Cmd+C / Cmd+V
   const [clipboardPath, setClipboardPath] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleGlobalPointerUp = () => {
+      draggedPathRef.current = null;
+      setDragOverPath(null);
+    };
+    window.addEventListener('pointerup', handleGlobalPointerUp);
+    return () => window.removeEventListener('pointerup', handleGlobalPointerUp);
+  }, []);
 
   useEffect(() => {
     const closeMenu = () => setContextMenu(null);
@@ -284,56 +286,42 @@ export const FileExplorer: React.FC = () => {
     }
   };
 
-  // --- Drag and Drop Handlers ---
-  const handleDragStart = (e: React.DragEvent, entry: FileEntry) => {
+  // --- Pointer-based Drag and Drop Handlers ---
+  const handlePointerDown = (e: React.PointerEvent, entry: FileEntry) => {
+    if (e.button !== 0) return; // Only left click
     e.stopPropagation();
-    draggedPathRef.current = entry.path;
     try {
-      e.dataTransfer.setData('text/plain', entry.path);
-      e.dataTransfer.setData('text', entry.path); // Safari fallback
-      e.dataTransfer.effectAllowed = 'move';
+      (e.target as Element).releasePointerCapture(e.pointerId);
     } catch(err) {}
+    draggedPathRef.current = entry.path;
   };
 
-  const handleDragOver = (e: React.DragEvent, entry: FileEntry | null) => {
-    e.preventDefault(); // Necessary to allow dropping
+  const handlePointerEnter = (e: React.PointerEvent, entry: FileEntry | null) => {
+    if (!draggedPathRef.current) return;
     e.stopPropagation();
-    try { e.dataTransfer.dropEffect = 'move'; } catch(err) {}
     
     // Only highlight if dropping on a directory or root
     const targetPath = entry?.isDir ? entry.path : (entry ? entry.path.substring(0, entry.path.lastIndexOf('/')) : workspacePath);
-    
+    const draggedPath = draggedPathRef.current;
+
+    // Prevent dropping a folder into itself or its own subdirectories
+    if (targetPath === draggedPath || targetPath.startsWith(draggedPath + '/')) {
+      if (dragOverPath !== null) setDragOverPath(null);
+      return;
+    }
+
     if (targetPath && targetPath !== dragOverPath) {
       setDragOverPath(targetPath);
     }
   };
 
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
+  const handlePointerUp = async (e: React.PointerEvent, targetEntry: FileEntry | null) => {
     e.stopPropagation();
-    // Do not clear dragOverPath here to avoid flickering.
-    // It will be overwritten by the next element's dragOver, or cleared in dragEnd/drop.
-  };
-
-  const handleDragEnd = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragOverPath(null);
+    const oldPath = draggedPathRef.current;
     draggedPathRef.current = null;
-  };
-
-  const handleDrop = async (e: React.DragEvent, targetEntry: FileEntry | null) => {
-    e.preventDefault();
-    e.stopPropagation();
     setDragOverPath(null);
 
-    // Safari/Tauri webview might clear dataTransfer, so we fallback to our ref.
-    const oldPath = e.dataTransfer.getData('text/plain') || draggedPathRef.current;
-    
-    if (!oldPath || !workspacePath) {
-        draggedPathRef.current = null;
-        return;
-    }
+    if (!oldPath || !workspacePath) return;
 
     // Determine the actual destination directory directly from the drop target
     const targetDirPath = targetEntry?.isDir
@@ -342,14 +330,17 @@ export const FileExplorer: React.FC = () => {
           ? targetEntry.path.substring(0, targetEntry.path.lastIndexOf('/'))
           : workspacePath);
     
-    // Prevent dropping a folder into itself or its own subdirectories
+    // Prevent dropping into the same directory or itself
     if (oldPath === targetDirPath || targetDirPath.startsWith(oldPath + '/')) {
-        draggedPathRef.current = null;
+        return;
+    }
+
+    const currentName = oldPath.split('/').pop();
+    if (oldPath === `${targetDirPath}/${currentName}`) {
         return;
     }
 
     await moveEntry(oldPath, targetDirPath);
-    draggedPathRef.current = null;
   };
 
   const isCreatingInRoot = creatingNode?.parentPath === workspacePath;
@@ -358,11 +349,8 @@ export const FileExplorer: React.FC = () => {
     <div 
       className="flex-1 flex flex-col min-h-0 select-none relative" 
       onContextMenu={(e) => handleContextMenu(e, null)}
-      onDragEnter={(e) => e.preventDefault()}
-      onDragOver={(e) => handleDragOver(e, null)}
-      onDragLeave={handleDragLeave}
-      onDrop={(e) => handleDrop(e, null)}
-      onDragEnd={handleDragEnd}
+      onPointerEnter={(e) => handlePointerEnter(e, null)}
+      onPointerUp={(e) => handlePointerUp(e, null)}
     >
       <div
         data-tauri-drag-region
