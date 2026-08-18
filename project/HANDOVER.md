@@ -34,6 +34,9 @@ A recent codebase audit discovered the following critical bugs that need to be a
 3. **H1 Block Merge Regex Bug (`src/entities/block/model/store.ts`)**:
    - `mergeBlockWithPrevious` uses the regex `/^(###?#?)\s*/` which matches `##`, `###`, `####` but FAILS to match a single `#` (H1).
    - *Fix needed*: Change to `/^#{1,4}\s*/`.
+4. **Focus Jump on Heading Creation (Resurfaced Bug)**:
+   - When typing `##` or `###` in an existing block to create a new heading block, the cursor/focus incorrectly jumps back to the position of the existing block's H tag instead of staying at the newly created block. This was an early development bug that has resurfaced.
+   - *Fix needed*: Debug the CodeMirror focus and selection update logic during block splitting/creation.
 
 ## 🟡 Code Smells & Refactoring Targets
 
