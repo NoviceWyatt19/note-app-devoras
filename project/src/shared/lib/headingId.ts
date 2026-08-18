@@ -37,7 +37,7 @@ export function buildHeadingId(
 export function parseHeadingLine(
   line: string,
 ): { level: number; label: string } | null {
-  const match = /^(#{1,6})\s+(.+)$/.exec(line);
+  const match = /^(#{1,6})\s+(.*)$/.exec(line);
   if (!match) return null;
-  return { level: match[1].length, label: match[2].trim() };
+  return { level: match[1].length, label: match[2].trim() || `__untitled_h${match[1].length}__` };
 }

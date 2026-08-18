@@ -54,7 +54,7 @@ interface CodeMirrorBlockProps {
   onMerge: () => void;
   onFocusPrev: () => void;
   onFocusNext: () => void;
-  onSelect: () => void;
+  onSelect: (offset: number) => void;
 }
 
 const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBlock({
@@ -148,7 +148,7 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
         EditorView.updateListener.of((update) => {
           if (update.focusChanged && update.view.hasFocus) {
             setActiveEditorView(update.view);
-            onSelect();
+            onSelect(update.state.selection.main.head);
           }
 
           if (!update.docChanged) return;
@@ -175,6 +175,12 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
           },
           '.cm-content': { caretColor: '#6366f1', padding: '4px 0', minWidth: '0' },
           '.cm-line': { padding: '0 4px' },
+          '.cm-line *': {
+            fontSize: 'inherit',
+            lineHeight: 'inherit',
+            verticalAlign: 'baseline',
+          },
+          '.cm-widgetBuffer': { fontSize: 'inherit' },
           '&.cm-focused .cm-cursor': { borderLeftColor: '#6366f1' },
           '&.cm-focused': { outline: 'none' },
         }),
@@ -205,11 +211,14 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
 
   useEffect(() => {
     const view = viewRef.current;
-    if (!view) return;
-    if (isFocused && !view.hasFocus) {
+    if (!view || !isFocused) return;
+    const length = view.state.doc.length;
+    const targetOffset = Math.min(focusOffset, length);
+    if (!view.hasFocus) {
       view.focus();
-      const length = view.state.doc.length;
-      const targetOffset = Math.min(focusOffset, length);
+    }
+    const currentAnchor = view.state.selection.main.anchor;
+    if (currentAnchor !== targetOffset) {
       view.dispatch({
         selection: { anchor: targetOffset, head: targetOffset },
       });
@@ -280,7 +289,7 @@ const BlockNode = React.memo<{
           onFocusNext={() => {
             if (blockIndex < flatBlocks.length - 1) focusBlock(flatBlocks[blockIndex + 1].id, 0);
           }}
-          onSelect={() => focusBlock(block.id)}
+          onSelect={(offset: number) => focusBlock(block.id, offset)}
         />
       </div>
       {block.children.length > 0 && (
@@ -320,11 +329,13 @@ export const BlockEditor: React.FC = () => {
 
   const contentSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Only rebuild blocks on file switch — NOT on every rawContent change during editing.
+  // This prevents circular calls: handleBlockUpdate -> updateContent -> rawContent change -> setBlocksFromContent again.
   useEffect(() => {
     if (currentFile && rawContent !== undefined) {
       useBlockStore.getState().setBlocksFromContent(rawContent);
     }
-  }, [currentFile?.path, rawContent]);
+  }, [currentFile?.path]);
 
   useTauriInputManager({
     enabled: () => !!getActiveEditorView(),
@@ -408,7 +419,7 @@ export const BlockEditor: React.FC = () => {
         accumulated += len + 1;
       }
 
-      setTimeout(() => useBlockStore.getState().focusBlock(targetId, targetOffset), 0);
+      useBlockStore.getState().focusBlock(targetId, targetOffset);
       updateContent(merged);
     } else {
       if (contentSyncTimerRef.current !== null) clearTimeout(contentSyncTimerRef.current);
