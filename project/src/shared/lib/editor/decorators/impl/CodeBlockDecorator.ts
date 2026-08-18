@@ -1,4 +1,4 @@
-import { Decoration, DecorationSet } from '@codemirror/view';
+import { Decoration, DecorationSet, WidgetType, ViewPlugin, EditorView } from '@codemirror/view';
 import { EditorState, Range } from '@codemirror/state';
 import { SyntaxDecorator } from '../types';
 
@@ -191,8 +191,6 @@ export class CodeBlockDecorator implements SyntaxDecorator {
   }
 }
 
-import { WidgetType, ViewPlugin, EditorView } from '@codemirror/view';
-
 export const codeBlockInteractionPlugin = ViewPlugin.fromClass(class {
   constructor(private view: EditorView) {
     view.dom.addEventListener('code-block-click', this.onClick as EventListener);
@@ -281,7 +279,6 @@ class CodeBlockHeaderWidget extends WidgetType {
       }
     });
 
-    wrap.appendChild(langSpan);
     wrap.appendChild(btn);
     container.appendChild(wrap);
     return container;

@@ -192,17 +192,9 @@
   padding-top: 0.8em;
 }
 
-.cm-blockquote-middle {
-}
-
 .cm-blockquote-bottom {
   border-bottom-right-radius: 6px;
   padding-bottom: 0.8em;
-}
-
-.cm-blockquote-text {
-  color: #94a3b8;
-  line-height: 1.6;
 }
 
 .cm-list-bullet {
@@ -230,7 +222,4 @@
   background: #334155;
   width: 100%;
 }
-
-/* Live Preview Widget spacings */
-.cm-blockquote-widget-block { padding: 0.2rem 0; }
 

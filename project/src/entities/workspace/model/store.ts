@@ -9,8 +9,6 @@ interface WorkspaceState {
   isLoading: boolean;
   /** 워크스페이스 전역 설정 (이미지 저장 정책 등) */
   config: WorkspaceConfig;
-  setWorkspacePath: (path: string | null) => void;
-  setConfig: (config: Partial<WorkspaceConfig>) => void;
   openWorkspace: () => Promise<void>;
   scanWorkspace: () => Promise<void>;
   createFile: (parentPath: string, name: string) => Promise<void>;
@@ -26,11 +24,6 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   files: [],
   isLoading: false,
   config: DEFAULT_WORKSPACE_CONFIG,
-
-  setWorkspacePath: (path) => set({ workspacePath: path }),
-
-  setConfig: (partial) =>
-    set((state) => ({ config: { ...state.config, ...partial } })),
 
   openWorkspace: async () => {
     try {

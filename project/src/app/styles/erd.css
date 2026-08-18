@@ -10,11 +10,6 @@
   --font-monospace: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-.erd-designer-view {
-  height: 100%;
-  padding: 0;
-}
-
 .erd-shell {
   display: grid;
   height: 100%;
@@ -56,11 +51,6 @@
 .erd-inspector button,
 .erd-reading button {
   border-radius: 6px;
-}
-
-.erd-dirty {
-  color: var(--text-accent);
-  font-size: 12px;
 }
 
 .erd-alert {
@@ -253,104 +243,6 @@
   height: 100%;
   padding: 24px;
   text-align: center;
-}
-
-.erd-reading {
-  display: grid;
-  gap: 8px;
-  margin: 12px 0;
-}
-
-.erd-reading-actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.erd-reading-body {
-  overflow: auto;
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 8px;
-}
-
-.erd-reading-body svg {
-  display: block;
-  max-width: 100%;
-  height: auto;
-}
-
-.erd-generated-markdown {
-  position: relative;
-  display: grid;
-  min-height: 0;
-  border-top: 1px solid var(--background-modifier-border);
-  background: var(--background-secondary);
-}
-
-.erd-generated-markdown.is-open {
-  grid-template-rows: auto minmax(0, 1fr);
-}
-
-.erd-generated-markdown.is-collapsed {
-  grid-template-rows: auto;
-}
-
-.erd-generated-markdown-resizer {
-  position: absolute;
-  top: -5px;
-  left: 0;
-  right: 0;
-  z-index: 2;
-  height: 10px;
-  cursor: row-resize;
-}
-
-.erd-generated-markdown-resizer::after {
-  content: "";
-  position: absolute;
-  top: 4px;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: var(--background-modifier-border);
-}
-
-.erd-generated-markdown-header {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-}
-
-.erd-generated-markdown-header strong,
-.erd-generated-markdown-header span {
-  display: block;
-}
-
-.erd-generated-markdown-header span {
-  margin-top: 2px;
-  color: var(--text-muted);
-  font-size: 12px;
-}
-
-.erd-generated-markdown-header button {
-  border-radius: 6px;
-}
-
-.erd-generated-markdown pre {
-  min-height: 0;
-  margin: 0;
-  overflow: auto;
-  padding: 10px 12px;
-  border-top: 1px solid var(--background-modifier-border);
-  background: var(--background-primary);
-  color: var(--text-normal);
-  font-size: 12px;
-  line-height: 1.45;
-}
-
-.erd-generated-markdown code {
-  white-space: pre;
 }
 
 @media (max-width: 820px) {

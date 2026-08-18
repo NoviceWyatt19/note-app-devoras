@@ -120,13 +120,6 @@ export function handleId(side: RelationSide): string {
   return side;
 }
 
-export function oppositeSide(side: RelationSide): RelationSide {
-  if (side === "left") return "right";
-  if (side === "right") return "left";
-  if (side === "top") return "bottom";
-  return "top";
-}
-
 function sideToward(from: TableBox, to: TableBox): RelationSide {
   const fromCenter = center(from);
   const toCenter = center(to);

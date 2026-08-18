@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Marked } from 'marked';
 import { invoke } from '@tauri-apps/api/core';
 import { Bold, Italic, Strikethrough, Highlighter, GripVertical } from 'lucide-react';
-import { useBlockStore, flattenTree } from '@/entities/block/model/store';
+import { useBlockStore, EditorBlock, flattenTree } from '@/entities/block/model/store';
 import { useDocumentStore } from '@/entities/document/model/store';
 import { useWorkspaceStore } from '@/entities/workspace/model/store';
 
@@ -387,8 +387,6 @@ export const ReadView: React.FC = () => {
     </div>
   );
 };
-
-import { EditorBlock } from '@/entities/block/model/store';
 
 const ReadBlockNode = React.memo<{
   block: EditorBlock;

@@ -1,5 +1,3 @@
-export const ERD_CODE_BLOCK_LANGUAGE = "obsidian-erd";
-
 export type ErdLegacyCardinality =
   | "one-to-one"
   | "one-to-many"
@@ -137,14 +135,6 @@ export function parseErdDocument(source: string): ErdDocumentV1 {
 
 export function serializeErdDocument(document: ErdDocumentV1): string {
   return JSON.stringify(document, null, 2);
-}
-
-export function createErdCodeBlock(document: ErdDocumentV1): string {
-  return [
-    `\`\`\`${ERD_CODE_BLOCK_LANGUAGE}`,
-    serializeErdDocument(document),
-    "```"
-  ].join("\n");
 }
 
 export function validateErdDocument(document: ErdDocumentV1): ErdValidationResult {

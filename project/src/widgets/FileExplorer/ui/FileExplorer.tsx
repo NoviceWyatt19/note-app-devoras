@@ -305,7 +305,7 @@ export const FileExplorer: React.FC = () => {
     const draggedPath = draggedPathRef.current;
 
     // Prevent dropping a folder into itself or its own subdirectories
-    if (targetPath === draggedPath || targetPath.startsWith(draggedPath + '/')) {
+    if (targetPath && (targetPath === draggedPath || targetPath.startsWith(draggedPath + '/'))) {
       if (dragOverPath !== null) setDragOverPath(null);
       return;
     }
