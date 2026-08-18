@@ -42,6 +42,13 @@ A recent codebase audit discovered the following critical bugs that need to be a
 - **`documentStore` Multi-Tab State**: Currently, `rawContent`, `nodes`, and `isDirty` are global singletons in `documentStore`. They should ideally be scoped per tab to properly support multiple open documents without conflicts.
 - **`parser.ts` Layout Coupling**: The markdown parser calculates initial `x`/`y` coordinates for the MindMap. This layout logic should be moved to the MindView layer.
 
+## 💡 Conceptual Backlog (Phase 6 Features)
+The following features have been brainstormed and validated as technically feasible for future implementation:
+- **Slash Commands (`\:` popup)**: Implement a CodeMirror 6 ViewPlugin to trigger an autocomplete UI for generating blocks (e.g., `\:h3` -> `### `).
+- **Multi-column Parallel Blocks**: Extend parsing and CodeMirror line decorators to support side-by-side rendering (e.g., via `|| parallel-left` metadata in headings).
+- **Extended Markdown Images**: Update the image regex to support custom sizing and alignment syntax (e.g., `![alt](url || left 300px)`).
+- **Image Detail Viewer**: Implement a side-tab or modal to open images for zooming and panning.
+
 ## 🛠️ Next Steps for Claude Code
 
 1. Read through `src/entities/document/model/store.ts` and `src/widgets/BlockEditor/ui/BlockEditor.tsx` to familiarize yourself with the state management and editor implementation.
