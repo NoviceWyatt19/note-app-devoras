@@ -31,6 +31,14 @@
 > **플랫폼 이전 (Antigravity → Claude Code)**
 > 모든 MVP Phase 2 핵심 기획안이 `ticket/impl/` 및 `ticket/request/impl/`에서 완료(`(done)`) 처리되었습니다.
 
+## 🏃 Phase 3.5: 핵심 UX 확장 (⏳ 예정)
+*(기존 `functions/` 기획서에서 누락된 핵심 사용성 기능들)*
+- **[ ]** 다중 파일 탭 지원 및 에디터/마인드맵 스플릿 뷰 (가로/세로 분할) — *참조: `functions/3_tabs_and_split_view.md`*
+- **[ ]** 워크스페이스 전역 검색 (파일명 + 본문 실시간 검색, 결과 하이라이팅, 점프 네비게이션) — *참조: `functions/4_global_search.md`*
+- **[ ]** 앱 설정 시스템 (폰트, 자동 저장, 줄 바꿈, 마인드맵 노드 스타일 등 영구 저장 및 실시간 핫 갱신) — *참조: `functions/5_app_settings.md`*
+- **[ ]** YAML 기반 커스텀 테마 및 다크/라이트 모드 전환 (실시간 핫 리로드) — *참조: `functions/6_theme_yaml_custom.md`*
+- **[ ]** 시작 시 폴더 선택 런처 (최근 워크스페이스 목록, 즐겨찾기 핀 고정) — *참조: `functions/8_launcher_on_startup.md`*
+
 ## 🏃 Phase 4: 성능 최적화 및 렌더링 아키텍처 (⏳ 예정)
 *(3계층 하이브리드 아키텍처 기반. 상세 구현 스텝은 `architecture_stages.md` 참조)*
 - **[ ]** Tier 1: Rust 백엔드 상태 이관 (AST 파서, 그래프 연산, 파일 인덱싱)
@@ -46,12 +54,14 @@
 
 ## 🏃 Phase 6: 고급 뷰 및 사용자 정의 기능 (⏳ 예정)
 - **[ ]** 마인드 뷰 캔버스 미니맵 및 자유형 노드 추가
+- **[ ]** 마인드 뷰 중첩 컨테이너(Nested Box) 모드 — H1 루트 계층 파싱 기반 아키텍처/모듈 포섭 뷰 — *참조: `functions/9_mind_view_nested_container.md`*
 - **[ ]** 아키텍처 뷰용 3D Freeform 캔버스 도입
   - *유즈케이스 시각화*: 흐름에 따라 레이어 간 노드 외곽선 및 연결선(Edge) 순차 하이라이팅 기능
+- **[ ]** 탭 드래그 분리(Tear-off) 및 독립 서브 윈도우 생성 (Tauri Multi-Window IPC 동기화) — *참조: `functions/7_tab_tearoff_new_window.md`*
 - **[ ]** 다단 레이아웃 (Multi-column) 병렬 블록 파싱 (`|| parallel-left`)
 - **[ ]** 명령어 시스템 (Slash Command 기반 `\:` 명령어 자동완성 팝업)
 - **[ ]** 확장 마크다운 이미지 문법 (`![alt](url || left 300px)` 크기 및 정렬 제어)
-- **[ ]** 이미지 상세 뷰어 (사이드 탭에서 이미지 줌인/줌아웃 및 패닝 지원)
+- **[ ]** 이미지 상세 뷰어 (사이드 탭에서 이미지 줌인/줌아웃 및 패닝 지원) — *참조: `functions/image_side_view.pdf`*
 - **[ ]** 애플리케이션 사용자 설정 파일(`.devoras/settings.json`) 저장 연동
 - **[ ]** 단일 블록 포커스 에디팅 (Zen Mode)
 - **[ ]** 인라인 스마트 커스텀 심볼 (Inline Smart Custom Symbols)
@@ -59,3 +69,4 @@
   - 커서를 일정 시간 호버링하면 정의된 의미가 툴팁으로 표시 (잊어버림 방지)
   - *구현 전제조건:* (1) 인터랙티브 상태 변경 가능 (클릭 시 토글 등), (2) 워크스페이스 전역 쿼리 시스템(PKM 메타데이터 Aggregation)이 준비될 때 재진행
   - *참조:* `functions/custom_symbol.pdf`
+

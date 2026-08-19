@@ -68,8 +68,15 @@ The following features have been brainstormed and validated as technically feasi
 - **Slash Commands (`\:` popup)**: Implement a CodeMirror 6 ViewPlugin to trigger an autocomplete UI for generating blocks (e.g., `\:h3` -> `### `).
 - **Multi-column Parallel Blocks**: Extend parsing and CodeMirror line decorators to support side-by-side rendering (e.g., via `|| parallel-left` metadata in headings).
 - **Extended Markdown Images**: Update the image regex to support custom sizing and alignment syntax (e.g., `![alt](url || left 300px)`).
-- **Image Detail Viewer**: Implement a side-tab or modal to open images for zooming and panning.
+- **Image Detail Viewer**: Implement a side-tab or modal to open images for zooming and panning. See `functions/image_side_view.pdf`.
 - **Inline Smart Custom Symbols**: User-defined symbol widgets (badges) with hover tooltip for meaning. Prerequisites: interactive state toggling + workspace-wide query aggregation system. See `functions/custom_symbol.pdf`.
+- **Tabs & Split View**: Multi-file tab bar with drag reorder and horizontal/vertical split editor panes. See `functions/3_tabs_and_split_view.md`.
+- **Global Search**: Workspace-wide real-time search with filename/body matching, context snippets, and jump navigation. See `functions/4_global_search.md`.
+- **App Settings**: Persistent editor/mindmap settings (font, autosave, line wrap, node styles) with live hot-reload. See `functions/5_app_settings.md`.
+- **YAML Custom Themes**: Dark/light mode toggle + user-defined YAML theme files with real-time CSS variable injection. See `functions/6_theme_yaml_custom.md`.
+- **Tab Tearoff & New Window**: Drag tabs outside the window to spawn independent Tauri child windows with IPC sync. See `functions/7_tab_tearoff_new_window.md`.
+- **Startup Launcher**: Workspace selection screen on launch with recent folders list and pin-to-favorites. See `functions/8_launcher_on_startup.md`.
+- **MindView Nested Container**: H1-root hierarchy-based nested box (container/boundary) view mode for architecture visualization. See `functions/9_mind_view_nested_container.md`.
 
 ## 🛠️ Next Steps for Claude Code
 
