@@ -69,6 +69,7 @@ The following features have been brainstormed and validated as technically feasi
 - **Multi-column Parallel Blocks**: Extend parsing and CodeMirror line decorators to support side-by-side rendering (e.g., via `|| parallel-left` metadata in headings).
 - **Extended Markdown Images**: Update the image regex to support custom sizing and alignment syntax (e.g., `![alt](url || left 300px)`).
 - **Image Detail Viewer**: Implement a side-tab or modal to open images for zooming and panning.
+- **Inline Smart Custom Symbols**: User-defined symbol widgets (badges) with hover tooltip for meaning. Prerequisites: interactive state toggling + workspace-wide query aggregation system. See `functions/custom_symbol.pdf`.
 
 ## 🛠️ Next Steps for Claude Code
 
