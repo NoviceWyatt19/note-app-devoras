@@ -19,7 +19,7 @@ Welcome, Claude Code! This document provides the necessary context to continue d
 2. **Splash Screen Deadlock Resolution**: Implemented a multi-window architecture in `tauri.conf.json` and `App.tsx` (using an explicit `setTimeout` fallback instead of `requestAnimationFrame`) to fix the white screen of death caused by window initialization deadlocks.
 3. **100% Custom Pointer Events Drag & Drop**: Bypassed flaky WebKit/HTML5 Drag and Drop restrictions completely by implementing a robust, custom `onPointerDown`/`Enter`/`Up` solution for the file explorer.
 4. **UX Enhancements**: Redefined `Cmd+W` strictly for tab closure (reserving `Cmd+Q` for app quit) and added a subtle save animation for `Cmd+S`.
-5. **Advanced Rendering & Memory Optimization Planning**: Drafted `advanced_rendering_optimization.md` to outline TTL-based unmounting, Web Workers, and multi-window isolation for heavy 3D/Scheduler views.
+5. **3-Tier Hybrid Architecture Decision**: Finalized the resource management strategy after evaluating TTL-based unmounting (insufficient for this app's use-case patterns). See `architecture_stages.md` for full details.
 
 ## 🔴 Current Critical Bugs (Priority: Immediate)
 
@@ -44,6 +44,24 @@ A recent codebase audit discovered the following critical bugs that need to be a
 - **`Cmd+C` Scope Issue**: The `Cmd+C` file copy listener in `FileExplorer` is attached globally to `window`, interfering with text copying inside the markdown editor. It needs to be scoped to the FileExplorer container.
 - **`documentStore` Multi-Tab State**: Currently, `rawContent`, `nodes`, and `isDirty` are global singletons in `documentStore`. They should ideally be scoped per tab to properly support multiple open documents without conflicts.
 - **`parser.ts` Layout Coupling**: The markdown parser calculates initial `x`/`y` coordinates for the MindMap. This layout logic should be moved to the MindView layer.
+
+## 🏗️ Resource Management Architecture (3-Tier Hybrid)
+
+> **핵심 원칙:** TTL 기반 언마운트 전략은 이 앱의 유즈케이스 패턴(에디터↔마인드맵 전환이 잦고, 3D 뷰는 드물게 사용)에 부적합하므로 폐기.
+> 대신 뷰의 무게와 사용 빈도에 따라 3개 계층을 분리 적용한다.
+
+### Tier 1 (Foundation): Rust Backend State Management
+- 모든 무거운 데이터 구조(AST 트리, 그래프, 좌표 계산)를 Tauri Rust 백엔드로 이관.
+- 프론트엔드(React)는 Rust에게 IPC로 "화면에 보여야 할 데이터"만 요청하는 얇은 렌더링 레이어로 전환.
+- JS 힙 메모리를 극적으로 줄여 뷰 마운트 수와 무관하게 낮은 기본 자원 점유를 보장.
+
+### Tier 2 (Frequent Views): OffscreenCanvas in Main Window
+- 에디터, 마인드맵, ERD는 메인 Webview 내에서 탭 전환. DOM은 항상 유지(`display: none`), 캔버스 뷰는 `OffscreenCanvas`로 Worker 렌더링.
+- 비활성 뷰는 렌더링 루프(RAF)만 일시정지 → CPU 비용 0, 메모리는 캔버스 버퍼만 유지.
+
+### Tier 3 (Heavy Views): Lazy Multi-Window
+- 3D 아키텍처 뷰 등 GPU 집약적인 뷰는 사용자가 처음 열 때 별도 Tauri Window를 Lazy 생성.
+- 워크스페이스가 닫힐 때까지 Hide/Show로 전환. 메인 창 IME/타이핑과 완전 프로세스 격리.
 
 ## 💡 Conceptual Backlog (Phase 6 Features)
 The following features have been brainstormed and validated as technically feasible for future implementation:

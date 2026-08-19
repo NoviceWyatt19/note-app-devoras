@@ -32,9 +32,10 @@
 > 모든 MVP Phase 2 핵심 기획안이 `ticket/impl/` 및 `ticket/request/impl/`에서 완료(`(done)`) 처리되었습니다.
 
 ## 🏃 Phase 4: 성능 최적화 및 렌더링 아키텍처 (⏳ 예정)
-*(3D 뷰, 스케줄러, TODO 특화 문서 등 무거운 뷰의 추가에 대비한 최적화)*
-- **[ ]** 뷰(View) 렌더링 스레드 분리 및 최적화
-- **[ ]** LRU 기반 WebView 메모리 캐싱 및 TTL(Time-To-Live) 기반 언마운트
+*(3계층 하이브리드 아키텍처 기반. 상세 구현 스텝은 `architecture_stages.md` 참조)*
+- **[ ]** Tier 1: Rust 백엔드 상태 이관 (AST 파서, 그래프 연산, 파일 인덱싱)
+- **[ ]** Tier 2: 빈번한 뷰(에디터/마인드맵/ERD) OffscreenCanvas 전환 및 RAF Pause/Resume
+- **[ ]** Tier 3: GPU 집약 뷰(3D 아키텍처) Lazy Multi-Window 격리
 - **[ ]** `documentStore` 전역 상태 충돌 방지를 위한 탭별 로컬 캐시 도입 (Critical)
 
 ## 🏃 Phase 5: 리팩토링 및 기술 부채 상환 (⏳ 예정)
