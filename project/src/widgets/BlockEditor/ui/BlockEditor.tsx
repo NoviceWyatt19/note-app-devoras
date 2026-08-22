@@ -375,26 +375,32 @@ export const BlockEditor: React.FC = () => {
     const currentFlatBlocks = flattenTree(state.blocks);
     const activeIndex = currentFlatBlocks.findIndex(b => b.id === id);
     if (activeIndex === -1) return;
+    
+    const oldContent = currentFlatBlocks[activeIndex].content;
 
     let absoluteCursorPos = cursorOffset;
     for (let i = 0; i < activeIndex; i++) {
       absoluteCursorPos += currentFlatBlocks[i].content.length + 1;
     }
 
+    const countHeadings = (content: string) => {
+      let count = 0;
+      let fenceActive = false;
+      content.replace(/\r\n/g, '\n').split('\n').forEach(line => {
+        if (/^(`{3,}|~{3,})/.test(line)) { fenceActive = !fenceActive; return; }
+        if (!fenceActive && /^#{1,6} /.test(line)) count++;
+      });
+      return count;
+    };
+
+    const oldHeadingCount = countHeadings(oldContent);
+    const newHeadingCount = countHeadings(text);
+
     state.updateBlockContent(id, text);
-    const merged = useBlockStore.getState().getMergedContent();
 
-    const lines = merged.replace(/\r\n/g, '\n').split('\n');
-    let headingCount = 0;
-    let fenceActive = false;
-    lines.forEach((line) => {
-      if (/^(`{3,}|~{3,})/.test(line)) { fenceActive = !fenceActive; return; }
-      if (!fenceActive && (line.startsWith('# ') || line.startsWith('## ') || line.startsWith('### '))) headingCount++;
-    });
-    if (headingCount === 0) headingCount = 1;
-
-    // 분할 트리거
-    if (headingCount !== currentFlatBlocks.length) {
+    // 분할 트리거: 현재 블록 내에서 헤딩 개수가 변했는지 확인 (전체 O(N) 순회 제거)
+    if (oldHeadingCount !== newHeadingCount) {
+      const merged = state.getMergedContent();
       state.setBlocksFromContent(merged);
       const nextFlatBlocks = flattenTree(useBlockStore.getState().blocks);
 
@@ -420,12 +426,12 @@ export const BlockEditor: React.FC = () => {
       }
 
       useBlockStore.getState().focusBlock(targetId, targetOffset);
-      updateContent(merged);
+      useDocumentStore.getState().updateContent(merged);
     } else {
       if (contentSyncTimerRef.current !== null) clearTimeout(contentSyncTimerRef.current);
       contentSyncTimerRef.current = setTimeout(() => {
         contentSyncTimerRef.current = null;
-        updateContent(useBlockStore.getState().getMergedContent());
+        useDocumentStore.getState().updateContent(useBlockStore.getState().getMergedContent());
       }, 150);
     }
   };

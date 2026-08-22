@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Marked } from 'marked';
 import { useDocumentStore } from '@/entities/document/model/store';
 import { MindNode } from '@/entities/document/lib/parser';
@@ -194,6 +194,23 @@ export const MindView: React.FC<MindViewProps> = ({ onClose, isStandalone }) => 
   const [zoom, setZoom] = useState(1);
   const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
   const [isPanning, setIsPanning] = useState(false);
+
+  // ── Auto Layout for nodes without spatialData ──────────────────────────────
+  const displayNodes = useMemo(() => {
+    let yOffset = 100;
+    return nodes.map((node) => {
+      // 0,0 is the uninitialized default from parser.ts
+      if (node.x === 0 && node.y === 0) {
+        const x = node.level * 220;
+        const y = yOffset;
+        yOffset += 120;
+        return { ...node, x, y };
+      } else {
+        yOffset = Math.max(yOffset, node.y + 120);
+        return node;
+      }
+    });
+  }, [nodes]);
 
   // ── Preview state (fully independent) ─────────────────────────────────────
   /** Node currently under the cursor (shown as transient popup) */
@@ -448,9 +465,9 @@ export const MindView: React.FC<MindViewProps> = ({ onClose, isStandalone }) => 
       >
         <g transform={`translate(${pan.x}, ${pan.y}) scale(${zoom})`}>
           {/* Curved connections */}
-          {nodes.map((node) => {
+          {displayNodes.map((node: MindNode) => {
             if (!node.parentId) return null;
-            const parent = nodes.find((n) => n.id === node.parentId);
+            const parent = displayNodes.find((n: MindNode) => n.id === node.parentId);
             if (!parent) return null;
 
             const startX = parent.x + nodeWidth;
@@ -472,7 +489,7 @@ export const MindView: React.FC<MindViewProps> = ({ onClose, isStandalone }) => 
           })}
 
           {/* Mind map nodes */}
-          {nodes.map((node) => {
+          {displayNodes.map((node: MindNode) => {
             const isDragging  = draggingNodeId === node.id;
             const isHovered   = hoveredNode?.id === node.id;
             const isPinned    = pinnedNode?.id === node.id;

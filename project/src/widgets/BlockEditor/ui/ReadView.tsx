@@ -256,7 +256,7 @@ export const ReadView: React.FC = () => {
       if (!floatingBar) return;
 
       const currentBlocks = useBlockStore.getState().blocks;
-      const block = currentBlocks.find((b) => b.id === floatingBar.blockId);
+      const block = flattenTree(currentBlocks).find((b) => b.id === floatingBar.blockId);
       if (!block) { setFloatingBar(null); return; }
 
       // Find the first occurrence of the selected text in the raw markdown.

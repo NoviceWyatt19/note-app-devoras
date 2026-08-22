@@ -6,6 +6,12 @@ import { useBlockStore } from '@/entities/block/model/store';
 
 export type TabType = 'markdown' | 'mindmap-global' | 'erd';
 
+export interface TabCache {
+  rawContent: string;
+  nodes: MindNode[];
+  spatialData: Record<string, { x: number; y: number }>;
+}
+
 export interface TabItem {
   id: string;            // filePath 혹은 'global-mindmap'
   type: TabType;
@@ -13,6 +19,7 @@ export interface TabItem {
   filePath?: string;     // markdown, erd 일 때 파일 경로
   fileEntry?: FileEntry; // markdown, erd 일 때 FileEntry 저장
   isDirty?: boolean;
+  cache?: TabCache;      // 탭 전환 시 미저장 편집 내용을 보존하는 인메모리 캐시
 }
 
 export interface SplitPane {
@@ -25,6 +32,7 @@ interface DocumentState {
   // ── 패널 & 탭 구조 상태 ──────────────────────────────────────────
   panes: SplitPane[];
   activePaneId: string;
+  layoutDirection: 'horizontal' | 'vertical';
 
   // ── 활성 파일 기반 에디터 데이터 ──────────────────────────────────
   rawContent: string;
@@ -72,6 +80,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     },
   ],
   activePaneId: 'pane-main',
+  layoutDirection: 'horizontal',
 
   rawContent: '',
   nodes: [],
@@ -200,26 +209,62 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   },
 
   setActiveTab: async (paneId, tabId) => {
-    const { panes } = get();
+    const { panes, rawContent, nodes, spatialData, isDirty, activePaneId } = get();
     const pane = panes.find((p) => p.id === paneId);
     if (!pane) return;
 
     const targetTab = pane.tabs.find((t) => t.id === tabId);
-    const updatedPanes = panes.map((p) => (p.id === paneId ? { ...p, activeTabId: tabId } : p));
+    if (pane.activeTabId === tabId && paneId === activePaneId) return; // 이미 활성 탭
 
-    // 파일 탭인 경우 해당 파일 내용으로 로드 동기화
+    // ── Step 1: 현재 활성 탭의 편집 상태를 캐시에 저장 ──
+    const currentPane = panes.find((p) => p.id === activePaneId);
+    let panesWithSavedCache = panes;
+    if (currentPane && currentPane.activeTabId) {
+      panesWithSavedCache = panes.map((p) => {
+        if (p.id !== activePaneId) return p;
+        return {
+          ...p,
+          tabs: p.tabs.map((t) =>
+            t.id === currentPane.activeTabId
+              ? { ...t, cache: { rawContent, nodes, spatialData }, isDirty }
+              : t
+          ),
+        };
+      });
+    }
+
+    // ── Step 2: 대상 탭 활성화 ──
+    const updatedPanes = panesWithSavedCache.map((p) =>
+      p.id === paneId ? { ...p, activeTabId: tabId } : p
+    );
+
+    // ── Step 3: 캐시에서 복원 또는 디스크에서 로드 ──
     if (targetTab && (targetTab.type === 'markdown' || targetTab.type === 'erd') && targetTab.fileEntry) {
+      // 캐시가 있으면 디스크 I/O 없이 즉시 복원
+      if (targetTab.cache) {
+        set({
+          panes: updatedPanes,
+          activePaneId: paneId,
+          rawContent: targetTab.cache.rawContent,
+          nodes: targetTab.cache.nodes,
+          spatialData: targetTab.cache.spatialData,
+          isDirty: targetTab.isDirty || false,
+        });
+        return;
+      }
+
+      // 캐시가 없으면 디스크에서 읽기 (최초 로드 시)
       const workspacePath = useWorkspaceStore.getState().workspacePath;
       if (workspacePath) {
         const content = await fileSystemRepository.readFile(targetTab.fileEntry.path);
         const isErd = targetTab.type === 'erd';
-        
+
         const allMetadata = await fileSystemRepository.readSpatialMetadata(workspacePath);
-        const spatialData = allMetadata[targetTab.fileEntry.path] || {};
+        const loadedSpatialData = allMetadata[targetTab.fileEntry.path] || {};
         const parsedNodes = isErd ? [] : parseMarkdown(content);
 
         const alignedNodes = parsedNodes.map((node) => {
-          if (spatialData[node.id]) return { ...node, x: spatialData[node.id].x, y: spatialData[node.id].y };
+          if (loadedSpatialData[node.id]) return { ...node, x: loadedSpatialData[node.id].x, y: loadedSpatialData[node.id].y };
           return node;
         });
 
@@ -228,7 +273,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
           activePaneId: paneId,
           rawContent: content,
           nodes: alignedNodes,
-          spatialData,
+          spatialData: loadedSpatialData,
           isDirty: targetTab.isDirty || false,
         });
         return;
@@ -313,7 +358,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
 
   setActivePane: (paneId) => set({ activePaneId: paneId }),
 
-  splitPane: (sourcePaneId, _direction) => {
+  splitPane: (sourcePaneId, direction) => {
     const { panes } = get();
     const sourcePane = panes.find((p) => p.id === sourcePaneId);
     if (!sourcePane) return;
@@ -328,6 +373,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     set({
       panes: [...panes, newPane],
       activePaneId: newPaneId,
+      layoutDirection: direction,
     });
   },
 
@@ -336,7 +382,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     const { panes } = get();
     const updatedPanes = panes.map((p) => {
       const updatedTabs = p.tabs.map((t) => {
-        if (t.type === 'markdown' && t.filePath && t.filePath.startsWith(oldPath)) {
+        if ((t.type === 'markdown' || t.type === 'erd') && t.filePath && t.filePath.startsWith(oldPath)) {
           // If the path exactly matches, or it's inside the renamed directory
           const newFilePath = t.filePath.replace(oldPath, newPath);
           const newTabId = t.id.replace(oldPath, newPath);
@@ -370,7 +416,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     
     panes.forEach(p => {
       p.tabs.forEach(t => {
-        if (t.type === 'markdown' && t.filePath && t.filePath.startsWith(path)) {
+        if ((t.type === 'markdown' || t.type === 'erd') && t.filePath && t.filePath.startsWith(path)) {
           tabsToClose.push({ paneId: p.id, tabId: t.id });
         }
       });

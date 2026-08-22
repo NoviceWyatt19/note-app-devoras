@@ -31,6 +31,7 @@ export const WorkspacePage: React.FC = () => {
     closePane,
     isDirty,
     getCurrentFile,
+    layoutDirection,
   } = useDocumentStore();
 
   const { openWorkspace } = useWorkspaceStore();
@@ -199,13 +200,14 @@ export const WorkspacePage: React.FC = () => {
         </div>
 
         {/* Panes Area */}
-        <div className="flex-1 min-h-0 flex overflow-hidden">
+        <div className={`flex-1 min-h-0 flex overflow-hidden ${layoutDirection === 'vertical' ? 'flex-col' : 'flex-row'}`}>
           {panes.map((pane) => (
             <PaneContainer
               key={pane.id}
               pane={pane}
               canClose={panes.length >= 2}
               onClose={() => closePane(pane.id)}
+              layoutDirection={layoutDirection}
             />
           ))}
         </div>
@@ -237,15 +239,20 @@ const PaneContainer: React.FC<{
   pane: SplitPane;
   canClose: boolean;
   onClose: () => void;
-}> = ({ pane, canClose, onClose }) => {
+  layoutDirection: 'horizontal' | 'vertical';
+}> = ({ pane, canClose, onClose, layoutDirection }) => {
   const { activePaneId, setActivePane, setActiveTab, closeTab, splitPane } = useDocumentStore();
   const isActivePane = pane.id === activePaneId;
   const activeTab = pane.tabs.find((t) => t.id === pane.activeTabId);
 
+  const borderClass = layoutDirection === 'vertical' 
+    ? 'border-b border-darkBorder last:border-b-0' 
+    : 'border-r border-darkBorder last:border-r-0';
+
   return (
     <div
       onClick={() => setActivePane(pane.id)}
-      className={`flex-1 min-w-0 h-full flex flex-col border-r border-darkBorder last:border-r-0 ${
+      className={`flex-1 min-w-0 h-full flex flex-col ${borderClass} ${
         isActivePane ? 'ring-1 ring-primary/20 z-10' : 'opacity-85'
       }`}
     >

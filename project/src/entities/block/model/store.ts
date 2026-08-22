@@ -200,8 +200,8 @@ export const useBlockStore = create<BlockState>((set, get) => ({
     const currentBlock = flatBlocks[index];
     const previousBlock = flatBlocks[index - 1];
 
-    // Strip H1, H2, H3 header mark from current block start when merging into parent block content
-    const cleanedCurrentText = currentBlock.content.replace(/^(###?#?)\s*/, '');
+    // Strip H1, H2, H3, H4 header mark from current block start when merging into parent block content
+    const cleanedCurrentText = currentBlock.content.replace(/^#{1,4}\s*/, '');
     const joinSeparator = previousBlock.content.endsWith('\n') ? '' : '\n';
     const mergedContent = previousBlock.content + joinSeparator + cleanedCurrentText;
     const focusOffset = previousBlock.content.length;

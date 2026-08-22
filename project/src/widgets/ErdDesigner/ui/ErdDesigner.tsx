@@ -498,6 +498,15 @@ function Inspector(props: {
           <button 
             className="px-3 py-1.5 bg-darkPanel hover:bg-darkHover text-slate-200 border border-darkBorder rounded-md transition-colors text-sm"
             onClick={() => {
+              const nextRelationId = nextEntityId("relation", props.document.relations.map((relation) => relation.id));
+              props.onChange((document) => addRelationForTable(document, props.defaultFromCardinality, props.defaultToCardinality, nextRelationId, selectedTable.id));
+            }}
+          >
+            Add relation
+          </button>
+          <button 
+            className="px-3 py-1.5 bg-darkPanel hover:bg-darkHover text-slate-200 border border-darkBorder rounded-md transition-colors text-sm"
+            onClick={() => {
               props.onChange((document) => deleteTable(document, selectedTable.id));
               props.onSelect(null);
             }}
@@ -513,15 +522,7 @@ function Inspector(props: {
               index={index}
               relation={findRelationForColumn(props.document, selectedTable.id, column.id)}
               onChange={(nextColumn) => {
-                const shouldCreateRelation = column.foreignKey !== true && nextColumn.foreignKey === true;
-                const shouldRemoveRelation = column.foreignKey === true && nextColumn.foreignKey !== true;
-                const nextRelationId = nextEntityId("relation", props.document.relations.map((relation) => relation.id));
-                props.onChange((document) => {
-                  const updated = updateColumn(document, selectedTable.id, column.id, nextColumn);
-                  if (shouldRemoveRelation) return removeRelationsForColumn(updated, selectedTable.id, nextColumn.id);
-                  if (!shouldCreateRelation) return updated;
-                  return addRelationForColumn(updated, props.defaultFromCardinality, props.defaultToCardinality, nextRelationId, selectedTable.id, nextColumn.id);
-                });
+                props.onChange((document) => updateColumn(document, selectedTable.id, column.id, nextColumn));
               }}
               onEditRelation={(relationId) => props.onSelect({ type: "relation", id: relationId })}
               onMove={(direction) => props.onChange((document) => moveColumn(document, selectedTable.id, column.id, direction))}
@@ -599,8 +600,8 @@ function ColumnEditor(props: {
       </div>
       <div className="erd-column-flags">
         <label><input type="checkbox" checked={props.column.primaryKey === true} onChange={(event) => props.onChange({ ...props.column, primaryKey: event.currentTarget.checked })} /> PK</label>
-        <label><input type="checkbox" checked={props.column.foreignKey === true} onChange={(event) => props.onChange({ ...props.column, foreignKey: event.currentTarget.checked })} /> FK</label>
-        <label><input type="checkbox" checked={props.column.unique === true} onChange={(event) => props.onChange({ ...props.column, unique: event.currentTarget.checked })} /> UQ</label>
+        {props.relation && <span className="text-xs bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-500/30 font-bold ml-1">FK</span>}
+        <label className={props.relation ? "ml-2" : ""}><input type="checkbox" checked={props.column.unique === true} onChange={(event) => props.onChange({ ...props.column, unique: event.currentTarget.checked })} /> UQ</label>
         <label><input type="checkbox" checked={props.column.nullable !== false} onChange={(event) => props.onChange({ ...props.column, nullable: event.currentTarget.checked })} /> Nullable</label>
       </div>
       <div className="erd-column-actions gap-2">
@@ -796,22 +797,20 @@ function applySimpleLayout(document: ErdDocumentV1): ErdDocumentV1 {
   };
 }
 
-function addRelationForColumn(
+
+function addRelationForTable(
   document: ErdDocumentV1,
   fromCardinality: ErdEndpointCardinality,
   toCardinality: ErdEndpointCardinality,
   id: string,
-  fromTableId: string,
-  fromColumnId: string
+  fromTableId: string
 ): ErdDocumentV1 {
-  if (document.relations.some((relation) => relation.fromTable === fromTableId && relation.fromColumn === fromColumnId)) {
-    return document;
-  }
-
   const from = document.tables.find((table) => table.id === fromTableId);
-  const to = document.tables.find((table) => table.id !== fromTableId);
+  const to = document.tables.find((table) => table.id !== fromTableId) ?? from;
+  const fromColumn = from?.columns.find((column) => column.primaryKey === true) ?? from?.columns[0];
   const toColumn = to?.columns.find((column) => column.primaryKey === true) ?? to?.columns[0];
-  if (!from || !to || !from.columns.some((column) => column.id === fromColumnId) || !toColumn) {
+  
+  if (!from || !to || !fromColumn || !toColumn) {
     return document;
   }
 
@@ -822,7 +821,7 @@ function addRelationForColumn(
       {
         id,
         fromTable: from.id,
-        fromColumn: fromColumnId,
+        fromColumn: fromColumn.id,
         toTable: to.id,
         toColumn: toColumn.id,
         fromCardinality,
@@ -838,14 +837,6 @@ function findRelationForColumn(document: ErdDocumentV1, tableId: string, columnI
     ?? null;
 }
 
-function removeRelationsForColumn(document: ErdDocumentV1, tableId: string, columnId: string): ErdDocumentV1 {
-  const relations = document.relations.filter((relation) => {
-    if (relation.fromTable === tableId && relation.fromColumn === columnId) return false;
-    if (relation.toTable === tableId && relation.toColumn === columnId) return false;
-    return true;
-  });
-  return relations.length === document.relations.length ? document : { ...document, relations };
-}
 
 function updateTableName(document: ErdDocumentV1, tableId: string, name: string): ErdDocumentV1 {
   return {

@@ -173,6 +173,8 @@ export const FileExplorer: React.FC = () => {
     return () => window.removeEventListener('click', closeMenu);
   }, []);
 
+  const containerRef = React.useRef<HTMLDivElement>(null);
+
   // Cmd+C / Cmd+V clipboard handler
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -189,11 +191,14 @@ export const FileExplorer: React.FC = () => {
         copyEntry(clipboardPath, destDir);
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    const el = containerRef.current;
+    if (!el) return;
+    el.addEventListener('keydown', handleKeyDown);
+    return () => el.removeEventListener('keydown', handleKeyDown);
   }, [clipboardPath, currentFile, workspacePath, copyEntry]);
 
   const handleFileSelect = async (file: FileEntry) => {
+    containerRef.current?.focus();
     if (file.isDir) {
       setExpandedFolders(prev => {
         const next = new Set(prev);
@@ -347,7 +352,9 @@ export const FileExplorer: React.FC = () => {
 
   return (
     <div 
-      className="flex-1 flex flex-col min-h-0 select-none relative" 
+      ref={containerRef}
+      tabIndex={-1}
+      className="flex-1 flex flex-col min-h-0 select-none relative outline-none" 
       onContextMenu={(e) => handleContextMenu(e, null)}
       onPointerEnter={(e) => handlePointerEnter(e, null)}
       onPointerUp={(e) => handlePointerUp(e, null)}

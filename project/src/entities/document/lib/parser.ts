@@ -69,13 +69,5 @@ export function parseMarkdown(content: string): MindNode[] {
     nodes.push(node);
   });
 
-  // Apply default layout coordinates for nodes (initial tree layout representation)
-  let yOffset = 100;
-  nodes.forEach((node) => {
-    node.x = node.level * 220;
-    node.y = yOffset;
-    yOffset += 120;
-  });
-
   return nodes;
 }
