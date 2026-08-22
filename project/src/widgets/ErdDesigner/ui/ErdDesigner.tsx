@@ -10,8 +10,6 @@ import {
   ReactFlow,
   ReactFlowProvider,
   getSmoothStepPath,
-  useNodesState,
-  useEdgesState,
   type Edge,
   type EdgeChange,
   type EdgeProps,
@@ -84,25 +82,21 @@ export default function ErdDesigner(props: ErdDesignerProps): JSX.Element {
     setSelection(null);
   }, [props.filePath]);
 
-  const [nodes, setNodes, onNodesChangeReactFlow] = useNodesState<Node<TableNodeData>>([]);
-  const [edges, setEdges, onEdgesChangeReactFlow] = useEdgesState<Edge<ErdEdgeData>>([]);
+  const [localPositions, setLocalPositions] = useState<Map<string, { x: number, y: number }>>(new Map());
 
-  React.useEffect(() => {
-    setNodes((currentNodes) => {
-      const positionMap = new Map(currentNodes.map(n => [n.id, n.position]));
-      return props.document.tables.map((table) => ({
-        id: table.id,
-        type: "erdTable",
-        position: positionMap.get(table.id) || table.position,
-        data: { table }
-      }));
-    });
-  }, [props.document.tables, setNodes]);
+  const nodes = useMemo(() => {
+    return props.document.tables.map((table) => ({
+      id: table.id,
+      type: "erdTable",
+      position: localPositions.get(table.id) || table.position,
+      data: { table }
+    }));
+  }, [props.document.tables, localPositions]);
 
-  React.useEffect(() => {
-    if (!props.document) return;
+  const edges = useMemo(() => {
+    if (!props.document) return [];
     const boxes = buildTableBoxes(props.document);
-    setEdges(props.document.relations.map((relation) => {
+    return props.document.relations.map((relation) => {
       const route = routeRelation(props.document, relation, boxes);
       const symbols = relationSymbols(relation);
       const style = relationVisualStyle(relation);
@@ -126,8 +120,8 @@ export default function ErdDesigner(props: ErdDesignerProps): JSX.Element {
           targetOptional: style.targetOptional
         }
       };
-    }));
-  }, [props.document.relations, props.document.tables, setEdges]);
+    });
+  }, [props.document]);
 
   const updateDocument = useCallback((updater: (document: ErdDocumentV1) => ErdDocumentV1) => {
     const next = updater(props.document);
@@ -139,10 +133,21 @@ export default function ErdDesigner(props: ErdDesignerProps): JSX.Element {
   const commitDocument = updateDocument;
 
   const onNodesChange = useCallback((changes: NodeChange<Node<TableNodeData>>[]) => {
-    onNodesChangeReactFlow(changes);
+    let positionChanged = false;
+    setLocalPositions(prev => {
+      const next = new Map(prev);
+      for (const change of changes) {
+        if (change.type === 'position' && change.position) {
+          next.set(change.id, change.position);
+          positionChanged = true;
+        }
+      }
+      return positionChanged ? next : prev;
+    });
+
     const removeIds = new Set(changes.filter((change) => change.type === "remove").map((change) => change.id));
     if (removeIds.size > 0) {
-      updateDocument((current) => {
+      commitDocument((current) => {
         return {
           ...current,
           tables: current.tables.filter((table) => !removeIds.has(table.id)),
@@ -150,7 +155,7 @@ export default function ErdDesigner(props: ErdDesignerProps): JSX.Element {
         };
       });
     }
-  }, [onNodesChangeReactFlow, updateDocument]);
+  }, [commitDocument]);
 
   const onNodeDragStop = useCallback((_event: any, node: any) => {
     updateDocument((current) => {
@@ -160,7 +165,6 @@ export default function ErdDesigner(props: ErdDesignerProps): JSX.Element {
   }, [updateDocument]);
 
   const onEdgesChange = useCallback((changes: EdgeChange<Edge<ErdEdgeData>>[]) => {
-    onEdgesChangeReactFlow(changes);
     const removeIds = new Set(
       changes.flatMap((change) => (change.type === "remove" ? [change.id] : []))
     );
@@ -172,7 +176,7 @@ export default function ErdDesigner(props: ErdDesignerProps): JSX.Element {
         };
       });
     }
-  }, [onEdgesChangeReactFlow, commitDocument]);
+  }, [commitDocument]);
 
   if (!props.document) {
     return (

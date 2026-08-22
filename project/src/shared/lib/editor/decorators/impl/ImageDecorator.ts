@@ -1,4 +1,4 @@
-import { Decoration, DecorationSet, WidgetType } from '@codemirror/view';
+import { Decoration, DecorationSet, WidgetType, EditorView } from '@codemirror/view';
 import { EditorState } from '@codemirror/state';
 import { RangeSetBuilder } from '@codemirror/state';
 import { SyntaxDecorator } from '../types';
@@ -19,7 +19,7 @@ class ImageWidget extends WidgetType {
     return other.src === this.src && other.alt === this.alt;
   }
 
-  toDOM(): HTMLElement {
+  toDOM(view: EditorView): HTMLElement {
     const workspacePath = useWorkspaceStore.getState().workspacePath;
     const wrap = document.createElement('span');
     wrap.className = 'cm-image-widget';
@@ -32,6 +32,10 @@ class ImageWidget extends WidgetType {
     img.style.cssText = 'max-width:100%;max-height:300px;border-radius:4px;margin:4px 0;display:block;cursor:default;';
     img.draggable = false;
     wrap.appendChild(img);
+
+    img.onload = () => {
+      view.requestMeasure();
+    };
 
     // 외부 URL이면 그대로 사용, 로컬이면 Rust 커맨드로 Base64 요청
     if (this.src.startsWith('http://') || this.src.startsWith('https://') || this.src.startsWith('data:')) {
@@ -52,6 +56,7 @@ class ImageWidget extends WidgetType {
           fallback.textContent = `🖼 ${this.alt || '이미지'}`;
           fallback.style.cssText = 'color:#888;font-size:0.85em;display:inline-block;padding:2px 6px;background:#1e1e1e;border-radius:3px;';
           if (wrap.contains(img)) wrap.replaceChild(fallback, img);
+          view.requestMeasure();
         });
     }
 
