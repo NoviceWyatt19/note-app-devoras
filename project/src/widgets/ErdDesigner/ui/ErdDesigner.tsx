@@ -811,21 +811,40 @@ function addRelationForTable(
 ): ErdDocumentV1 {
   const from = document.tables.find((table) => table.id === fromTableId);
   const to = document.tables.find((table) => table.id !== fromTableId) ?? from;
-  const fromColumn = from?.columns.find((column) => column.primaryKey === true) ?? from?.columns[0];
-  const toColumn = to?.columns.find((column) => column.primaryKey === true) ?? to?.columns[0];
   
-  if (!from || !to || !fromColumn || !toColumn) {
+  if (!from || !to) {
     return document;
   }
 
+  const toColumn = to.columns.find((column) => column.primaryKey === true) ?? to.columns[0];
+  if (!toColumn) return document;
+
+  const newColumnId = nextEntityId("column", from.columns.map(c => c.id));
+  const newColumnName = to.id === from.id ? 'parent_id' : `${to.name}_id`;
+
+  const newFkColumn: ErdColumn = {
+    id: newColumnId,
+    name: newColumnName,
+    type: toColumn.type,
+    foreignKey: true,
+  };
+
+  const updatedFromTable = {
+    ...from,
+    columns: [...from.columns, newFkColumn]
+  };
+
+  const tables = document.tables.map(t => t.id === from.id ? updatedFromTable : t);
+
   return {
     ...document,
+    tables,
     relations: [
       ...document.relations,
       {
         id,
         fromTable: from.id,
-        fromColumn: fromColumn.id,
+        fromColumn: newColumnId,
         toTable: to.id,
         toColumn: toColumn.id,
         fromCardinality,
