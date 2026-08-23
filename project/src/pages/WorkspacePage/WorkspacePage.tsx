@@ -13,7 +13,10 @@ import {
   FileText,
   Network,
   Columns,
+  Settings,
 } from 'lucide-react';
+import { useSettingsStore } from '@/entities/settings/model/store';
+import { SettingsModal } from '@/widgets/SettingsModal/ui/SettingsModal';
 
 export const WorkspacePage: React.FC = () => {
   const [sidebarWidth, setSidebarWidth] = useState(250);
@@ -174,6 +177,14 @@ export const WorkspacePage: React.FC = () => {
               </button>
             )}
 
+            <button
+              onClick={() => useSettingsStore.getState().setIsOpen(true)}
+              title="설정"
+              className="p-1 rounded text-mutedText hover:text-slate-200 hover:bg-white/10 transition-colors border border-transparent"
+            >
+              <Settings size={14} />
+            </button>
+
             {currentFile && (
               <button
                 onClick={executeSave}
@@ -230,6 +241,8 @@ export const WorkspacePage: React.FC = () => {
           </div>
         </>
       )}
+      {/* Global Settings Modal */}
+      <SettingsModal />
     </div>
   );
 };

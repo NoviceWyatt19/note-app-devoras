@@ -2,9 +2,13 @@ import React, { useEffect, useRef, useMemo } from 'react';
 import { useBlockStore, EditorBlock, flattenTree } from '@/entities/block/model/store';
 import { useDocumentStore } from '@/entities/document/model/store';
 import { useWorkspaceStore } from '@/entities/workspace/model/store';
-import { EditorState, Transaction } from '@codemirror/state';
+import { EditorState, Transaction, Compartment } from '@codemirror/state';
 import { EditorView, keymap, drawSelection} from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap, indentMore, indentLess } from '@codemirror/commands';
+import { useSettingsStore } from '@/entities/settings/model/store';
+
+const lineWrappingCompartment = new Compartment();
+const editorThemeCompartment = new Compartment();
 
 import { markdown } from '@codemirror/lang-markdown';
 import { languages } from '@codemirror/language-data';
@@ -72,11 +76,44 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
   const viewRef = useRef<EditorView | null>(null);
   const callbacksRef = useRef({ onFocusPrev, onFocusNext, onMerge, onUpdate });
 
+  const { settings } = useSettingsStore();
+
   useEffect(() => {
     callbacksRef.current = { onFocusPrev, onFocusNext, onMerge, onUpdate };
   });
 
   const isImeComposingRef = useImeInputManager();
+
+  // 설정 변경 시 컴파트먼트 재구성
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+
+    view.dispatch({
+      effects: [
+        lineWrappingCompartment.reconfigure(settings.editor.lineWrapping ? EditorView.lineWrapping : []),
+        editorThemeCompartment.reconfigure(EditorView.theme({
+          '&': { background: 'transparent !important', height: 'auto' },
+          '.cm-scroller': {
+            fontFamily: settings.editor.fontFamily,
+            fontSize: `${settings.editor.fontSize}px`,
+            overflow: 'hidden',
+            minWidth: '0',
+          },
+          '.cm-content': { caretColor: '#6366f1', padding: '4px 0', minWidth: '0' },
+          '.cm-line': { padding: '0 4px' },
+          '.cm-line *': {
+            fontSize: 'inherit',
+            lineHeight: 'inherit',
+            verticalAlign: 'baseline',
+          },
+          '.cm-widgetBuffer': { fontSize: 'inherit' },
+          '&.cm-focused .cm-cursor': { borderLeftColor: '#6366f1' },
+          '&.cm-focused': { outline: 'none' },
+        }))
+      ]
+    });
+  }, [settings.editor.lineWrapping, settings.editor.fontFamily, settings.editor.fontSize]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -126,7 +163,7 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
       doc: block.content,
       extensions: [
         markdown({ codeLanguages: languages }),
-        EditorView.lineWrapping,
+        lineWrappingCompartment.of(settings.editor.lineWrapping ? EditorView.lineWrapping : []),
         oneDark,
         history(),
         drawSelection(),
@@ -165,11 +202,11 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
             update.state.selection.main.anchor,
           );
         }),
-        EditorView.theme({
+        editorThemeCompartment.of(EditorView.theme({
           '&': { background: 'transparent !important', height: 'auto' },
           '.cm-scroller': {
-            fontFamily: 'JetBrains Mono, Fira Code, monospace',
-            fontSize: 'var(--editor-font-size, 13px)',
+            fontFamily: settings.editor.fontFamily,
+            fontSize: `${settings.editor.fontSize}px`,
             overflow: 'hidden',
             minWidth: '0',
           },
@@ -183,7 +220,7 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
           '.cm-widgetBuffer': { fontSize: 'inherit' },
           '&.cm-focused .cm-cursor': { borderLeftColor: '#6366f1' },
           '&.cm-focused': { outline: 'none' },
-        }),
+        })),
       ],
     });
 

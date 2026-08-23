@@ -3,6 +3,7 @@ import { WorkspacePage } from '@/pages/WorkspacePage/WorkspacePage';
 import { LauncherPage } from '@/pages/LauncherPage/LauncherPage';
 import { useWorkspaceStore } from '@/entities/workspace/model/store';
 import { useRecentWorkspaceStore } from '@/entities/workspace/model/recentStore';
+import { useSettingsStore } from '@/entities/settings/model/store';
 
 // Removed startWindowDrag to prevent blocking window reveal
 
@@ -43,6 +44,9 @@ function App() {
     const initApp = async () => {
       // 최근 목록 디스크에서 불러오기
       await loadFromDisk();
+      
+      // 설정 디스크에서 불러오기
+      await useSettingsStore.getState().loadSettings();
       
       // 자동 열기 로직
       const currentStore = useRecentWorkspaceStore.getState();
