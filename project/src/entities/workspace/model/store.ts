@@ -10,6 +10,7 @@ interface WorkspaceState {
   /** 워크스페이스 전역 설정 (이미지 저장 정책 등) */
   config: WorkspaceConfig;
   openWorkspace: () => Promise<void>;
+  openWorkspaceByPath: (path: string) => Promise<void>;
   scanWorkspace: () => Promise<void>;
   createFile: (parentPath: string, name: string) => Promise<void>;
   createFolder: (parentPath: string, name: string) => Promise<void>;
@@ -29,16 +30,29 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     try {
       const selectedPath = await fileSystemRepository.openDirectory();
       if (selectedPath && selectedPath !== get().workspacePath) {
-        // 즉시 파일 목록과 탭 상태를 비워 이전 워크스페이스의 잔재를 지우고 로딩 상태 진입
         set({ isLoading: true, files: [], workspacePath: selectedPath });
         useDocumentStore.getState().resetDocumentState();
-        
-        // 직접 스캔 실행 (useEffect 의존하지 않음)
         await get().scanWorkspace();
       }
     } catch (e) {
       console.error('Failed to open workspace directory:', e);
       set({ isLoading: false });
+    }
+  },
+
+  openWorkspaceByPath: async (path: string) => {
+    if (path === get().workspacePath) return;
+    try {
+      // path의 유효성을 검사하기 위해 얉은 스캔을 먼저 해볼 수도 있지만, 
+      // 실패시 catch로 넘어가도록 fileSystemRepository.readDirectory를 체크할 수 있음.
+      await fileSystemRepository.readDirectory(path); // 폴더가 존재하는지 확인
+      set({ isLoading: true, files: [], workspacePath: path });
+      useDocumentStore.getState().resetDocumentState();
+      await get().scanWorkspace();
+    } catch (e) {
+      console.error('Failed to open workspace path:', e);
+      set({ isLoading: false });
+      throw e; // 호출자(Launcher)에게 에러 전달
     }
   },
 

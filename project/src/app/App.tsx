@@ -1,5 +1,8 @@
 import { useEffect } from 'react';
 import { WorkspacePage } from '@/pages/WorkspacePage/WorkspacePage';
+import { LauncherPage } from '@/pages/LauncherPage/LauncherPage';
+import { useWorkspaceStore } from '@/entities/workspace/model/store';
+import { useRecentWorkspaceStore } from '@/entities/workspace/model/recentStore';
 
 // Removed startWindowDrag to prevent blocking window reveal
 
@@ -33,14 +36,33 @@ async function revealWindow(): Promise<void> {
 }
 
 function App() {
-  // 초기 렌더링(DOM + 테마 적용)이 완전히 끝난 직후 윈도우를 노출.
+  const { workspacePath } = useWorkspaceStore();
+  const { loadFromDisk } = useRecentWorkspaceStore();
+
   useEffect(() => {
-    // 주의: tauri.conf.json에서 visible: false 인 경우 requestAnimationFrame이나 
-    // document.fonts.ready가 영원히 실행되지 않는 데드락이 발생할 수 있습니다.
-    // 따라서 순수 setTimeout만 사용하여 윈도우를 띄워줍니다.
-    setTimeout(() => {
-      revealWindow();
-    }, 100);
+    const initApp = async () => {
+      // 최근 목록 디스크에서 불러오기
+      await loadFromDisk();
+      
+      // 자동 열기 로직
+      const currentStore = useRecentWorkspaceStore.getState();
+      if (currentStore.autoOpenLast && currentStore.recentList.length > 0) {
+        const lastWorkspace = currentStore.recentList[0];
+        try {
+          await useWorkspaceStore.getState().openWorkspaceByPath(lastWorkspace.path);
+        } catch {
+          console.warn('Failed to auto-open last workspace:', lastWorkspace.path);
+          // 실패 시 런처에 머무름
+        }
+      }
+
+      // 윈도우 표시 (초기화 완료 후)
+      setTimeout(() => {
+        revealWindow();
+      }, 100);
+    };
+
+    initApp();
   }, []);
 
   return (
@@ -62,12 +84,13 @@ function App() {
         <div data-tauri-drag-region className="w-16"></div>
       </header>
 
-      {/* Main Workspace Area */}
-      <main className="flex-1 min-h-0 relative">
-        <WorkspacePage />
+      {/* Main Area */}
+      <main className="flex-1 min-h-0 relative flex">
+        {workspacePath ? <WorkspacePage /> : <LauncherPage />}
       </main>
     </div>
   );
 }
 
 export default App;
+
