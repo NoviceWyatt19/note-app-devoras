@@ -1,34 +1,90 @@
-# Devoras Project Handover Document
+# Devoras Design - Project Handover Context
 
-이 문서는 Antigravity 플랫폼에서 Claude Code 등 다른 Agent 플랫폼으로 이전(Migration)할 때, 새로운 Agent가 프로젝트의 맥락(Context)과 아키텍처, 그리고 최근 진행 상황을 즉시 파악할 수 있도록 돕는 인수인계서입니다.
+Welcome, Claude Code! This document provides the necessary context to continue development on the **Devoras Design** project.
 
-## 1. 프로젝트 아키텍처 개요
-Devoras는 마크다운 기반의 지식 관리 데스크톱 애플리케이션으로, 로컬 파일 시스템을 직접 제어합니다.
-- **Frontend:** React 18, TypeScript, Tailwind CSS, Zustand (FSD - Feature-Sliced Design 아키텍처 적용)
-- **Backend (Desktop OS API):** Tauri v2 (Rust)
-- **Editor:** CodeMirror 6 (Markdown), XYFlow / ReactFlow (Mindmap & ERD)
+## 🚀 Project Overview
 
-## 2. 최근 해결된 핵심 이슈 및 아키텍처 변경사항 (2026-08)
+**Devoras Design** is a Desktop Markdown, MindMap, and ERD Canvas application.
+- **Tech Stack**: Tauri 2, React 18, TypeScript, Zustand, CodeMirror 6, `@xyflow/react`, Vite, Tailwind CSS (via inline utilities & classes).
+- **Architecture**: Follows a Feature-Sliced Design (FSD) inspired structure:
+  - `src/app/`: Application entry points, global providers.
+  - `src/entities/`: Core domain models (`block`, `document`, `erd`, `workspace`) and Zustand stores.
+  - `src/shared/`: Reusable utilities, API definitions (`fs.ts`), Editor Decorators.
+  - `src/widgets/`: Complex UI components (`BlockEditor`, `MindView`, `ErdDesigner`, `FileExplorer`).
+  - `src/pages/`: Route-level components (`WorkspacePage`).
 
-### 2.1. Tauri 초기 렌더링 데드락 및 백색 화면 (Splash Screen 아키텍처 도입)
-- **문제:** 앱 로드 시 React 번들이 파싱되는 수 초간 하얀 화면이 뜨거나 멈춰있는 현상. 기존에는 `requestAnimationFrame`으로 렌더링 완료를 기다렸으나 창이 `visible: false`일 경우 데드락(무한 대기)이 발생함.
-- **해결:** Tauri의 멀티 윈도우 스플래시 스크린 패턴 도입.
-  - `tauri.conf.json`: `splashscreen`(투명 HTML, 즉각 로드)과 `main`(React, 렌더링 전 숨김) 윈도우 분리.
-  - `public/splash.html`: 100vw, 100vh의 순수 다크 테마 HTML 로딩 뷰 추가.
-  - `App.tsx` & `lib.rs`: React 렌더링 완료 직후 `invoke('close_splashscreen')`을 호출하여 스플래시를 끄고 메인 윈도우 노출.
+## 🔄 Recent Accomplishments
 
-### 2.2. 워크스페이스 상태 동기화 및 렌더링 꼬임 방지
-- **문제:** 워크스페이스(디렉터리) 변경 시 `WorkspacePage`의 React `key`를 변경해 강제로 리마운트(remount)하던 안티 패턴과, Zustand 스토어의 `resetDocumentState` 구현 누락(TypeError)으로 인해 무한 로딩이 걸리는 현상 발생.
-- **해결:** 
-  - `documentStore.ts` 내 `resetDocumentState` 메서드 구현 완료.
-  - 워크스페이스 변경 시 즉각적으로 상태를 비우고(`files: []`), 스캔(`scanWorkspace`)을 동기적으로 `await`하여 UI를 부드럽게 갱신하는 형태로 아키텍처 수정. (더 이상 React 트리 강제 파괴에 의존하지 않음)
-  - 초기 실행 시 이전 캐시를 불러오던 로직을 삭제하여 항상 클린한 "폴더 선택" 스플래시로 시작하도록 강제.
+1. **CodeMirror 6 Decorators & Korean IME Handling**: Solved complex React state/CodeMirror sync issues during IME composition using a 3-layer latch defense system.
+2. **Splash Screen Deadlock Resolution**: Implemented a multi-window architecture in `tauri.conf.json` and `App.tsx` (using an explicit `setTimeout` fallback instead of `requestAnimationFrame`) to fix the white screen of death caused by window initialization deadlocks.
+3. **100% Custom Pointer Events Drag & Drop**: Bypassed flaky WebKit/HTML5 Drag and Drop restrictions completely by implementing a robust, custom `onPointerDown`/`Enter`/`Up` solution for the file explorer.
+4. **UX Enhancements**: Redefined `Cmd+W` strictly for tab closure (reserving `Cmd+Q` for app quit) and added a subtle save animation for `Cmd+S`.
+5. **3-Tier Hybrid Architecture Decision**: Finalized the resource management strategy after evaluating TTL-based unmounting (insufficient for this app's use-case patterns). See `architecture_stages.md` for full details.
 
-## 3. 작업 히스토리 및 트러블슈팅 문서 위치
-- **티켓/히스토리:** `ticket/` 하위 디렉터리(`debug/`, `impl/`, `refactor/` 등)에 과거 작업 및 기획 문서들이 보관되어 있음. (단, `ticket/request/`는 사용자의 이전 요청 원문 모음이므로 로드맵 산출 시 제외)
-- **최신 트러블슈팅:** `ticket/troubleshooting/tauri-workspace-loading-issues.md`에 Tauri 데드락 및 상태 꼬임 해결 상세 내역 저장.
+## 🔴 Current Critical Bugs (Priority: Immediate)
 
-## 4. 새 Agent(Claude Code)를 위한 다음 권장 스텝
-1. **코드 리뷰 적용:** 루트 경로의 `code_review.md`를 바탕으로 FSD 아키텍처 위반 사항 및 에러 수정(리팩토링) 진행.
-2. **아키텍처 문서화:** 현재 프로젝트 내 모든 함수의 관계도와 레이어 아키텍처를 스케치하여 루트 경로에 MD 파일로 저장 (사용자 이전 요청 사항 중 미완료 건).
-3. **히스토리 정리 완료:** `dev_history.md`와 `function_roadmap.md`를 보강하여 티켓들을 정리하고, 현재 개발 위치를 명확히 세팅.
+A recent codebase audit discovered the following critical bugs that need to be addressed immediately:
+
+1. **Data Loss on Tab Switch (`src/entities/document/model/store.ts`)**:
+   - `setActiveTab` currently calls `fileSystemRepository.readFile()` unconditionally, wiping out any unsaved in-memory edits (`rawContent`, `nodes`) when switching between tabs.
+   - *Fix needed*: Implement a tab-level cache (`TabItem.cache`) so `setActiveTab` restores from memory instead of disk if the tab has already been loaded.
+2. **Nested Block Formatting Fails (`src/widgets/BlockEditor/ui/ReadView.tsx`)**:
+   - `applyFormat` uses `useBlockStore.getState().blocks.find()`, which only searches root nodes. Formatting nested blocks (H2, H3, paragraphs) silently fails.
+   - *Fix needed*: Use `flattenTree(useBlockStore.getState().blocks).find()` instead.
+3. **H1 Block Merge Regex Bug (`src/entities/block/model/store.ts`)**:
+   - `mergeBlockWithPrevious` uses the regex `/^(###?#?)\s*/` which matches `##`, `###`, `####` but FAILS to match a single `#` (H1).
+   - *Fix needed*: Change to `/^#{1,4}\s*/`.
+4. **~~Focus Jump on Heading Creation~~ (✅ Fixed in v0.6.1)**:
+   - ~~When typing `##` or `###` in an existing block to create a new heading block, the cursor/focus incorrectly jumps back to the position of the existing block's H tag instead of staying at the newly created block.~~
+   - *Root cause was 5 cascading issues*: unstable key derivation for empty headings, circular `useEffect([rawContent])`, deferred `setTimeout` focus, `onSelect` resetting offset to 0, and overly strict focus useEffect condition.
+
+## 🟡 Code Smells & Refactoring Targets
+
+- **`BlockEditor` Performance**: `handleBlockUpdate` currently triggers multiple `O(N)` tree traversals and string re-parsing on every keystroke. This needs optimization.
+- **`Cmd+C` Scope Issue**: The `Cmd+C` file copy listener in `FileExplorer` is attached globally to `window`, interfering with text copying inside the markdown editor. It needs to be scoped to the FileExplorer container.
+- **`documentStore` Multi-Tab State**: Currently, `rawContent`, `nodes`, and `isDirty` are global singletons in `documentStore`. They should ideally be scoped per tab to properly support multiple open documents without conflicts.
+- **`parser.ts` Layout Coupling**: The markdown parser calculates initial `x`/`y` coordinates for the MindMap. This layout logic should be moved to the MindView layer.
+
+## 🏗️ Resource Management Architecture (3-Tier Hybrid)
+
+> **핵심 원칙:** TTL 기반 언마운트 전략은 이 앱의 유즈케이스 패턴(에디터↔마인드맵 전환이 잦고, 3D 뷰는 드물게 사용)에 부적합하므로 폐기.
+> 대신 뷰의 무게와 사용 빈도에 따라 3개 계층을 분리 적용한다.
+
+### Tier 1 (Foundation): Rust Backend State Management
+- 모든 무거운 데이터 구조(AST 트리, 그래프, 좌표 계산)를 Tauri Rust 백엔드로 이관.
+- 프론트엔드(React)는 Rust에게 IPC로 "화면에 보여야 할 데이터"만 요청하는 얇은 렌더링 레이어로 전환.
+- JS 힙 메모리를 극적으로 줄여 뷰 마운트 수와 무관하게 낮은 기본 자원 점유를 보장.
+
+### Tier 2 (Frequent Views): OffscreenCanvas in Main Window
+- 에디터, 마인드맵, ERD는 메인 Webview 내에서 탭 전환. DOM은 항상 유지(`display: none`), 캔버스 뷰는 `OffscreenCanvas`로 Worker 렌더링.
+- 비활성 뷰는 렌더링 루프(RAF)만 일시정지 → CPU 비용 0, 메모리는 캔버스 버퍼만 유지.
+
+### Tier 3 (Heavy Views): Lazy Multi-Window
+- 3D 아키텍처 뷰 등 GPU 집약적인 뷰는 사용자가 처음 열 때 별도 Tauri Window를 Lazy 생성.
+- 워크스페이스가 닫힐 때까지 Hide/Show로 전환. 메인 창 IME/타이핑과 완전 프로세스 격리.
+
+## 💡 Conceptual Backlog (Phase 6 Features)
+The following features have been brainstormed and validated as technically feasible for future implementation:
+- **Slash Commands (`\:` popup)**: Implement a CodeMirror 6 ViewPlugin to trigger an autocomplete UI for generating blocks (e.g., `\:h3` -> `### `).
+- **Multi-column Parallel Blocks**: Extend parsing and CodeMirror line decorators to support side-by-side rendering (e.g., via `|| parallel-left` metadata in headings).
+- **Extended Markdown Images**: Update the image regex to support custom sizing and alignment syntax (e.g., `![alt](url || left 300px)`).
+- **Image Detail Viewer**: Implement a side-tab or modal to open images for zooming and panning. See `functions/image_side_view.pdf`.
+- **Inline Smart Custom Symbols**: User-defined symbol widgets (badges) with hover tooltip for meaning. Prerequisites: interactive state toggling + workspace-wide query aggregation system. See `functions/custom_symbol.pdf`.
+- **Tabs & Split View**: Multi-file tab bar with drag reorder and horizontal/vertical split editor panes. See `functions/3_tabs_and_split_view.md`.
+- **Global Search**: Workspace-wide real-time search with filename/body matching, context snippets, and jump navigation. See `functions/4_global_search.md`.
+- **App Settings**: Persistent editor/mindmap settings (font, autosave, line wrap, node styles) with live hot-reload. See `functions/5_app_settings.md`.
+- **YAML Custom Themes**: Dark/light mode toggle + user-defined YAML theme files with real-time CSS variable injection. See `functions/6_theme_yaml_custom.md`.
+- **Tab Tearoff & New Window**: Drag tabs outside the window to spawn independent Tauri child windows with IPC sync. See `functions/7_tab_tearoff_new_window.md`.
+- **Startup Launcher**: Workspace selection screen on launch with recent folders list and pin-to-favorites. See `functions/8_launcher_on_startup.md`.
+- **MindView Nested Container**: H1-root hierarchy-based nested box (container/boundary) view mode for architecture visualization. See `functions/9_mind_view_nested_container.md`.
+
+## 🛠️ Next Steps for Claude Code
+
+1. Read through `src/entities/document/model/store.ts` and `src/widgets/BlockEditor/ui/BlockEditor.tsx` to familiarize yourself with the state management and editor implementation.
+2. **Start by fixing the "Data Loss on Tab Switch" bug** mentioned in the Critical Bugs section above. This is the highest priority.
+3. Refer to the `code_review.md` artifact from previous sessions for a detailed breakdown of technical debt.
+4. Read `advanced_rendering_optimization.md` when preparing to implement heavy views (3D, Scheduler).
+4. Ensure you follow the project's strict `.eslintrc` rules and `prettier` formatting on all changes.
+5. **Remember**: The project uses `pnpm`. Use `pnpm dev` for browser testing and `pnpm tauri:dev` for native desktop testing.
+
+Good luck!

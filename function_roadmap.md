@@ -1,26 +1,72 @@
-# Function Roadmap
+# Devoras Design - Function Roadmap
 
-본 로드맵은 Devoras 프로젝트의 기능 구현 스텝과 현재 개발 위치를 기록하여, 앞으로의 개발 방향과 잔여 과제를 명확히 하기 위한 문서입니다.
+## 🚀 개요 (Overview)
+이 문서는 Devoras Design 프로젝트의 기능 구현 스텝과 현재 진행 위치를 보여주는 로드맵입니다.
+현재 프로젝트는 **MVP Phase 2**의 주요 기능 구현을 완료했으며, 새로운 플랫폼(Claude Code)으로의 이전(Handover)을 준비 중인 상태입니다.
 
-## 1. 기반 인프라 및 아키텍처 (완료)
-- [x] **FSD (Feature-Sliced Design) 아키텍처 도입:** App, Pages, Widgets, Features, Entities, Shared 계층 분리 완료.
-- [x] **Tauri 데스크톱 환경 세팅:** 로컬 파일 시스템 제어를 위한 Rust 네이티브 API (plugin-fs, dialog, shell 등) 연동.
-- [x] **Zustand 전역 상태 관리:** Workspace, Document, UI 상태의 독립적이고 안전한 관리 체계 구축.
-- [x] **스플래시 스크린 아키텍처 도입:** 하얀 화면 데드락을 방지하고 빠른 초기 반응성을 제공하는 멀티 윈도우 스플래시 패턴 구현 (2026-08).
+---
 
-## 2. 핵심 기능: 파일 시스템 및 워크스페이스 (현재 위치)
-- [x] **워크스페이스 열기 및 로드:** 네이티브 디렉터리 선택 및 Zustand 기반의 안전한 상태 동기화, UI 갱신 로직 구현.
-- [x] **파일 트리 랜더링 (FileExplorer):** 폴더/파일 계층 구조 시각화 및 드래그 앤 드롭 기초 연동.
-- [ ] **파일/폴더 이동 및 관리 고도화:** 현재 D&D UI는 복구되었으나, 실제 파일 시스템 수준의 이동(Move)과 동기화 로직은 완벽하지 않아 보완 필요.
-- [ ] **파일 확장자 필터링 및 시각화:** 워크스페이스에서 md, 디렉터리, 앱 지원 확장자 외의 파일들은 비활성화 색상으로 표기하거나 뷰어 연결 분리.
+## 🎯 Phase 1: MVP 기초 및 구조 셋업 (✅ 완료)
+- **[✅]** FSD (Feature-Sliced Design) 아키텍처 스캐폴딩
+- **[✅]** Tauri 2 + React 18 + Vite 기반 데스크톱 앱 셋업
+- **[✅]** H1/H2 블록 기반 마크다운 슬라이싱 (BlockEditor)
+- **[✅]** 공간 좌표(spatial metadata) 및 인메모리 파서(`parser.ts`) 구현
 
-## 3. 에디터 및 뷰어 (진행 중)
-- [x] **Markdown 에디터 (CodeMirror):** 기본적인 마크다운 파싱 및 Read/Write 뷰 분리.
-- [ ] **WYSIWYG 렌더링 일치화:** "Read Mode와 Write Mode의 시각적 완전성" 철학을 만족하기 위한 CSS 및 뷰어 정밀 교정.
-- [x] **Mindmap / ERD 기초 연동:** XYFlow(ReactFlow)를 활용한 노드 뷰어 연동.
-- [ ] **에디터간 양방향 동기화:** 마크다운 원문과 시각적 노드 편집기 간의 실시간 양방향 데이터 바인딩 완벽 구현.
+## 🎯 Phase 2: 핵심 에디터 기능 및 UX 개선 (✅ 완료)
+- **[✅]** 에디터 툴바 및 인라인 이미지 렌더링
+- **[✅]** 읽기 모드(Read Mode) 및 쓰기 모드(Write Mode) 전환
+- **[✅]** 폰트 사이즈 제어 및 동적 UI 반영
+- **[✅]** Decorator Orchestrator 아키텍처 도입 (마크다운 구문 강조)
+- **[✅]** 한글 IME 입력 간섭 해결 (3중 방어 래치 시스템)
 
-## 4. 새 Agent(플랫폼 이전 후) 우선 과제
-1. `code_review.md`에 나열된 치명적인 아키텍처/의존성 문제 리팩토링.
-2. 미구현된 파일 드래그 앤 드롭 (실제 FS 반영) 로직 완성.
-3. 앱 지원 외 확장자 비활성 처리 로직 적용.
+## 🎯 Phase 3: 파일 시스템 및 워크스페이스 확장 (✅ 완료)
+- **[✅]** 워크스페이스 열기 (`Cmd+O` 및 파일 메뉴)
+- **[✅]** 트리 기반 파일 탐색기 및 폴더/파일 CRUD
+- **[✅]** 파일 드래그 앤 드롭 이동 (Custom Pointer Events 기반 구현) 및 복사/붙여넣기
+- **[✅]** ERD Designer (`@xyflow/react`) 네이티브 통합
+- **[✅]** Splash Screen 도입 및 Tauri 초기 로드 화면 Deadlock 해소
+- **[✅]** 단축키 UX 개선 (`Cmd+W` 탭 닫기 전용, `Cmd+Q` 앱 종료 분리, `Cmd+S` 애니메이션)
+
+## 📍 현재 위치 (You are here)
+> **플랫폼 이전 (Antigravity → Claude Code)**
+> 모든 MVP Phase 2 핵심 기획안이 `ticket/impl/` 및 `ticket/request/impl/`에서 완료(`(done)`) 처리되었습니다.
+
+## 🏃 Phase 3.5: 핵심 UX 확장 (⏳ 예정)
+*(기존 `functions/` 기획서에서 누락된 핵심 사용성 기능들)*
+- **[ ]** 다중 파일 탭 지원 및 에디터/마인드맵 스플릿 뷰 (가로/세로 분할) — *참조: `functions/3_tabs_and_split_view.md`*
+- **[ ]** 워크스페이스 전역 검색 (파일명 + 본문 실시간 검색, 결과 하이라이팅, 점프 네비게이션) — *참조: `functions/4_global_search.md`*
+- **[ ]** 앱 설정 시스템 (폰트, 자동 저장, 줄 바꿈, 마인드맵 노드 스타일 등 영구 저장 및 실시간 핫 갱신) — *참조: `functions/5_app_settings.md`*
+- **[ ]** YAML 기반 커스텀 테마 및 다크/라이트 모드 전환 (실시간 핫 리로드) — *참조: `functions/6_theme_yaml_custom.md`*
+- **[ ]** 시작 시 폴더 선택 런처 (최근 워크스페이스 목록, 즐겨찾기 핀 고정) — *참조: `functions/8_launcher_on_startup.md`*
+
+## 🏃 Phase 4: 성능 최적화 및 렌더링 아키텍처 (⏳ 예정)
+*(3계층 하이브리드 아키텍처 기반. 상세 구현 스텝은 `architecture_stages.md` 참조)*
+- **[ ]** Tier 1: Rust 백엔드 상태 이관 (AST 파서, 그래프 연산, 파일 인덱싱)
+- **[ ]** Tier 2: 빈번한 뷰(에디터/마인드맵/ERD) OffscreenCanvas 전환 및 RAF Pause/Resume
+- **[ ]** Tier 3: GPU 집약 뷰(3D 아키텍처) Lazy Multi-Window 격리
+- **[ ]** `documentStore` 전역 상태 충돌 방지를 위한 탭별 로컬 캐시 도입 (Critical)
+
+## 🏃 Phase 5: 리팩토링 및 기술 부채 상환 (⏳ 예정)
+*(상세 내용은 `code_review.md` 참조)*
+- **[ ]** `BlockEditor` 입력 시 O(N) 연산 병목 최적화
+- **[ ]** `ReadView` 중첩 블록 포맷팅 버그(`applyFormat` 트리 순회) 수정
+- **[ ]** 파일 시스템 스코프 전역 키보드 이벤트 간섭 해결
+
+## 🏃 Phase 6: 고급 뷰 및 사용자 정의 기능 (⏳ 예정)
+- **[ ]** 마인드 뷰 캔버스 미니맵 및 자유형 노드 추가
+- **[ ]** 마인드 뷰 중첩 컨테이너(Nested Box) 모드 — H1 루트 계층 파싱 기반 아키텍처/모듈 포섭 뷰 — *참조: `functions/9_mind_view_nested_container.md`*
+- **[ ]** 아키텍처 뷰용 3D Freeform 캔버스 도입
+  - *유즈케이스 시각화*: 흐름에 따라 레이어 간 노드 외곽선 및 연결선(Edge) 순차 하이라이팅 기능
+- **[ ]** 탭 드래그 분리(Tear-off) 및 독립 서브 윈도우 생성 (Tauri Multi-Window IPC 동기화) — *참조: `functions/7_tab_tearoff_new_window.md`*
+- **[ ]** 다단 레이아웃 (Multi-column) 병렬 블록 파싱 (`|| parallel-left`)
+- **[ ]** 명령어 시스템 (Slash Command 기반 `\:` 명령어 자동완성 팝업)
+- **[ ]** 확장 마크다운 이미지 문법 (`![alt](url || left 300px)` 크기 및 정렬 제어)
+- **[ ]** 이미지 상세 뷰어 (사이드 탭에서 이미지 줌인/줌아웃 및 패닝 지원) — *참조: `functions/image_side_view.pdf`*
+- **[ ]** 애플리케이션 사용자 설정 파일(`.devoras/settings.json`) 저장 연동
+- **[ ]** 단일 블록 포커스 에디팅 (Zen Mode)
+- **[ ]** 인라인 스마트 커스텀 심볼 (Inline Smart Custom Symbols)
+  - 사용자가 심볼의 특성·기능·의미를 직접 정의하고, 에디터 내에서 미니멀한 위젯(뱃지)으로 렌더링
+  - 커서를 일정 시간 호버링하면 정의된 의미가 툴팁으로 표시 (잊어버림 방지)
+  - *구현 전제조건:* (1) 인터랙티브 상태 변경 가능 (클릭 시 토글 등), (2) 워크스페이스 전역 쿼리 시스템(PKM 메타데이터 Aggregation)이 준비될 때 재진행
+  - *참조:* `functions/custom_symbol.pdf`
+
