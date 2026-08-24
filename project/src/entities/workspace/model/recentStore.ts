@@ -1,3 +1,5 @@
+import { appDataDir, join } from '@tauri-apps/api/path';
+import { readTextFile, writeTextFile, mkdir } from '@tauri-apps/plugin-fs';
 import { create } from 'zustand';
 import { createDebouncedWriter } from '@/shared/lib/debouncedWriter';
 
@@ -66,8 +68,6 @@ export const useRecentWorkspaceStore = create<RecentWorkspaceState>((set, get) =
 
   loadFromDisk: async () => {
     try {
-      const { appDataDir, join } = await import('@tauri-apps/api/path');
-      const { readTextFile } = await import('@tauri-apps/plugin-fs');
       const dir = await appDataDir();
       const filePath = await join(dir, 'recent_workspaces.json');
       const text = await readTextFile(filePath);
@@ -84,8 +84,6 @@ export const useRecentWorkspaceStore = create<RecentWorkspaceState>((set, get) =
   // 실제 디스크 쓰기 (debounce를 거쳐 호출됨)
   _writeToDisk: async () => {
     try {
-      const { appDataDir, join } = await import('@tauri-apps/api/path');
-      const { writeTextFile, mkdir } = await import('@tauri-apps/plugin-fs');
       const dir = await appDataDir();
       await mkdir(dir, { recursive: true }).catch(() => {});
       const filePath = await join(dir, 'recent_workspaces.json');

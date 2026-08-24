@@ -1,3 +1,5 @@
+import { listen } from '@tauri-apps/api/event';
+import { readFile } from '@tauri-apps/plugin-fs';
 /**
  * useTauriInputManager.ts
  *
@@ -124,7 +126,6 @@ export function useTauriInputManager({
       }
       console.log('[TAURI-INPUT] reading file from path:', absPath);
       try {
-        const { readFile } = await import('@tauri-apps/plugin-fs');
         const data = await readFile(absPath);
         const mimeType = mimeFromExt(ext);
         console.log('[TAURI-INPUT] file read OK, dispatching INSERT_IMAGE', { mimeType, size: data.length });
@@ -163,7 +164,7 @@ export function useTauriInputManager({
     let isMounted = true;
 
     if (isTauriEnv()) {
-      import('@tauri-apps/api/event').then(({ listen }) => {
+      {
         // drag-drop: 파일이 드롭됐을 때
         listen<{ paths: string[]; position?: { x: number; y: number } }>(
           'tauri://drag-drop',
@@ -198,7 +199,7 @@ export function useTauriInputManager({
         }).catch(console.error);
 
         console.log('[TAURI-INPUT] Tauri drag-drop listener registered');
-      });
+      }
     }
 
     // ─────────────────────────────────────────────────────────────────────
