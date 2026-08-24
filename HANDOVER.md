@@ -21,22 +21,18 @@ Welcome, Claude Code! This document provides the necessary context to continue d
 4. **UX Enhancements**: Redefined `Cmd+W` strictly for tab closure (reserving `Cmd+Q` for app quit) and added a subtle save animation for `Cmd+S`.
 5. **3-Tier Hybrid Architecture Decision**: Finalized the resource management strategy after evaluating TTL-based unmounting (insufficient for this app's use-case patterns). See `architecture_stages.md` for full details.
 
-## 🔴 Current Critical Bugs (Priority: Immediate)
+## 🟢 Current Critical Bugs (Priority: Resolved in Stage 1)
 
-A recent codebase audit discovered the following critical bugs that need to be addressed immediately:
+A recent codebase audit discovered the following critical bugs, which have now been **fully resolved**:
 
-1. **Data Loss on Tab Switch (`src/entities/document/model/store.ts`)**:
-   - `setActiveTab` currently calls `fileSystemRepository.readFile()` unconditionally, wiping out any unsaved in-memory edits (`rawContent`, `nodes`) when switching between tabs.
-   - *Fix needed*: Implement a tab-level cache (`TabItem.cache`) so `setActiveTab` restores from memory instead of disk if the tab has already been loaded.
-2. **Nested Block Formatting Fails (`src/widgets/BlockEditor/ui/ReadView.tsx`)**:
-   - `applyFormat` uses `useBlockStore.getState().blocks.find()`, which only searches root nodes. Formatting nested blocks (H2, H3, paragraphs) silently fails.
-   - *Fix needed*: Use `flattenTree(useBlockStore.getState().blocks).find()` instead.
-3. **H1 Block Merge Regex Bug (`src/entities/block/model/store.ts`)**:
-   - `mergeBlockWithPrevious` uses the regex `/^(###?#?)\s*/` which matches `##`, `###`, `####` but FAILS to match a single `#` (H1).
-   - *Fix needed*: Change to `/^#{1,4}\s*/`.
+1. **~~Data Loss on Tab Switch (`src/entities/document/model/store.ts`)~~ (✅ Fixed)**:
+   - Implemented a tab-level cache (`TabCache`) so `setActiveTab` restores from memory instead of disk.
+2. **~~Nested Block Formatting Fails (`src/widgets/BlockEditor/ui/ReadView.tsx`)~~ (✅ Fixed)**:
+   - Replaced `blocks.find()` with `flattenTree(blocks).find()`.
+3. **~~H1 Block Merge Regex Bug (`src/entities/block/model/store.ts`)~~ (✅ Fixed)**:
+   - Changed to `/^#{1,6}\s*/` to properly merge H1 headings.
 4. **~~Focus Jump on Heading Creation~~ (✅ Fixed in v0.6.1)**:
-   - ~~When typing `##` or `###` in an existing block to create a new heading block, the cursor/focus incorrectly jumps back to the position of the existing block's H tag instead of staying at the newly created block.~~
-   - *Root cause was 5 cascading issues*: unstable key derivation for empty headings, circular `useEffect([rawContent])`, deferred `setTimeout` focus, `onSelect` resetting offset to 0, and overly strict focus useEffect condition.
+   - Root cause was cascading focus effects and debounce issues; resolved with targeted focus coordination.
 
 ## 🟡 Code Smells & Refactoring Targets
 

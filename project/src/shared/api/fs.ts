@@ -1,3 +1,7 @@
+import { invoke } from '@tauri-apps/api/core';
+import { open } from '@tauri-apps/plugin-dialog';
+import { readDir, readTextFile, writeTextFile, mkdir, rename, copyFile, remove, exists } from '@tauri-apps/plugin-fs';
+
 export interface FileEntry {
   name: string;
   path: string;
@@ -214,9 +218,7 @@ export class MockFileSystem implements FileSystemRepository {
 export class TauriFileSystem implements FileSystemRepository {
   async openDirectory(): Promise<string | null> {
     try {
-      // Dynamic import to prevent browser-load crash
-      const { open } = await import('@tauri-apps/plugin-dialog');
-      const selected = await open({
+            const selected = await open({
         directory: true,
         multiple: false,
         title: '워크스페이스 폴더 선택',
@@ -230,7 +232,6 @@ export class TauriFileSystem implements FileSystemRepository {
 
   async readDirectory(dirPath: string): Promise<FileEntry[]> {
     try {
-      const { readDir } = await import('@tauri-apps/plugin-fs');
       const entries = await readDir(dirPath);
       return entries.map((entry: any) => ({
         name: entry.name || '',
@@ -245,7 +246,6 @@ export class TauriFileSystem implements FileSystemRepository {
 
   async readFile(filePath: string): Promise<string> {
     try {
-      const { readTextFile } = await import('@tauri-apps/plugin-fs');
       return await readTextFile(filePath);
     } catch (e) {
       console.error('Tauri readFile error:', e);
@@ -255,7 +255,6 @@ export class TauriFileSystem implements FileSystemRepository {
 
   async writeFile(filePath: string, content: string): Promise<void> {
     try {
-      const { writeTextFile } = await import('@tauri-apps/plugin-fs');
       await writeTextFile(filePath, content);
     } catch (e) {
       console.error('Tauri writeFile error:', e);
@@ -265,7 +264,6 @@ export class TauriFileSystem implements FileSystemRepository {
 
   async createDirectory(dirPath: string): Promise<void> {
     try {
-      const { mkdir } = await import('@tauri-apps/plugin-fs');
       await mkdir(dirPath, { recursive: true });
     } catch (e) {
       console.error('Tauri createDirectory error:', e);
@@ -275,7 +273,6 @@ export class TauriFileSystem implements FileSystemRepository {
 
   async renameEntry(oldPath: string, newPath: string): Promise<void> {
     try {
-      const { rename } = await import('@tauri-apps/plugin-fs');
       await rename(oldPath, newPath);
     } catch (e) {
       console.error('Tauri renameEntry error:', e);
@@ -285,7 +282,6 @@ export class TauriFileSystem implements FileSystemRepository {
 
   async moveEntry(oldPath: string, newPath: string): Promise<void> {
     try {
-      const { rename } = await import('@tauri-apps/plugin-fs');
       await rename(oldPath, newPath);
     } catch (e) {
       console.error('Tauri moveEntry error:', e);
@@ -295,7 +291,6 @@ export class TauriFileSystem implements FileSystemRepository {
 
   async copyEntry(srcPath: string, destPath: string): Promise<void> {
     try {
-      const { copyFile } = await import('@tauri-apps/plugin-fs');
       await copyFile(srcPath, destPath);
     } catch (e) {
       console.error('Tauri copyEntry error:', e);
@@ -305,7 +300,6 @@ export class TauriFileSystem implements FileSystemRepository {
 
   async deleteEntry(path: string, isDir: boolean): Promise<void> {
     try {
-      const { remove } = await import('@tauri-apps/plugin-fs');
       await remove(path, { recursive: isDir });
     } catch (e) {
       console.error('Tauri deleteEntry error:', e);
@@ -315,7 +309,6 @@ export class TauriFileSystem implements FileSystemRepository {
 
   async readSpatialMetadata(workspacePath: string): Promise<Record<string, any>> {
     try {
-      const { readTextFile, exists } = await import('@tauri-apps/plugin-fs');
       const metaPath = `${workspacePath}/.devoras/spatial.json`;
       const hasMeta = await exists(metaPath);
       if (!hasMeta) return {};
@@ -332,7 +325,6 @@ export class TauriFileSystem implements FileSystemRepository {
 
   async writeSpatialMetadata(workspacePath: string, metadata: Record<string, any>): Promise<void> {
     try {
-      const { writeTextFile, mkdir, exists } = await import('@tauri-apps/plugin-fs');
       const devorasDir = `${workspacePath}/.devoras`;
       const hasDir = await exists(devorasDir);
       if (!hasDir) {
@@ -359,7 +351,6 @@ export class TauriFileSystem implements FileSystemRepository {
       // Tauri plugin-fs는 WebView 샌드박스 scope 제한으로 인해 사용자가
       // 선택한 임의 경로에 파일을 쓸 수 없는 문제(forbidden path)가 있음.
       // save_image_file Rust 커맨드(std::fs)는 OS 레벨 접근이라 제한 없음.
-      const { invoke } = await import('@tauri-apps/api/core');
       const targetDir = subDir ? `${basePath}/${subDir}` : basePath;
       const filePath = `${targetDir}/${fileName}`;
 

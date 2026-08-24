@@ -28,16 +28,19 @@
 - **[✅]** 단축키 UX 개선 (`Cmd+W` 탭 닫기 전용, `Cmd+Q` 앱 종료 분리, `Cmd+S` 애니메이션)
 
 ## 📍 현재 위치 (You are here)
-> **플랫폼 이전 (Antigravity → Claude Code)**
-> 모든 MVP Phase 2 핵심 기획안이 `ticket/impl/` 및 `ticket/request/impl/`에서 완료(`(done)`) 처리되었습니다.
+> **플랫폼 이전 완료 및 Sprint 2.5 진행 (현재 버전: 0.8.2)**
+> - Phase 3.5의 **런처 및 앱 설정 시스템** 등 코어 UX 기반 구축 완료.
+> - 에디터 마진 조절, 폰트 동기화 수정 등 편의성 개선 완료.
+> - 정적 임포트(Static Import) 리팩터링을 통한 빌드 경고 해소 및 Rust 연동(Stage 2) 기초 작업 완료.
+> - 다음 단계로 **YAML 기반 커스텀 테마 (Sprint 3)** 착수 예정.
 
-## 🏃 Phase 3.5: 핵심 UX 확장 (⏳ 예정)
+## 🏃 Phase 3.5: 핵심 UX 확장 (진행 중)
 *(기존 `functions/` 기획서에서 누락된 핵심 사용성 기능들)*
 - **[ ]** 다중 파일 탭 지원 및 에디터/마인드맵 스플릿 뷰 (가로/세로 분할) — *참조: `functions/3_tabs_and_split_view.md`*
 - **[ ]** 워크스페이스 전역 검색 (파일명 + 본문 실시간 검색, 결과 하이라이팅, 점프 네비게이션) — *참조: `functions/4_global_search.md`*
-- **[ ]** 앱 설정 시스템 (폰트, 자동 저장, 줄 바꿈, 마인드맵 노드 스타일 등 영구 저장 및 실시간 핫 갱신) — *참조: `functions/5_app_settings.md`*
+- **[x]** 앱 설정 시스템 (폰트, 자동 저장, 줄 바꿈, 마인드맵 노드 스타일 등 영구 저장 및 실시간 핫 갱신) — *참조: `functions/5_app_settings.md`*
 - **[ ]** YAML 기반 커스텀 테마 및 다크/라이트 모드 전환 (실시간 핫 리로드) — *참조: `functions/6_theme_yaml_custom.md`*
-- **[ ]** 시작 시 폴더 선택 런처 (최근 워크스페이스 목록, 즐겨찾기 핀 고정) — *참조: `functions/8_launcher_on_startup.md`*
+- **[x]** 시작 시 폴더 선택 런처 (최근 워크스페이스 목록, 즐겨찾기 핀 고정) — *참조: `functions/8_launcher_on_startup.md`*
 
 ## 🏃 Phase 4: 성능 최적화 및 렌더링 아키텍처 (⏳ 예정)
 *(3계층 하이브리드 아키텍처 기반. 상세 구현 스텝은 `architecture_stages.md` 참조)*

@@ -32,11 +32,11 @@
 > **대응 Phase:** function_roadmap Phase 4 + Phase 5 (성능 최적화 + 기술 부채 상환)
 
 ### 구현 목표
-- [ ] Critical Bug 3건 수정 (탭 데이터 유실, 중첩 블록 포맷, H1 Merge 정규식)
-- [ ] `documentStore`를 탭별 로컬 캐시 구조로 리팩터링
-- [ ] `BlockEditor` O(N) 병목 최적화
-- [ ] `Cmd+C` 키보드 이벤트 스코프 수정
-- [ ] Tauri Rust 명령(Command) 기초 인터페이스 정의 (`invoke` 패턴 표준화)
+- **[x]** Critical Bug 3건 수정 (탭 데이터 유실, 중첩 블록 포맷, H1 Merge 정규식)
+- **[x]** `documentStore`를 탭별 로컬 캐시 구조로 리팩터링
+- **[x]** `BlockEditor` O(N) 병목 최적화
+- **[x]** `Cmd+C` 키보드 이벤트 스코프 수정
+- **[x]** Tauri Rust 명령(Command) 기초 인터페이스 정의 (`invoke` 패턴 표준화)
 
 ### 🔮 다음 스테이지(Stage 2)를 위한 고려사항
 | 항목 | 설명 |

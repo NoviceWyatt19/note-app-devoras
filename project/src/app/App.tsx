@@ -4,6 +4,8 @@ import { LauncherPage } from '@/pages/LauncherPage/LauncherPage';
 import { useWorkspaceStore } from '@/entities/workspace/model/store';
 import { useRecentWorkspaceStore } from '@/entities/workspace/model/recentStore';
 import { useSettingsStore } from '@/entities/settings/model/store';
+import { invoke } from '@tauri-apps/api/core';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 
 // Removed startWindowDrag to prevent blocking window reveal
 
@@ -21,13 +23,11 @@ async function revealWindow(): Promise<void> {
   }
 
   try {
-    const { invoke } = await import('@tauri-apps/api/core');
     await invoke('close_splashscreen');
     console.log('[Devoras] window revealed and splash closed via invoke');
   } catch (err) {
     console.warn('[Devoras] invoke(close_splashscreen) failed, trying fallback:', err);
     try {
-      const { getCurrentWindow } = await import('@tauri-apps/api/window');
       await getCurrentWindow().show();
       console.log('[Devoras] window revealed via getCurrentWindow()');
     } catch (e) {

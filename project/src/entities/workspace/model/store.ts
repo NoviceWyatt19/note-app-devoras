@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { fileSystemRepository, FileEntry } from '@/shared/api/fs';
 import { WorkspaceConfig, DEFAULT_WORKSPACE_CONFIG } from '@/entities/workspace/model/types';
 import { useDocumentStore } from '@/entities/document/model/store';
+import { createEmptyErdDocument } from '../../erd/model/erd';
 
 interface WorkspaceState {
   workspacePath: string | null;
@@ -105,7 +106,6 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     if (sanitizedName.endsWith('.md')) {
       initialContent = `# ${sanitizedName.replace('.md', '')}\n\n`;
     } else if (sanitizedName.endsWith('.erd')) {
-      const { createEmptyErdDocument } = await import('../../erd/model/erd');
       initialContent = JSON.stringify(createEmptyErdDocument(), null, 2);
     }
     
