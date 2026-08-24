@@ -353,7 +353,7 @@ const BlockNode = React.memo<{
 // Main Editor
 // ---------------------------------------------------------------------------
 export const BlockEditor: React.FC = () => {
-  const { getCurrentFile, rawContent, updateContent, viewMode, fontSize } = useDocumentStore();
+  const { getCurrentFile, rawContent, updateContent, viewMode } = useDocumentStore();
   const currentFile = getCurrentFile();
   const { settings } = useSettingsStore();
 
@@ -500,7 +500,7 @@ export const BlockEditor: React.FC = () => {
   return (
     <div
       className="min-h-full flex flex-col items-center w-full"
-      style={{ '--editor-font-size': `${fontSize}px` } as React.CSSProperties}
+      style={{ '--editor-font-size': `${settings.editor.fontSize}px` } as React.CSSProperties}
     >
       <div className="sticky top-0 z-10 bg-darkBg/95 backdrop-blur-sm w-full">
         <div className=" mx-auto" style={maxWidthStyle}>

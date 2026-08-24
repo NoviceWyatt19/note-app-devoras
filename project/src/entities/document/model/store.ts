@@ -40,7 +40,6 @@ interface DocumentState {
   spatialData: Record<string, { x: number; y: number }>;
   isDirty: boolean;
   viewMode: 'write' | 'read';
-  fontSize: number;
 
   // ── Helper Getters ──────────────────────────────────────────────
   getActivePane: () => SplitPane | undefined;
@@ -64,7 +63,6 @@ interface DocumentState {
   saveFile: () => Promise<void>;
   setViewMode: (mode: 'write' | 'read') => void;
   toggleViewMode: () => void;
-  adjustFontSize: (delta: number) => void;
 
   // ── File System Sync 액션 ────────────────────────────────────────
   handleFileRenamed: (oldPath: string, newPath: string, newName: string) => void;
@@ -87,7 +85,6 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   spatialData: {},
   isDirty: false,
   viewMode: 'write',
-  fontSize: 13,
 
   // Getters
   getActivePane: () => {
@@ -111,7 +108,6 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
 
   setViewMode: (mode) => set({ viewMode: mode }),
   toggleViewMode: () => set((s) => ({ viewMode: s.viewMode === 'write' ? 'read' : 'write' })),
-  adjustFontSize: (delta) => set((s) => ({ fontSize: Math.min(22, Math.max(11, s.fontSize + delta)) })),
   setDirty: (isDirty) => set({ isDirty }),
 
   // ── Tab & Pane 관리 로직 ──────────────────────────────────────────
