@@ -3,6 +3,7 @@ export interface EditorSettings {
   fontFamily: string;         // 기본값 'ui-monospace, monospace'
   autosaveDelay: number;      // ms 단위. 0 = 즉시, 1000~10000, 기본값 3000
   lineWrapping: boolean;      // 기본값 true
+  contentMaxWidth: number;    // 에디터 중앙 정렬 최대 너비 (0이면 전체 너비 사용). 기본값 900
 }
 
 export interface MindmapSettings {
@@ -30,6 +31,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
     autosaveDelay: 3000,
     lineWrapping: true,
+    contentMaxWidth: 900,
   },
   mindmap: {
     edgeStyle: 'bezier',

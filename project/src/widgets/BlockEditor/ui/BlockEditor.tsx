@@ -355,6 +355,7 @@ const BlockNode = React.memo<{
 export const BlockEditor: React.FC = () => {
   const { getCurrentFile, rawContent, updateContent, viewMode, fontSize } = useDocumentStore();
   const currentFile = getCurrentFile();
+  const { settings } = useSettingsStore();
 
   const blocks = useBlockStore(s => s.blocks);
   const activeBlockId = useBlockStore(s => s.activeBlockId);
@@ -492,22 +493,28 @@ export const BlockEditor: React.FC = () => {
     );
   }
 
+  const maxWidthStyle = settings.editor.contentMaxWidth > 0 
+    ? { maxWidth: `${settings.editor.contentMaxWidth}px`, margin: '0 auto' } 
+    : {};
+
   return (
     <div
-      className="min-h-full flex flex-col"
+      className="min-h-full flex flex-col items-center w-full"
       style={{ '--editor-font-size': `${fontSize}px` } as React.CSSProperties}
     >
-      <div className="sticky top-0 z-10 bg-darkBg/95 backdrop-blur-sm">
-        <div className=" mx-auto">
+      <div className="sticky top-0 z-10 bg-darkBg/95 backdrop-blur-sm w-full">
+        <div className=" mx-auto" style={maxWidthStyle}>
           <FormatToolbar />
         </div>
       </div>
 
       {viewMode === 'read' ? (
-        <ReadView />
+        <div className="w-full flex-1">
+          <ReadView />
+        </div>
       ) : (
         <div className="w-full min-w-0 px-4 sm:px-6 lg:px-8 py-6 pb-24 flex-1 flex flex-col">
-          <div className="flex-1">
+          <div className="flex-1 w-full" style={maxWidthStyle}>
             {blocks.map((rootBlock) => (
               <BlockNode
                 key={rootBlock.id}

@@ -2,9 +2,7 @@ import React from 'react';
 import { Bold, Italic, Strikethrough, Link2, Code2, Table, Eye, Edit3, Minus, Plus } from 'lucide-react';
 import { getActiveEditorView } from '@/shared/lib/activeEditorView';
 import { useDocumentStore } from '@/entities/document/model/store';
-
-// ---------------------------------------------------------------------------
-// Format application helpers
+import { useSettingsStore } from '@/entities/settings/model/store';
 // ---------------------------------------------------------------------------
 
 interface InlineFormatSpec {
@@ -110,9 +108,8 @@ export const FormatToolbar: React.FC = () => {
   const {
     viewMode,
     toggleViewMode,
-    fontSize,
-    adjustFontSize,
   } = useDocumentStore();
+  const { settings, updateEditor } = useSettingsStore();
 
   return (
     <div
@@ -153,15 +150,15 @@ export const FormatToolbar: React.FC = () => {
       <div className="flex items-center gap-0.5 ml-3 text-mutedText">
         <button
           title="글꼴 크기 줄이기"
-          onClick={() => adjustFontSize(-1)}
+          onClick={() => updateEditor({ fontSize: Math.max(12, settings.editor.fontSize - 1) })}
           className="flex items-center justify-center w-6 h-6 rounded hover:text-slate-200 hover:bg-white/10"
         >
           <Minus size={12} />
         </button>
-        <span className="w-8 text-center text-[10px] font-mono select-none">{fontSize}px</span>
+        <span className="w-8 text-center text-[10px] font-mono select-none">{settings.editor.fontSize}px</span>
         <button
           title="글꼴 크기 키우기"
-          onClick={() => adjustFontSize(1)}
+          onClick={() => updateEditor({ fontSize: Math.min(24, settings.editor.fontSize + 1) })}
           className="flex items-center justify-center w-6 h-6 rounded hover:text-slate-200 hover:bg-white/10"
         >
           <Plus size={12} />

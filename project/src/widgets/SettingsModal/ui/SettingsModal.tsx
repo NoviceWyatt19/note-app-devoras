@@ -95,6 +95,21 @@ export function SettingsModal() {
                   <p className="text-xs text-mutedText">긴 텍스트를 에디터 가로 너비에 맞춰 줄 바꿈 처리합니다.</p>
                 </div>
                 <div className="space-y-3">
+                  <label className="text-sm font-semibold text-slate-300">
+                    에디터 좌우 마진 (본문 너비: {settings.editor.contentMaxWidth === 0 ? '전체 너비' : `${settings.editor.contentMaxWidth}px`})
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1500"
+                    step="50"
+                    value={settings.editor.contentMaxWidth}
+                    onChange={(e) => updateEditor({ contentMaxWidth: parseInt(e.target.value) })}
+                    className="w-full accent-primary"
+                  />
+                  <p className="text-xs text-mutedText">0으로 설정하면 화면 전체 너비를 사용합니다.</p>
+                </div>
+                <div className="space-y-3">
                   <label className="text-sm font-semibold text-slate-300">자동 저장 지연 시간 ({settings.editor.autosaveDelay / 1000}초)</label>
                   <input
                     type="range"

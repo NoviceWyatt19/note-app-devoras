@@ -5,6 +5,7 @@ import { Bold, Italic, Strikethrough, Highlighter, GripVertical } from 'lucide-r
 import { useBlockStore, EditorBlock, flattenTree } from '@/entities/block/model/store';
 import { useDocumentStore } from '@/entities/document/model/store';
 import { useWorkspaceStore } from '@/entities/workspace/model/store';
+import { useSettingsStore } from '@/entities/settings/model/store';
 
 // ---------------------------------------------------------------------------
 // Marked instance (module-level singleton)
@@ -333,9 +334,14 @@ export const ReadView: React.FC = () => {
     setDropTargetIdx(null);
   };
 
+  const { settings } = useSettingsStore();
+  const maxWidthStyle = settings.editor.contentMaxWidth > 0 
+    ? { maxWidth: `${settings.editor.contentMaxWidth}px`, margin: '0 auto' } 
+    : {};
+
   return (
-    <div className="flex-1 overflow-y-auto" onMouseUp={handleMouseUp}>
-      <div className="w-full min-w-0 px-4 sm:px-6 lg:px-8 py-6 pb-24">
+    <div className="flex-1 overflow-y-auto w-full" onMouseUp={handleMouseUp}>
+      <div className="w-full min-w-0 px-4 sm:px-6 lg:px-8 py-6 pb-24 mx-auto" style={maxWidthStyle}>
         {floatingBar && (
           <div
             ref={toolbarRef}
