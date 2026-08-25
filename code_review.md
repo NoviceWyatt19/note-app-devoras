@@ -130,23 +130,13 @@ isDirty: false,
 viewMode: 'write',
 ```
 
-**문제**: `rawContent`, `nodes`, `isDirty`, `viewMode`, `fontSize`는 "전역 1개"로 관리됩니다. 그러나 `panes`에는 다수의 탭이 존재할 수 있어, 탭 전환 시 항상 파일을 다시 읽는 방식(`setActiveTab`에서 `readFile` 호출)으로 보완 중입니다. 이로 인해:
-- 탭 전환마다 **I/O 발생** (파일을 디스크에서 재독취)
-- 멀티 패인의 경우 한 패인의 편집이 다른 패인의 상태를 덮어쓸 위험
+**문제**: `rawContent`, `nodes`, `isDirty`, `viewMode` 등은 "전역 1개"로 관리됩니다. 그러나 `panes`에는 다수의 탭이 존재할 수 있어, 탭 전환 시 항상 캐시를 수동으로 백업/복원해야 합니다. 
+또한 가장 심각한 문제는 **워크스페이스 전환 시 격리 대책 부재**입니다. `documentStore`의 `resetDocumentState`가 존재하나, `blockStore`의 `blocks` 상태 등 연관된 전역 스토어들이 초기화되지 않아 **이전 워크스페이스의 문서 AST 데이터가 메모리에 남아있는(Memory Leak 및 Data Contamination) 구조적 결함**이 존재합니다. 
+이로 인해 탭 전환/패인 분할/워크스페이스 변경 등 모든 **컨텍스트 경계(Boundary) 변경** 시마다 수동으로 상태를 정리해야 하며, 누락 시 치명적인 데이터 오염(다른 문서 내용으로 덮어쓰기)이 발생합니다.
 
 **개선 방향**:
-```typescript
-// ✅ 탭별 로컬 상태 캐시 도입
-interface TabItem {
-  // 기존 필드들 ...
-  cache?: {
-    rawContent: string;
-    nodes: MindNode[];
-    spatialData: Record<string, { x: number; y: number }>;
-  };
-}
-```
-탭에 캐시를 붙이고, `setActiveTab` 시 캐시에서 복원하면 I/O를 줄이고 다중 패인 충돌을 원천 차단할 수 있습니다.
+1. **단기 조치 (Phase 3)**: 워크스페이스 전환 이벤트 발생 시 `documentStore`뿐만 아니라 `blockStore`, `mindmapStore` 등 모든 관련 스토어의 상태를 명시적으로 초기화(Reset)하는 중앙 통제 로직(`useWorkspaceManager` 등) 구축.
+2. **장기 아키텍처 (Phase 4~5)**: 전역 Zustand 싱글톤을 폐기하고, React Context 기반으로 **Tab-Scoped State (탭 단위 독립 스토어)** 및 **Workspace-Scoped State**로 아키텍처 전면 개편. 상태가 생명주기(Unmount)와 함께 자연스럽게 소멸되도록 불변성(Immutability)을 구조적으로 강제.
 
 ---
 

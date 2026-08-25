@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useMemo } from 'react';
+import React, { useEffect, useRef} from 'react';
 import { useBlockStore, EditorBlock, flattenTree } from '@/entities/block/model/store';
 import { useDocumentStore } from '@/entities/document/model/store';
 import { useWorkspaceStore } from '@/entities/workspace/model/store';
@@ -51,7 +51,6 @@ const markdownDecorationPlugin = createDecorationPlugin([
 
 interface CodeMirrorBlockProps {
   block: EditorBlock;
-  index: number;
   isFocused: boolean;
   focusOffset: number;
   onUpdate: (content: string, cursorOffset: number) => void;
@@ -63,7 +62,6 @@ interface CodeMirrorBlockProps {
 
 const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBlock({
   block,
-  index,
   isFocused,
   focusOffset,
   onUpdate,
@@ -269,13 +267,6 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
         isFocused ? 'bg-primary/10 rounded-lg' : 'hover:bg-darkPanel/30 rounded-lg'
       }`}
     >
-      {/* 
-        We optionally show line index (flat) for debugging, or you can disable it.
-        We'll keep it absolute left if needed.
-      */}
-      <div className="absolute -left-6 top-2 text-[10px] text-mutedText/30 opacity-0 group-hover:opacity-100 font-mono select-none">
-        {index + 1}
-      </div>
       <div ref={containerRef} className="w-full" />
     </div>
   );
@@ -288,44 +279,36 @@ const BlockNode = React.memo<{
   block: EditorBlock;
   activeBlockId: string | null;
   focusOffset: number;
-  flatBlocks: EditorBlock[];
   handleBlockUpdate: (id: string, text: string, cursorOffset: number) => void;
   handleMerge: (id: string) => void;
   focusBlock: (id: string, offset?: number) => void;
-}>(({ block, activeBlockId, focusOffset, flatBlocks, handleBlockUpdate, handleMerge, focusBlock }) => {
+  handleFocusMove: (id: string, direction: 'prev' | 'next') => void;
+}>(({ block, activeBlockId, focusOffset, handleBlockUpdate, handleMerge, focusBlock, handleFocusMove }) => {
   
   const getLevelStyles = (level: number) => {
     switch(level) {
       case 1: 
-        return 'mb-8 bg-transparent'; // H1은 박스 제거, 투명한 기본 컨테이너
+        return 'mb-8 bg-transparent'; 
       case 2: 
-        // H2부터 실질적인 중첩 박스 시작 (가장 바깥쪽 박스 역할)
         return 'mt-6 p-5 rounded-2xl bg-[#141520] border border-darkBorder/40 shadow-md';
       case 3: 
         return 'mt-4 p-4 rounded-xl bg-[#1d1f30] border border-darkBorder/40';
       default: 
-        return 'mt-2 pl-2'; // 일반 텍스트
+        return 'mt-2 pl-2';
     }
   };
-
-  const blockIndex = useMemo(() => flatBlocks.findIndex(b => b.id === block.id), [flatBlocks, block.id]);
 
   return (
     <div className={`block-node-wrapper transition-colors duration-200 ${getLevelStyles(block.level)}`}>
       <div className={block.level === 1 ? 'pb-3 mb-5 border-b-2 border-darkBorder/40' : ''}>
         <CodeMirrorBlock
           block={block}
-          index={blockIndex}
           isFocused={activeBlockId === block.id}
           focusOffset={activeBlockId === block.id ? focusOffset : 0}
           onUpdate={(text, offset) => handleBlockUpdate(block.id, text, offset)}
           onMerge={() => handleMerge(block.id)}
-          onFocusPrev={() => {
-            if (blockIndex > 0) focusBlock(flatBlocks[blockIndex - 1].id, flatBlocks[blockIndex - 1].content.length);
-          }}
-          onFocusNext={() => {
-            if (blockIndex < flatBlocks.length - 1) focusBlock(flatBlocks[blockIndex + 1].id, 0);
-          }}
+          onFocusPrev={() => handleFocusMove(block.id, 'prev')}
+          onFocusNext={() => handleFocusMove(block.id, 'next')}
           onSelect={(offset: number) => focusBlock(block.id, offset)}
         />
       </div>
@@ -337,10 +320,10 @@ const BlockNode = React.memo<{
               block={child}
               activeBlockId={activeBlockId}
               focusOffset={focusOffset}
-              flatBlocks={flatBlocks}
               handleBlockUpdate={handleBlockUpdate}
               handleMerge={handleMerge}
               focusBlock={focusBlock}
+              handleFocusMove={handleFocusMove}
             />
           ))}
         </div>
@@ -363,13 +346,23 @@ export const BlockEditor: React.FC = () => {
   const mergeBlockWithPrevious = useBlockStore(s => s.mergeBlockWithPrevious);
   const focusBlock = useBlockStore(s => s.focusBlock);
 
-  const flatBlocks = useMemo(() => flattenTree(blocks), [blocks]);
+  const handleFocusMove = React.useCallback((id: string, direction: 'prev' | 'next') => {
+    const flatBlocks = flattenTree(useBlockStore.getState().blocks);
+    const index = flatBlocks.findIndex(b => b.id === id);
+    if (index === -1) return;
+    
+    if (direction === 'prev' && index > 0) {
+      focusBlock(flatBlocks[index - 1].id, flatBlocks[index - 1].content.length);
+    } else if (direction === 'next' && index < flatBlocks.length - 1) {
+      focusBlock(flatBlocks[index + 1].id, 0);
+    }
+  }, [focusBlock]);
 
   const contentSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Only rebuild blocks on file switch — NOT on every rawContent change during editing.
   // This prevents circular calls: handleBlockUpdate -> updateContent -> rawContent change -> setBlocksFromContent again.
-  useEffect(() => {
+  React.useLayoutEffect(() => {
     if (currentFile && rawContent !== undefined) {
       useBlockStore.getState().setBlocksFromContent(rawContent);
     }
@@ -410,23 +403,25 @@ export const BlockEditor: React.FC = () => {
     useDocumentStore.getState().setDirty(true);
 
     const state = useBlockStore.getState();
-    const currentFlatBlocks = flattenTree(state.blocks);
-    const activeIndex = currentFlatBlocks.findIndex(b => b.id === id);
-    if (activeIndex === -1) return;
     
-    const oldContent = currentFlatBlocks[activeIndex].content;
-
-    let absoluteCursorPos = cursorOffset;
-    for (let i = 0; i < activeIndex; i++) {
-      absoluteCursorPos += currentFlatBlocks[i].content.length + 1;
-    }
+    // O(N) flattenTree를 피하기 위해, 업데이트 대상 블록의 기존 텍스트만 트리 탐색으로 빠르게 찾음
+    let oldContent = '';
+    const findOldContent = (nodes: any[]) => {
+      for (const node of nodes) {
+        if (node.id === id) { oldContent = node.content; return true; }
+        if (node.children.length > 0 && findOldContent(node.children)) return true;
+      }
+      return false;
+    };
+    findOldContent(state.blocks);
 
     const countHeadings = (content: string) => {
       let count = 0;
       let fenceActive = false;
-      content.replace(/\r\n/g, '\n').split('\n').forEach(line => {
+      // 단일 블록에 대한 split이므로 비용이 적음
+      content.split('\n').forEach(line => {
         if (/^(`{3,}|~{3,})/.test(line)) { fenceActive = !fenceActive; return; }
-        if (!fenceActive && /^#{1,6} /.test(line)) count++;
+        if (!fenceActive && /^#{1,3} /.test(line)) count++;
       });
       return count;
     };
@@ -436,8 +431,15 @@ export const BlockEditor: React.FC = () => {
 
     state.updateBlockContent(id, text);
 
-    // 분할 트리거: 현재 블록 내에서 헤딩 개수가 변했는지 확인 (전체 O(N) 순회 제거)
+    // 헤딩 개수가 변했을 때만 트리 분할(O(N) 리파싱)을 수행
     if (oldHeadingCount !== newHeadingCount) {
+      const currentFlatBlocks = flattenTree(state.blocks);
+      
+      let absoluteCursorPos = cursorOffset;
+      for (let b of currentFlatBlocks) {
+        if (b.id === id) break;
+        absoluteCursorPos += b.content.length + 1;
+      }
       const merged = state.getMergedContent();
       state.setBlocksFromContent(merged);
       const nextFlatBlocks = flattenTree(useBlockStore.getState().blocks);
@@ -521,10 +523,10 @@ export const BlockEditor: React.FC = () => {
                 block={rootBlock}
                 activeBlockId={activeBlockId}
                 focusOffset={focusOffset}
-                flatBlocks={flatBlocks}
                 handleBlockUpdate={handleBlockUpdate}
                 handleMerge={handleMerge}
                 focusBlock={focusBlock}
+                handleFocusMove={handleFocusMove}
               />
             ))}
           </div>

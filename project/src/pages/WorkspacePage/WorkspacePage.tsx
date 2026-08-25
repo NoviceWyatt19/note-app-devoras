@@ -350,7 +350,7 @@ const PaneContainer: React.FC<{
         ) : activeTab.type === 'erd' ? (
           <ErdDesignerMainView />
         ) : (
-          <BlockEditor />
+          <BlockEditor key={activeTab.id} />
         )}
       </div>
     </div>
