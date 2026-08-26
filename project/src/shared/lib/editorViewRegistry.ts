@@ -48,3 +48,8 @@ export function getActiveEditorView(): EditorView | null {
   if (!blockId) return null;
   return registry.get(`${activePaneId}::${blockId}`) ?? null;
 }
+
+// Expose to window for DevTools debugging (G1, G2 harnesses)
+if (typeof window !== 'undefined') {
+  (window as any).__getActiveEditorView = getActiveEditorView;
+}
