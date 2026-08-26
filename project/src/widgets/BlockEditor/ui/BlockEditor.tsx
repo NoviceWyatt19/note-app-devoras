@@ -1,6 +1,7 @@
 import React, { useEffect, useRef} from 'react';
 import { useBlockStore, EditorBlock, flattenTree } from '@/entities/block/model/store';
 import { useDocumentStore } from '@/entities/document/model/store';
+import { useDebouncedCallback } from '@/shared/lib/useDebouncedCallback';
 import { useWorkspaceStore } from '@/entities/workspace/model/store';
 import { EditorState, Transaction, Compartment } from '@codemirror/state';
 import { EditorView, keymap, drawSelection} from '@codemirror/view';
@@ -15,7 +16,7 @@ import { languages } from '@codemirror/language-data';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { FileEdit } from 'lucide-react';
 import { FormatToolbar } from './FormatToolbar';
-import { ReadView } from './ReadView';
+import { ReadView, renderBlockToHtml } from './ReadView';
 import { setActiveEditorView, getActiveEditorView } from '@/shared/lib/activeEditorView';
 import { useTauriInputManager } from '@/shared/lib/editor/useTauriInputManager';
 import { useImeInputManager } from '@/shared/lib/editor/useImeInputManager';
@@ -298,19 +299,34 @@ const BlockNode = React.memo<{
     }
   };
 
+  const { workspacePath } = useWorkspaceStore();
+  const isFocused = activeBlockId === block.id;
+
   return (
     <div className={`block-node-wrapper transition-colors duration-200 ${getLevelStyles(block.level)}`}>
-      <div className={block.level === 1 ? 'pb-3 mb-5 border-b-2 border-darkBorder/40' : ''}>
-        <CodeMirrorBlock
-          block={block}
-          isFocused={activeBlockId === block.id}
-          focusOffset={activeBlockId === block.id ? focusOffset : 0}
-          onUpdate={(text, offset) => handleBlockUpdate(block.id, text, offset)}
-          onMerge={() => handleMerge(block.id)}
-          onFocusPrev={() => handleFocusMove(block.id, 'prev')}
-          onFocusNext={() => handleFocusMove(block.id, 'next')}
-          onSelect={(offset: number) => focusBlock(block.id, offset)}
-        />
+      <div 
+        className={block.level === 1 ? 'pb-3 mb-5 border-b-2 border-darkBorder/40' : ''}
+        onClick={() => !isFocused && focusBlock(block.id, block.content.length)}
+      >
+        {isFocused ? (
+          <CodeMirrorBlock
+            block={block}
+            isFocused={true}
+            focusOffset={focusOffset}
+            onUpdate={(text, offset) => handleBlockUpdate(block.id, text, offset)}
+            onMerge={() => handleMerge(block.id)}
+            onFocusPrev={() => handleFocusMove(block.id, 'prev')}
+            onFocusNext={() => handleFocusMove(block.id, 'next')}
+            onSelect={(offset: number) => focusBlock(block.id, offset)}
+          />
+        ) : (
+          <div 
+            className="rv-content cursor-text"
+            dangerouslySetInnerHTML={{
+              __html: renderBlockToHtml(block.content, workspacePath),
+            }}
+          />
+        )}
       </div>
       {block.children.length > 0 && (
         <div className={`block-children ${block.level > 0 ? 'mt-4' : 'mt-1'}`}>
@@ -336,9 +352,18 @@ const BlockNode = React.memo<{
 // Main Editor
 // ---------------------------------------------------------------------------
 export const BlockEditor: React.FC = () => {
-  const { getCurrentFile, rawContent, updateContent, viewMode } = useDocumentStore();
-  const currentFile = getCurrentFile();
+  const currentFile = useDocumentStore(s => s.getCurrentFile());
+  const viewMode = useDocumentStore(s => s.viewMode);
   const { settings } = useSettingsStore();
+
+  React.useLayoutEffect(() => {
+    if (viewMode === 'read') {
+      const active = getActiveEditorView();
+      if (active && active.hasFocus) {
+        active.contentDOM.blur();
+      }
+    }
+  }, [viewMode]);
 
   const blocks = useBlockStore(s => s.blocks);
   const activeBlockId = useBlockStore(s => s.activeBlockId);
@@ -358,13 +383,31 @@ export const BlockEditor: React.FC = () => {
     }
   }, [focusBlock]);
 
-  const contentSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Only rebuild blocks on file switch — NOT on every rawContent change during editing.
-  // This prevents circular calls: handleBlockUpdate -> updateContent -> rawContent change -> setBlocksFromContent again.
+  const ownerTabIdRef = useRef<string>(currentFile?.path ?? '');
   React.useLayoutEffect(() => {
-    if (currentFile && rawContent !== undefined) {
-      useBlockStore.getState().setBlocksFromContent(rawContent);
+    ownerTabIdRef.current = currentFile?.path ?? '';
+  }, [currentFile?.path]);
+
+  const syncContent = useDebouncedCallback(() => {
+    const bs = useBlockStore.getState();
+    if (bs.ownerTabId !== ownerTabIdRef.current) return;
+    useDocumentStore.getState().updateContentForTab(ownerTabIdRef.current, bs.getMergedContent());
+  }, 150);
+
+  useEffect(() => {
+    return () => {
+      syncContent.flush();
+    };
+  }, []);
+  React.useLayoutEffect(() => {
+    const docStore = useDocumentStore.getState();
+    const file = docStore.getCurrentFile();
+    const content = docStore.rawContent;
+    const tab = docStore.getActiveTab();
+    if (file && tab && content !== undefined) {
+      useBlockStore.getState().setBlocksFromContent(content, tab.id);
+      const firstBlock = useBlockStore.getState().blocks[0];
+      if (firstBlock) useBlockStore.getState().focusBlock(firstBlock.id, 0);
     }
   }, [currentFile?.path]);
 
@@ -465,22 +508,17 @@ export const BlockEditor: React.FC = () => {
         accumulated += len + 1;
       }
 
-      useBlockStore.getState().focusBlock(targetId, targetOffset);
-      useDocumentStore.getState().updateContent(merged);
+      state.setBlocksFromContent(merged, ownerTabIdRef.current);
+      state.focusBlock(targetId, targetOffset);
+      useDocumentStore.getState().updateContentForTab(ownerTabIdRef.current, merged);
     } else {
-      if (contentSyncTimerRef.current !== null) clearTimeout(contentSyncTimerRef.current);
-      contentSyncTimerRef.current = setTimeout(() => {
-        contentSyncTimerRef.current = null;
-        useDocumentStore.getState().updateContent(useBlockStore.getState().getMergedContent());
-      }, 150);
+      syncContent();
     }
   };
 
   const handleMerge = (id: string) => {
     mergeBlockWithPrevious(id);
-    setTimeout(() => {
-      updateContent(useBlockStore.getState().getMergedContent());
-    }, 0);
+    syncContent();
   };
 
   if (!currentFile) {

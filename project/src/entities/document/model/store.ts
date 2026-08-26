@@ -57,10 +57,12 @@ interface DocumentState {
   resetDocumentState: () => void;
 
   // ── Document/Editor 액션 ─────────────────────────────────────────
+  _snapshotActiveTab: () => SplitPane[];
+  updateContentForTab: (tabId: string, content: string) => void;
   updateContent: (content: string) => void;
   updateNodeCoordinate: (nodeId: string, x: number, y: number) => void;
   setDirty: (isDirty: boolean) => void;
-  saveFile: () => Promise<void>;
+  saveFile: (paneId?: string, tabId?: string) => Promise<void>;
   setViewMode: (mode: 'write' | 'read') => void;
   toggleViewMode: () => void;
 
@@ -68,6 +70,8 @@ interface DocumentState {
   handleFileRenamed: (oldPath: string, newPath: string, newName: string) => void;
   handleFileDeleted: (path: string, isDir: boolean) => void;
 }
+
+let openSeq = 0;
 
 export const useDocumentStore = create<DocumentState>((set, get) => ({
   panes: [
@@ -116,8 +120,9 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   },
   
   openTab: async (item) => {
-    const { panes, activePaneId } = get();
-    const activePane = panes.find((p) => p.id === activePaneId) || panes[0];
+    const panesWithSnapshot = get()._snapshotActiveTab();
+    const { activePaneId } = get();
+    const activePane = panesWithSnapshot.find((p) => p.id === activePaneId) || panesWithSnapshot[0];
 
     // 1. 독립 마인드뷰 탭 오픈 요청
     if ('type' in item && item.type === 'mindmap-global') {
@@ -130,7 +135,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
           type: 'mindmap-global',
           title: '전역 마인드맵',
         };
-        const updatedPanes = panes.map((p) =>
+        const updatedPanes = panesWithSnapshot.map((p) =>
           p.id === activePane.id
             ? { ...p, tabs: [...p.tabs, newTab], activeTabId: tabId }
             : p
@@ -138,7 +143,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
         set({ panes: updatedPanes });
       } else {
         set({
-          panes: panes.map((p) => (p.id === activePane.id ? { ...p, activeTabId: tabId } : p)),
+          panes: panesWithSnapshot.map((p) => (p.id === activePane.id ? { ...p, activeTabId: tabId } : p)),
         });
       }
       return;
@@ -148,10 +153,22 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     const file = item as FileEntry;
     const tabId = file.path;
 
-    // 이미 열려있는 탭인지 확인
     const existingTab = activePane.tabs.find((t) => t.id === tabId);
 
-    // 파일 컨텐츠 및 메타데이터 읽기
+    // 캐시 우선 복원
+    if (existingTab?.cache) {
+      set({
+        panes: panesWithSnapshot.map(p => p.id === activePane.id ? { ...p, activeTabId: tabId } : p),
+        rawContent: existingTab.cache.rawContent,
+        nodes: existingTab.cache.nodes,
+        spatialData: existingTab.cache.spatialData,
+        isDirty: existingTab.isDirty ?? false,
+        viewMode: get().viewMode,
+      });
+      return;
+    }
+
+    const token = ++openSeq;
     try {
       const workspacePath = useWorkspaceStore.getState().workspacePath;
       if (!workspacePath) return;
@@ -160,8 +177,15 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       const isErd = file.path.toLowerCase().endsWith('.erd');
       
       const allMetadata = await fileSystemRepository.readSpatialMetadata(workspacePath);
-      const spatialData = allMetadata[file.path] || {};
       
+      if (token !== openSeq) return;
+
+      // await 이후 다시 탭 존재 여부 확인 (중간에 닫혔을 수도 있음, 하지만 새로 여는 경우는 무조건 추가)
+      const currentPanes = get().panes;
+      const currentActivePane = currentPanes.find(p => p.id === activePane.id);
+      if (!currentActivePane) return; // 패널이 통째로 닫힘
+
+      const spatialData = allMetadata[file.path] || {};
       const parsedNodes = isErd ? [] : parseMarkdown(content);
 
       const alignedNodes = parsedNodes.map((node) => {
@@ -175,8 +199,10 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
         return node;
       });
 
-      let updatedTabs = [...activePane.tabs];
-      if (!existingTab) {
+      let updatedTabs = [...currentActivePane.tabs];
+      const stillExistingTab = currentActivePane.tabs.find((t) => t.id === tabId);
+      
+      if (!stillExistingTab) {
         updatedTabs.push({
           id: tabId,
           type: isErd ? 'erd' : 'markdown',
@@ -188,7 +214,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       }
 
       set({
-        panes: panes.map((p) =>
+        panes: currentPanes.map((p) =>
           p.id === activePane.id
             ? { ...p, tabs: updatedTabs, activeTabId: tabId }
             : p
@@ -197,7 +223,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
         nodes: alignedNodes,
         spatialData,
         isDirty: false,
-        viewMode: 'write',
+        viewMode: get().viewMode, // 유지
       });
     } catch (e) {
       console.error(`Failed to load file ${file.path}:`, e);
@@ -205,7 +231,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   },
 
   setActiveTab: async (paneId, tabId) => {
-    const { panes, rawContent, nodes, spatialData, isDirty, activePaneId } = get();
+    const { panes, activePaneId } = get();
     const pane = panes.find((p) => p.id === paneId);
     if (!pane) return;
 
@@ -213,21 +239,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     if (pane.activeTabId === tabId && paneId === activePaneId) return; // 이미 활성 탭
 
     // ── Step 1: 현재 활성 탭의 편집 상태를 캐시에 저장 ──
-    const currentPane = panes.find((p) => p.id === activePaneId);
-    let panesWithSavedCache = panes;
-    if (currentPane && currentPane.activeTabId) {
-      panesWithSavedCache = panes.map((p) => {
-        if (p.id !== activePaneId) return p;
-        return {
-          ...p,
-          tabs: p.tabs.map((t) =>
-            t.id === currentPane.activeTabId
-              ? { ...t, cache: { rawContent, nodes, spatialData }, isDirty }
-              : t
-          ),
-        };
-      });
-    }
+    const panesWithSavedCache = get()._snapshotActiveTab();
 
     // ── Step 2: 대상 탭 활성화 ──
     const updatedPanes = panesWithSavedCache.map((p) =>
@@ -249,6 +261,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
         return;
       }
 
+      const token = ++openSeq;
       // 캐시가 없으면 디스크에서 읽기 (최초 로드 시)
       const workspacePath = useWorkspaceStore.getState().workspacePath;
       if (workspacePath) {
@@ -256,6 +269,13 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
         const isErd = targetTab.type === 'erd';
 
         const allMetadata = await fileSystemRepository.readSpatialMetadata(workspacePath);
+        if (token !== openSeq) return;
+
+        const currentPanes = get().panes;
+        const currentUpdatedPanes = currentPanes.map((p) =>
+          p.id === paneId ? { ...p, activeTabId: tabId } : p
+        );
+
         const loadedSpatialData = allMetadata[targetTab.fileEntry.path] || {};
         const parsedNodes = isErd ? [] : parseMarkdown(content);
 
@@ -265,7 +285,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
         });
 
         set({
-          panes: updatedPanes,
+          panes: currentUpdatedPanes,
           activePaneId: paneId,
           rawContent: content,
           nodes: alignedNodes,
@@ -316,7 +336,22 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     const activeStillExists = finalPanes.some((p) => p.id === activePaneId);
     const newActivePaneId = activeStillExists ? activePaneId : (finalPanes[0]?.id ?? activePaneId);
 
-    set({ panes: finalPanes, activePaneId: newActivePaneId });
+    // If the active pane no longer has an active tab, clear the editor state
+    const newActivePane = finalPanes.find(p => p.id === newActivePaneId);
+    if (!newActivePane || !newActivePane.activeTabId) {
+      set({ 
+        panes: finalPanes, 
+        activePaneId: newActivePaneId,
+        rawContent: '',
+        nodes: [],
+        spatialData: {},
+        isDirty: false
+      });
+      // Also clear blockStore content to avoid ghost text
+      useBlockStore.getState().setBlocksFromContent('', undefined);
+    } else {
+      set({ panes: finalPanes, activePaneId: newActivePaneId });
+    }
   },
 
   // REF-20260810-01: 특정 패널 닫기 — 탭은 인접 패널로 병합
@@ -426,6 +461,97 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   },
 
   // ── Document/Editor Sync 로직 ──────────────────────────────────────
+  _snapshotActiveTab: () => {
+    const { panes, activePaneId, rawContent, nodes, spatialData, isDirty } = get();
+    const activePane = panes.find((p) => p.id === activePaneId);
+    if (!activePane || !activePane.activeTabId) return panes;
+
+    const activeTab = activePane.tabs.find((t) => t.id === activePane.activeTabId);
+    if (!activeTab) return panes;
+
+    let contentToSave = rawContent;
+    if (activeTab.type === 'markdown' && useBlockStore.getState().ownerTabId === activeTab.id) {
+      const merged = useBlockStore.getState().getMergedContent();
+      if (useBlockStore.getState().blocks.length > 0) {
+        contentToSave = merged;
+      }
+    }
+
+    return panes.map((p) => {
+      if (p.id !== activePaneId) return p;
+      return {
+        ...p,
+        tabs: p.tabs.map((t) =>
+          t.id === activePane.activeTabId
+            ? { ...t, cache: { rawContent: contentToSave, nodes, spatialData }, isDirty }
+            : t
+        ),
+      };
+    });
+  },
+
+  updateContentForTab: (tabId, content) => {
+    const { panes, activePaneId, rawContent, spatialData } = get();
+    
+    let tabFound = false;
+    let isActiveTab = false;
+
+    for (const p of panes) {
+      for (const t of p.tabs) {
+        if (t.id === tabId) {
+          tabFound = true;
+          if (p.id === activePaneId && p.activeTabId === tabId) {
+            isActiveTab = true;
+          }
+          break;
+        }
+      }
+      if (tabFound) break;
+    }
+
+    if (!tabFound) return;
+
+    const parsedNodes = parseMarkdown(content);
+    const alignedNodes = parsedNodes.map((node) => {
+      if (spatialData[node.id]) {
+        return { ...node, x: spatialData[node.id].x, y: spatialData[node.id].y };
+      }
+      return node;
+    });
+
+    if (isActiveTab) {
+      const hasChanged = content !== rawContent;
+      const updatedPanes = panes.map((p) => {
+        if (p.id !== activePaneId) return p;
+        return {
+          ...p,
+          tabs: p.tabs.map((t) => (t.id === tabId ? { ...t, isDirty: hasChanged } : t)),
+        };
+      });
+      set({
+        panes: updatedPanes,
+        rawContent: content,
+        nodes: alignedNodes,
+        isDirty: hasChanged,
+      });
+    } else {
+      const updatedPanes = panes.map(p => ({
+        ...p,
+        tabs: p.tabs.map(t => {
+          if (t.id === tabId) {
+            return {
+              ...t,
+              isDirty: true,
+              cache: t.cache ? { ...t.cache, rawContent: content, nodes: alignedNodes } : { rawContent: content, nodes: alignedNodes, spatialData: {} }
+            };
+          }
+          return t;
+        })
+      }));
+      set({ panes: updatedPanes });
+    }
+  },
+
   updateContent: (content) => {
     const currentFile = get().getCurrentFile();
     const { spatialData, rawContent } = get();
@@ -474,49 +600,65 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     });
   },
 
-  saveFile: async () => {
-    const currentFile = get().getCurrentFile();
-    const { spatialData } = get();
-    if (!currentFile) return;
-
+  saveFile: async (paneId?: string, tabId?: string) => {
+    // 1. 대상 탭 찾기
+    const { panes, spatialData, activePaneId } = get();
+    const targetPaneId = paneId ?? activePaneId;
+    const targetPane = panes.find(p => p.id === targetPaneId);
+    if (!targetPane) return;
+    
+    const targetTabId = tabId ?? targetPane.activeTabId;
+    const targetTab = targetPane.tabs.find(t => t.id === targetTabId);
+    if (!targetTab || (targetTab.type !== 'markdown' && targetTab.type !== 'erd')) return;
+    if (!targetTab.fileEntry) return;
+    
     const workspacePath = useWorkspaceStore.getState().workspacePath;
     if (!workspacePath) return;
 
     let latestContent = '';
-    if (currentFile.path.endsWith('.erd')) {
-      latestContent = get().rawContent;
+    const isActiveTab = targetPaneId === activePaneId && targetTabId === targetPane.activeTabId;
+
+    if (targetTab.type === 'erd') {
+       latestContent = isActiveTab ? get().rawContent : (targetTab.cache?.rawContent ?? '');
     } else {
-      latestContent = useBlockStore.getState().getMergedContent();
+       if (useBlockStore.getState().ownerTabId === targetTab.id) {
+         latestContent = useBlockStore.getState().getMergedContent();
+       } else {
+         latestContent = targetTab.cache?.rawContent ?? '';
+       }
+    }
+
+    if (isActiveTab) {
+       get().updateContentForTab(targetTabId, latestContent); // 정합성 맞추기
     }
 
     try {
-      await fileSystemRepository.writeFile(currentFile.path, latestContent);
+      await fileSystemRepository.writeFile(targetTab.fileEntry.path, latestContent);
 
       try {
         const allMetadata = await fileSystemRepository.readSpatialMetadata(workspacePath);
-        const updatedMetadata = { ...allMetadata, [currentFile.path]: spatialData };
+        const updatedMetadata = { ...allMetadata, [targetTab.fileEntry.path]: spatialData };
         await fileSystemRepository.writeSpatialMetadata(workspacePath, updatedMetadata);
       } catch (e) {
         console.warn('Failed to update spatial metadata (ignoring):', e);
       }
 
       // dirty 상태 해제
-      const { panes, activePaneId } = get();
-      const updatedPanes = panes.map((p) => {
-        if (p.id !== activePaneId) return p;
+      const updatedPanes = get().panes.map((p) => {
+        if (p.id !== targetPaneId) return p;
         return {
           ...p,
-          tabs: p.tabs.map((t) => (t.id === p.activeTabId ? { ...t, isDirty: false } : t)),
+          tabs: p.tabs.map((t) => (t.id === targetTabId ? { ...t, isDirty: false } : t)),
         };
       });
 
-      set({
-        panes: updatedPanes,
-        isDirty: false,
-        rawContent: latestContent,
-      });
+      if (isActiveTab) {
+        set({ panes: updatedPanes, isDirty: false, rawContent: latestContent });
+      } else {
+        set({ panes: updatedPanes });
+      }
     } catch (e) {
-      console.error(`Failed to save file ${currentFile.path}:`, e);
+      console.error(`Failed to save file ${targetTab.fileEntry.path}:`, e);
     }
   },
 }));

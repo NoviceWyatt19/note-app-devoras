@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useWorkspaceStore } from '@/entities/workspace/model/store';
 import { useDocumentStore } from '@/entities/document/model/store';
-import { useBlockStore } from '@/entities/block/model/store';
+// removed import
 import { FolderOpen, FileText, Plus, RefreshCw, Loader, ChevronRight, ChevronDown, File, Trash, Edit2, FolderPlus, Database } from 'lucide-react';
 import { FileEntry } from '@/shared/api/fs';
 
@@ -140,9 +140,8 @@ const TreeNode: React.FC<TreeNodeProps> = (props) => {
 
 export const FileExplorer: React.FC = () => {
   const { workspacePath, files, isLoading, openWorkspace, scanWorkspace, createFile, createFolder, renameEntry, deleteEntry, moveEntry, copyEntry } = useWorkspaceStore();
-  const { getCurrentFile, loadFile, isDirty } = useDocumentStore();
+  const { getCurrentFile, loadFile } = useDocumentStore();
   const currentFile = getCurrentFile();
-  const { setBlocksFromContent } = useBlockStore();
 
   const [contextMenu, setContextMenu] = useState<ContextMenuData | null>(null);
   const [renamingPath, setRenamingPath] = useState<string | null>(null);
@@ -209,17 +208,7 @@ export const FileExplorer: React.FC = () => {
       return;
     }
     
-    if (isDirty && currentFile?.path !== file.path) {
-      const confirmLeave = window.confirm('저장되지 않은 변경 사항이 있습니다. 무시하고 다른 파일을 여시겠습니까?');
-      if (!confirmLeave) return;
-    }
-
     await loadFile(file);
-
-    const freshContent = useDocumentStore.getState().rawContent;
-    setBlocksFromContent(freshContent);
-    const firstBlockOnLoad = useBlockStore.getState().blocks[0];
-    if (firstBlockOnLoad) useBlockStore.getState().focusBlock(firstBlockOnLoad.id, 0);
   };
 
   const handleContextMenu = (e: React.MouseEvent, entry: FileEntry | null) => {

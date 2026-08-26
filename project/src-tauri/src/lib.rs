@@ -27,31 +27,7 @@ fn save_image_file(path: String, data: Vec<u8>) -> Result<(), String> {
     Ok(())
 }
 
-/// 이미지 파일을 읽어 Base64 Data URL 형식으로 반환하는 커맨드.
-#[tauri::command]
-async fn read_image_base64(path: String) -> Result<String, String> {
-    use std::path::Path;
 
-    let bytes = std::fs::read(&path).map_err(|e| format!("파일 읽기 실패: {}", e))?;
-    let b64 = general_purpose::STANDARD.encode(&bytes);
-    
-    // 확장자 기반으로 간단하게 MIME 타입 추론
-    let ext = Path::new(&path)
-        .extension()
-        .and_then(|s| s.to_str())
-        .unwrap_or("png")
-        .to_lowercase();
-        
-    let mime = match ext.as_str() {
-        "jpg" | "jpeg" => "image/jpeg",
-        "gif" => "image/gif",
-        "webp" => "image/webp",
-        "svg" => "image/svg+xml",
-        _ => "image/png",
-    };
-    
-    Ok(format!("data:{};base64,{}", mime, b64))
-}
 
 /// React 프론트엔드에서 초기 렌더링 완료 후 호출하여 숨겨진 윈도우를 표시.
 ///
@@ -86,7 +62,7 @@ pub fn run() {
     .plugin(tauri_plugin_dialog::init())
     .plugin(tauri_plugin_shell::init())
     // 기존 배열에 read_image_base64를 반드시 추가해야 합니다.
-    .invoke_handler(tauri::generate_handler![save_image_file, read_image_base64, show_main_window, close_splashscreen])
+    .invoke_handler(tauri::generate_handler![save_image_file, show_main_window, close_splashscreen])
     .setup(|app| {
       if cfg!(debug_assertions) {
         app.handle().plugin(

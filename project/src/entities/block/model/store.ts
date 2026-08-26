@@ -10,9 +10,10 @@ export interface EditorBlock {
 
 interface BlockState {
   blocks: EditorBlock[];
+  ownerTabId: string | null;
   activeBlockId: string | null;
   focusOffset: number; // Used to direct cursor placement when changing focus
-  setBlocksFromContent: (content: string) => void;
+  setBlocksFromContent: (content: string, ownerTabId?: string) => void;
   getMergedContent: () => string;
   updateBlockContent: (id: string, content: string) => void;
 
@@ -105,10 +106,11 @@ function buildTreeFromChunks(chunks: EditorBlock[]): EditorBlock[] {
 
 export const useBlockStore = create<BlockState>((set, get) => ({
   blocks: [],
+  ownerTabId: null,
   activeBlockId: null,
   focusOffset: 0,
 
-  setBlocksFromContent: (content) => {
+  setBlocksFromContent: (content, ownerTabId) => {
     const normalized = content.replace(/\r\n/g, '\n');
     const lines = normalized.split('\n');
     const newBlockContents: string[] = [];
@@ -167,7 +169,7 @@ export const useBlockStore = create<BlockState>((set, get) => ({
 
     // 트리를 빌드하여 상태에 저장
     const treeBlocks = buildTreeFromChunks(flatChunks);
-    set({ blocks: treeBlocks });
+    set({ blocks: treeBlocks, ownerTabId: ownerTabId ?? get().ownerTabId });
   },
 
   getMergedContent: () => {
@@ -213,7 +215,7 @@ export const useBlockStore = create<BlockState>((set, get) => ({
     // 전체 콘텐츠 문자열로 변환한 뒤, setBlocksFromContent 호출을 통해 트리 재생성!
     const fullText = flatBlocks.map(b => b.content).join('\n');
     
-    get().setBlocksFromContent(fullText);
+    get().setBlocksFromContent(fullText, get().ownerTabId ?? undefined);
 
     // activeBlockId와 focusOffset은 여기서 업데이트
     set({
@@ -230,14 +232,25 @@ export const useBlockStore = create<BlockState>((set, get) => ({
   },
 
   reorderBlocks: (fromIndex, toIndex) => {
+    const flat = flattenTree(get().blocks);
+    if (fromIndex < 0 || fromIndex >= flat.length) return;          // Step 1: 경계
+    if (toIndex   < 0 || toIndex   >= flat.length) return;
     if (fromIndex === toIndex) return;
-    
-    // 단순 평면 인덱스 기반 드래그 앤 드롭 지원 시, 평면 리스트에서 스왑 후 리빌드
-    const flatBlocks = flattenTree(get().blocks);
-    const [moved] = flatBlocks.splice(fromIndex, 1);
-    flatBlocks.splice(toIndex, 0, moved);
-    
-    const fullText = flatBlocks.map(b => b.content).join('\n');
-    get().setBlocksFromContent(fullText);
+
+    const node   = flat[fromIndex];
+    // flattenTree returns the same object references, so includes() works
+    const group  = [node, ...flattenTree(node.children)];           // Step 2: 서브트리 통째로
+    const target = flat[toIndex];
+    if (group.includes(target)) return;                             // Step 3: 자기 자손에 드롭 금지
+
+    const rest = flat.filter(b => !group.includes(b));
+    let insertAt = rest.indexOf(target);
+    if (insertAt < 0) return;
+    if (toIndex > fromIndex) {                                      // Step 4: 아래로 이동 → target 서브트리 "뒤"
+      insertAt += 1 + flattenTree(target.children).length;
+    }
+    rest.splice(insertAt, 0, ...group);
+
+    get().setBlocksFromContent(rest.map(b => b.content).join('\n'), get().ownerTabId ?? undefined);
   },
 }));

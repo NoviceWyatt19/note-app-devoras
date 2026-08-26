@@ -3,7 +3,7 @@ import { EditorState } from '@codemirror/state';
 import { RangeSetBuilder } from '@codemirror/state';
 import { SyntaxDecorator } from '../types';
 import { useWorkspaceStore } from '@/entities/workspace/model/store';
-import { invoke } from '@tauri-apps/api/core';
+import { convertFileSrc } from '@tauri-apps/api/core';
 
 const IMG_RE = /!\[([^\]\n]*)\]\(([^)\n]+)\)/g;
 
@@ -37,27 +37,14 @@ class ImageWidget extends WidgetType {
       view.requestMeasure();
     };
 
-    // 외부 URL이면 그대로 사용, 로컬이면 Rust 커맨드로 Base64 요청
-    if (this.src.startsWith('http://') || this.src.startsWith('https://') || this.src.startsWith('data:')) {
+    // 외부 URL이면 그대로 사용, 로컬이면 Tauri asset:// 프로토콜 사용
+    if (this.src.startsWith('http://') || this.src.startsWith('https://') || this.src.startsWith('data:') || this.src.startsWith('asset:')) {
       img.src = this.src;
       img.classList.remove('opacity-0');
     } else {
       const absPath = this.src.startsWith('/') ? this.src : `${workspacePath}/${this.src}`;
-      
-      invoke<string>('read_image_base64', { path: absPath })
-        .then((dataUrl) => {
-          img.src = dataUrl;
-          img.classList.remove('opacity-0');
-        })
-        .catch((err) => {
-          console.error('[ImageDecorator] 렌더링 실패:', err);
-          const fallback = document.createElement('span');
-          fallback.className = 'cm-image-fallback';
-          fallback.textContent = `🖼 ${this.alt || '이미지'}`;
-          fallback.style.cssText = 'color:#888;font-size:0.85em;display:inline-block;padding:2px 6px;background:#1e1e1e;border-radius:3px;';
-          if (wrap.contains(img)) wrap.replaceChild(fallback, img);
-          view.requestMeasure();
-        });
+      img.src = convertFileSrc(absPath);
+      img.classList.remove('opacity-0');
     }
 
     return wrap;
