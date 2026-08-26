@@ -230,3 +230,8 @@ dist
 # Ignore all local history of files
 .history
 .ionide
+
+# IDE & Tooling
+.claude/
+.mcp.json
+.serena/
