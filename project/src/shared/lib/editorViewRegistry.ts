@@ -53,3 +53,13 @@ export function getActiveEditorView(): EditorView | null {
 if (typeof window !== 'undefined') {
   (window as any).__getActiveEditorView = getActiveEditorView;
 }
+
+if (typeof window !== 'undefined') {
+  (window as any).__dumpRegistryState = () => {
+    return {
+      activePaneId: useDocumentStore.getState().activePaneId,
+      caretHolder: Array.from(caretHolder.entries()),
+      registryKeys: Array.from(registry.keys()),
+    };
+  };
+}

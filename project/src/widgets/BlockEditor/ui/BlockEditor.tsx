@@ -118,16 +118,6 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
     callbacksRef.current = { onFocusPrev, onFocusNext, onMerge, onUpdate, paneId, blockId: block.id };
   });
 
-  React.useLayoutEffect(() => {
-    if (viewRef.current) {
-      // Re-register if paneId or blockId changes
-      registerEditorView(paneId, block.id, viewRef.current);
-    }
-    return () => {
-      unregisterEditorView(paneId, block.id);
-    };
-  }, [paneId, block.id]);
-
   const isImeComposingRef = useImeInputManager();
 
   // 설정 변경 시 컴파트먼트 재구성
@@ -242,6 +232,18 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
       viewRef.current = null;
     };
   }, [paneId]); // block.id 의존성 제거 (G0: ID 변동에 의한 뷰 파괴 방지)
+
+  // 뷰 생성 이펙트(위) 이후에 실행되어야 viewRef.current 가 채워진 상태로 등록된다.
+  // 이 이펙트를 생성 이펙트보다 먼저 선언하면 최초 마운트 시 registerEditorView 가
+  // viewRef.current === null 인 채로 스킵되어 레지스트리가 영구히 비게 된다.
+  React.useLayoutEffect(() => {
+    if (viewRef.current) {
+      registerEditorView(paneId, block.id, viewRef.current);
+    }
+    return () => {
+      unregisterEditorView(paneId, block.id);
+    };
+  }, [paneId, block.id]);
 
   useEffect(() => {
     const view = viewRef.current;
