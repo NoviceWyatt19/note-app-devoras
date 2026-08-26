@@ -36,7 +36,7 @@ class ImageWidget extends WidgetType {
     img.src = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
     img.alt = this.alt;
     img.className = 'cm-image-preview transition-opacity duration-200 opacity-0';
-    img.style.cssText = 'max-width:100%;max-height:300px;border-radius:4px;margin:4px 0;display:block;cursor:default;';
+    img.style.cssText = 'max-width:100%;max-height:300px;min-height:48px;border-radius:4px;margin:4px 0;display:block;cursor:default;';
     img.draggable = false;
 
     if (this.titleSpec) {

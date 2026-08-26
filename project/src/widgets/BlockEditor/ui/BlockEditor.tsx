@@ -18,6 +18,14 @@ import { oneDark } from '@codemirror/theme-one-dark';
 import { FileEdit } from 'lucide-react';
 import { FormatToolbar } from './FormatToolbar';
 import { ReadView, renderBlockToHtml } from './ReadView';
+import { getScrollParent } from '@/shared/lib/scrollUtils';
+
+let pendingScrollAnchor: {
+  scrollContainer: HTMLElement;
+  oldRectTop: number;
+  element: HTMLElement;
+} | null = null;
+
 import { setActiveEditorView, getActiveEditorView } from '@/shared/lib/activeEditorView';
 import { useTauriInputManager } from '@/shared/lib/editor/useTauriInputManager';
 import { useImeInputManager } from '@/shared/lib/editor/useImeInputManager';
@@ -129,7 +137,7 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
     });
   }, [settings.editor.lineWrapping, settings.editor.fontFamily, settings.editor.fontSize]);
 
-  useEffect(() => {
+  React.useLayoutEffect(() => {
     if (!containerRef.current) return;
 
     const blockKeymap = keymap.of([
@@ -175,6 +183,7 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
 
     const state = EditorState.create({
       doc: block.content,
+      selection: { anchor: Math.min(focusOffset, block.content.length) },
       extensions: [
         markdown({ codeLanguages: matchFenceLanguage }),
         lineWrappingCompartment.of(settings.editor.lineWrapping ? EditorView.lineWrapping : []),
@@ -242,19 +251,23 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
     }
   }, [block.content]);
 
-  useEffect(() => {
+  React.useLayoutEffect(() => {
     const view = viewRef.current;
     if (!view || !isFocused) return;
     const length = view.state.doc.length;
     const targetOffset = Math.min(focusOffset, length);
-    if (!view.hasFocus) {
-      view.focus();
-    }
+    
+    // D-3: dispatch before focus, no scrollIntoView
     const currentAnchor = view.state.selection.main.anchor;
     if (currentAnchor !== targetOffset) {
       view.dispatch({
         selection: { anchor: targetOffset, head: targetOffset },
+        scrollIntoView: false
       });
+    }
+
+    if (!view.hasFocus) {
+      view.focus();
     }
   }, [isFocused, focusOffset]);
 
@@ -283,6 +296,7 @@ const BlockNode = React.memo<{
   handleFocusMove: (id: string, direction: 'prev' | 'next') => void;
 }>(({ block, activeBlockId, focusOffset, handleBlockUpdate, handleMerge, focusBlock, handleFocusMove }) => {
   
+  const containerRef = useRef<HTMLDivElement>(null);
   const getLevelStyles = (level: number) => {
     switch(level) {
       case 1: 
@@ -299,11 +313,53 @@ const BlockNode = React.memo<{
   const { workspacePath } = useWorkspaceStore();
   const isFocused = activeBlockId === block.id;
 
+  const handleBlockClick = () => {
+    if (isFocused) return;
+    window.getSelection()?.removeAllRanges(); // D-4
+    
+    if (containerRef.current) {
+      const scrollParent = getScrollParent(containerRef.current);
+      if (scrollParent) {
+        pendingScrollAnchor = {
+          scrollContainer: scrollParent,
+          oldRectTop: containerRef.current.getBoundingClientRect().top,
+          element: containerRef.current,
+        };
+      }
+    }
+    focusBlock(block.id, block.content.length);
+  };
+
+  React.useLayoutEffect(() => {
+    if (pendingScrollAnchor && pendingScrollAnchor.element === containerRef.current) {
+      const { scrollContainer, oldRectTop, element } = pendingScrollAnchor;
+      
+      const correctScroll = () => {
+        const newRectTop = element.getBoundingClientRect().top;
+        const diff = newRectTop - oldRectTop;
+        if (Math.abs(diff) > 0) {
+          scrollContainer.scrollTop += diff;
+        }
+      };
+
+      correctScroll();
+
+      const images = element.querySelectorAll('img');
+      images.forEach(img => {
+        if (!img.complete) {
+          img.addEventListener('load', correctScroll, { once: true });
+        }
+      });
+      pendingScrollAnchor = null;
+    }
+  });
+
   return (
     <div className={`block-node-wrapper transition-colors duration-200 ${getLevelStyles(block.level)}`}>
       <div 
+        ref={containerRef}
         className={block.level === 1 ? 'pb-3 mb-5 border-b-2 border-darkBorder/40' : ''}
-        onClick={() => !isFocused && focusBlock(block.id, block.content.length)}
+        onClick={handleBlockClick}
       >
         {isFocused ? (
           <CodeMirrorBlock
@@ -318,7 +374,7 @@ const BlockNode = React.memo<{
           />
         ) : (
           <div 
-            className="rv-content cursor-text"
+            className="rv-content cursor-text py-1"
             dangerouslySetInnerHTML={{
               __html: renderBlockToHtml(block.content, workspacePath),
             }}

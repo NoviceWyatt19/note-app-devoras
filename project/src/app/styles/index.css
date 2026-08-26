@@ -148,7 +148,7 @@
 .rv-content hr { border: none; border-top: 1px solid #272a37; margin: 1rem 0; }
 
 /* Images */
-.rv-content img { max-width: 100%; border-radius: 8px; margin: 0.5rem 0; }
+.rv-content img { max-width: 100%; border-radius: 8px; margin: 0.5rem 0; min-height: 48px; }
 
 /* 이미지 커스텀 속성 문법: ![alt | ["title":"제목","title-position":"top"]](경로)
  * width:fit-content 로 figure 를 실제 이미지 폭에 맞춰야 캡션이 이미지 기준으로
