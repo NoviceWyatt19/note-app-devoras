@@ -1,0 +1,89 @@
+# 🎫 SESSION SNAPSHOT TICKET
+type: "SESSION_SNAPSHOT"
+id: "SESS-20260826-01"
+# ━━━
+update: "2026-08-26 18:10"
+project_ref: "PRJ-DEVORAS-MVP"
+# ━━━
+subject: "코어 소스 코드 리뷰 → 문서 통합 → P0·P1 티켓 14건 분리 → DEBUG_PLAN 재작성"
+# ━━━
+context: "v0.8.2 기준으로 코어 전 영역을 리뷰해 P0 6건·P1 8건·P2 8건을 도출하고, 흩어진 리뷰/최적화 문서를 루트로 통합한 뒤, 현재 코드로 전수 재검증하여 유효한 항목만 개별 티켓으로 분리했다. 이후 B1 배치(데이터 보호 3건)가 31a5283(v0.8.6)으로 반영되었으나 DoD 검증은 미완이다 — 다음 세션의 첫 작업은 B1 검증 마무리, 그다음이 B2(보안)다."
+# ━━━
+state:
+  branch: "main"
+  head: "31a5283"
+  version: "0.8.6 (B1 반영 커밋 31a5283 에서 bump)"
+  session_commits:
+    - "36804dc chore(0.8.3): 코드 리뷰·렌더링 최적화 문서를 루트로 통합하고 중복 문서 제거"
+    - "936c982 chore(0.8.5): P0·P1 결함을 티켓 14건으로 분리하고 DEBUG_PLAN 재작성"
+  not_by_this_session:
+    - "843ff42 (0.8.4) / 6c6fab0 / 091ee49 (0.8.5) — 사용자가 병행 작업한 실제 코드 수정"
+    - "31a5283 (0.8.6) — B1 배치 구현(BUG-04·06·07). 본 세션 종료 후 반영됨"
+# ━━━
+decisions:
+  - "리뷰 문서 단일화: 루트 code_review.md 하나만 정본. project/CODE_REVIEW.md 는 통합 후 삭제(macOS 대소문자 비구분이라 루트에 CODE_REVIEW.md 를 새로 만들면 기존 파일을 덮어씀 — 반드시 code_review.md 이름 유지)."
+  - "advanced_rendering_optimization.md 도 루트 단일본으로 통합(ticket/impl 판 + project 판 병합), §5 에 현재 코드의 메모리 이슈 연결 지점 신설."
+  - "티켓은 .yml 필수(ticket/reference/new_ticket_templates.md §1). 파일명 [YYYYMMDD_HHMM]_[주제].yml, ID 는 BUG-/REF-[YYYYMMDD]-[순번]."
+  - "Implement/Debug 티켓은 harness 필드(경로·실행 명령·검증 케이스) 필수(템플릿 §3). 실행은 node --experimental-strip-types <path>."
+  - "리뷰 시점(v0.8.2)과 현재 코드(v0.8.5)의 라인 번호가 다르므로, 티켓 작성 전 전수 재검증을 거쳤다. 이후 작업도 동일하게 현재 코드 기준으로 재확인할 것."
+  - "해결 완료 항목도 Done 티켓으로 ticket/hist/debug/ 에 보존(회귀 방지 + resolved_by 커밋 기록)."
+# ━━━
+verification_result:
+  resolved_by_user_commits:
+    - "P0-2 openTab 캐시 우회 → 843ff42 (_snapshotActiveTab, 캐시 우선 복원, openSeq)"
+    - "P0-4 디바운스 교차 오염 → 843ff42 (useDebouncedCallback + flush + ownerTabId 가드)"
+    - "P0-6 드래그 재정렬 손상 → 843ff42 (서브트리 이동 + 경계/자손 가드 + 자동저장 제거)"
+    - "P1-8 이미지 base64 인라인 → 843ff42 + 091ee49 (convertFileSrc + asset scope dot 허용)"
+  still_open: "P0-1, P0-3(범위 축소), P0-5, P1-1 ~ P1-7 = 총 10건"
+# ━━━
+tasks:
+  completed:
+    - "code_review.md (루트) — 1·2차 리뷰 통합, 이행현황 23항목, 부록A 해결 아카이브, 부록B 중복파일 점검"
+    - "advanced_rendering_optimization.md (루트) — 2개 초안 통합 + 현재 메모리 이슈 연결"
+    - "project/DEBUG_PLAN.md — 티켓 인덱스 + 4배치 + 의존관계 + 회귀체크 R1~R6 (링크 16건 검증 완료)"
+    - "ticket/debug/20260826_1740_*.yml 8건 (BUG-20260826-01/04/06/07/08/09/10/11)"
+    - "ticket/refactor/20260826_1740_*.yml 2건 (REF-20260826-01/02)"
+    - "ticket/hist/debug/20260826_1740_*.yml 4건 (Done 아카이브)"
+    - "claude-history/debug/DEBUG_PLAN_20260826_174031.md 아카이브 이동"
+    - "[B1] 데이터 보호 3건 — **수행 완료 및 확인필요** (31a5283, v0.8.6). 구현 반영 확인, DoD 검증 미완 → 아래 b1_verification 참조"
+  pending:
+    - "B1 검증 마무리(하네스 3종) — 위 b1_verification.next_action"
+    - "B2 보안 — BUG-20260826-01 (dompurify + CSP + Rust 경로검증 + scope 축소)"
+    - "B3 입력 안정성 — BUG-08 → BUG-11 순서 준수, BUG-09, BUG-10"
+    - "B4 구조 — REF-01(1단계 prop 주입 → 2단계 Context) → REF-02"
+    - "P2 8건은 티켓 미분리 상태 (code_review.md §P2 참조)"
+    - "trouble_hangul.md 삭제가 워킹트리에 미커밋 상태로 남아 있음 (이번 세션 소관 아님)"
+# ━━━
+b1_verification:
+  status: "수행 완료 및 확인필요"
+  commit: "31a5283 fix(0.8.6): B1 사용자 데이터 보호 결함 일괄 해소 (BUG-04, BUG-06, BUG-07)"
+  code_confirmed:
+    - "BUG-04 → pages/WorkspacePage/lib/confirmClose.ts 신설(confirmDiscardIfDirty, hasDirtyTabs), WorkspacePage.tsx:68(Cmd+W)·309(탭 X) 적용, App.tsx:67 onCloseRequested 등록"
+    - "BUG-06 → shared/lib/path.ts 신설(isSameOrInside, rebasePath), document/model/store.ts 에서 startsWith(oldPath) 전량 대체 확인"
+    - "BUG-07 → TabItem.savedContent 필드 추가(:23), loadFile 계열에서 기준선 세팅(:215), 판정식이 content !== (activeTab?.savedContent ?? rawContent) 로 교체(:527)"
+  not_yet_verified:
+    - "티켓이 명시한 하네스 3종 미작성 — tab_close_guard_harness.ts / path_harness.ts / dirty_baseline_harness.ts 전부 부재"
+    - "수동 시나리오 미수행 — dirty 탭 Cmd+W 취소 시 내용 유지, 유사 이름 형제 파일 폴더 리네임/삭제, Undo 로 원문 복귀 시 dirty 해제"
+    - "savedContent 가 TabCache 스냅샷/복원(_snapshotActiveTab) 경로에서 유실되지 않는지 미확인"
+    - "31a5283 이 capabilities/default.json 을 함께 수정(+4줄) — B1 범위 밖 변경이므로 의도 확인 필요"
+  next_action: "위 하네스 3종 작성 → 통과 시 BUG-20260826-04/06/07 티켓 status 를 Done 으로 변경하고 ticket/hist/debug/ 로 이관"
+# ━━━
+constraints:
+  - "커밋 전 패치 버전업 필수(.agents/AGENTS.md) — package.json / Cargo.toml / tauri.conf.json + Cargo.lock 의 devoras 항목까지 4곳. 단, 코드 변경이 없는 문서 커밋은 사용자 판단으로 생략 가능(936c982 선례)."
+  - "커밋 메시지: '속성(현재버전): 설명' + 티켓 ID 포함. 예) fix(0.8.6): dirty 탭 종료 가드 추가 (BUG-20260826-04)"
+  - "tauri.conf.json 의 requireLiteralLeadingDot:false 는 .devoras/ 이미지 렌더링의 전제 조건 — BUG-01 에서 scope 를 좁히더라도 이 옵션은 절대 되돌리지 말 것."
+  - "tauri.conf.json 은 컴파일 타임에 바이너리로 인라인됨 — 설정 변경 시 반드시 Rust 재빌드."
+  - "BUG-07 과 REF-01 은 document/model/store.ts 의 updateContent 계열을 함께 건드림 → BUG-07 을 먼저 끝낼 것."
+  - "REF-01 1단계는 advanced_rendering_optimization.md Phase 1(상태 스냅샷)과 동일 지점 → 인터페이스를 한 번만 설계."
+# ━━━
+data:
+  entry_points:
+    plan: "project/DEBUG_PLAN.md"
+    review: "code_review.md"
+    rendering: "advanced_rendering_optimization.md"
+    ticket_rules: "ticket/reference/new_ticket_templates.md"
+    project_rules: ".agents/AGENTS.md"
+  open_findings_not_ticketed:
+    - "reference_project/erd_design/src/settings.ts(121줄) vs project/src/entities/erd/model/settings.ts(17줄) — 이식 누락 여부 확인 필요"
+    - ".serena/project.yml 이 루트와 project/ 에 중복 (project_name 만 상이)"
+  notes: "P2 항목(전체 스토어 구독 리렌더, memo 무력화, renderBlockToHtml 재파싱, codeContent O(N²), generateId Math.random, 미종료 펜스 붕괴, Rust unwrap, ImageDecorator 사문화 코드)은 code_review.md 에만 존재하고 티켓화되지 않음."
