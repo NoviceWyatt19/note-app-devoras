@@ -45,15 +45,24 @@ function deriveBlockKey(
 ): string {
   const firstLine = content.split('\n')[0];
   const parsed = parseHeadingLine(firstLine);
-  if (!parsed) return firstLine; // non-heading block — use raw first line
-
+  
   let parentKey: string | null = null;
+  const effectiveLevel = parsed ? parsed.level : 999;
+  
   for (let i = parentKeyStack.length - 1; i >= 0; i--) {
-    if (parentKeyStack[i].level < parsed.level) {
+    if (parentKeyStack[i].level < effectiveLevel) {
       parentKey = parentKeyStack[i].key;
       break;
     }
   }
+
+  if (!parsed) {
+    const parentId = parentKey || 'root';
+    const index = (siblingCountMap[parentId] || 0) + 1;
+    siblingCountMap[parentId] = index;
+    return `${parentId}-textblock-${index}`;
+  }
+
   return buildHeadingId(parsed.label, parentKey, siblingCountMap);
 }
 

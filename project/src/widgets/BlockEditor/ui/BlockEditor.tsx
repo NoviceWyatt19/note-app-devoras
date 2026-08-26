@@ -110,13 +110,23 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
-  const callbacksRef = useRef({ onFocusPrev, onFocusNext, onMerge, onUpdate });
+  const callbacksRef = useRef({ onFocusPrev, onFocusNext, onMerge, onUpdate, paneId, blockId: block.id });
 
   const { settings } = useSettingsStore();
 
   useEffect(() => {
-    callbacksRef.current = { onFocusPrev, onFocusNext, onMerge, onUpdate };
+    callbacksRef.current = { onFocusPrev, onFocusNext, onMerge, onUpdate, paneId, blockId: block.id };
   });
+
+  React.useLayoutEffect(() => {
+    if (viewRef.current) {
+      // Re-register if paneId or blockId changes
+      registerEditorView(paneId, block.id, viewRef.current);
+    }
+    return () => {
+      unregisterEditorView(paneId, block.id);
+    };
+  }, [paneId, block.id]);
 
   const isImeComposingRef = useImeInputManager();
 
@@ -203,7 +213,7 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
         }),
         EditorView.updateListener.of((update) => {
           if (update.focusChanged && update.view.hasFocus) {
-            reportCaretFocus(paneId, block.id);
+            reportCaretFocus(callbacksRef.current.paneId, callbacksRef.current.blockId);
           }
 
           if (!update.docChanged) return;
@@ -226,14 +236,12 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
 
     const view = new EditorView({ state, parent: containerRef.current });
     viewRef.current = view;
-    registerEditorView(paneId, block.id, view);
 
     return () => {
       view.destroy();
       viewRef.current = null;
-      unregisterEditorView(paneId, block.id);
     };
-  }, [paneId, block.id]);
+  }, [paneId]); // block.id 의존성 제거 (G0: ID 변동에 의한 뷰 파괴 방지)
 
   useEffect(() => {
     const view = viewRef.current;
