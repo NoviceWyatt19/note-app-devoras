@@ -4,19 +4,26 @@ import { RangeSetBuilder } from '@codemirror/state';
 import { SyntaxDecorator } from '../types';
 import { useWorkspaceStore } from '@/entities/workspace/model/store';
 import { convertFileSrc } from '@tauri-apps/api/core';
+import { parseLabelAttrs, readTitleSpec, TitleSpec } from '@/shared/lib/markdown/inlineAttrs';
 
-const IMG_RE = /!\[([^\]\n]*)\]\(([^)\n]+)\)/g;
+// 라벨 안에 속성 블록(`| ["title":"..."]`)이 들어가므로 대괄호 1단계 중첩을 허용한다.
+// 기존 `[^\]\n]*` 는 첫 ']' 에서 끊겨 새 문법 이미지를 아예 매칭하지 못했다.
+const IMG_RE = /!\[((?:[^[\]\n]|\[[^[\]\n]*\])*)\]\(([^)\n]+)\)/g;
 
 class ImageWidget extends WidgetType {
   constructor(
     private readonly src: string,
     private readonly alt: string,
+    private readonly titleSpec: TitleSpec | null,
   ) {
     super();
   }
 
   eq(other: ImageWidget): boolean {
-    return other.src === this.src && other.alt === this.alt;
+    return other.src === this.src
+      && other.alt === this.alt
+      && other.titleSpec?.title === this.titleSpec?.title
+      && other.titleSpec?.position === this.titleSpec?.position;
   }
 
   toDOM(view: EditorView): HTMLElement {
@@ -31,7 +38,21 @@ class ImageWidget extends WidgetType {
     img.className = 'cm-image-preview transition-opacity duration-200 opacity-0';
     img.style.cssText = 'max-width:100%;max-height:300px;border-radius:4px;margin:4px 0;display:block;cursor:default;';
     img.draggable = false;
-    wrap.appendChild(img);
+
+    if (this.titleSpec) {
+      const caption = document.createElement('span');
+      caption.className = `cm-image-caption cm-image-caption-${this.titleSpec.position}`;
+      caption.textContent = this.titleSpec.title;
+      if (this.titleSpec.position === 'top') {
+        wrap.appendChild(caption);
+        wrap.appendChild(img);
+      } else {
+        wrap.appendChild(img);
+        wrap.appendChild(caption);
+      }
+    } else {
+      wrap.appendChild(img);
+    }
 
     img.onload = () => {
       view.requestMeasure();
@@ -73,8 +94,9 @@ export class ImageDecorator implements SyntaxDecorator {
       while ((m = IMG_RE.exec(text)) !== null) {
         const matchStart = lineFrom + m.index;
         const matchEnd = matchStart + m[0].length;
-        const alt = m[1];
+        const { label: alt, attrs } = parseLabelAttrs(m[1]);
         const src = m[2];
+        const titleSpec = readTitleSpec(attrs);
 
         if (cursorHead >= matchStart && cursorHead <= matchEnd) {
           pos = line.to + 1;
@@ -84,7 +106,7 @@ export class ImageDecorator implements SyntaxDecorator {
           from: matchStart,
           to: matchEnd,
           deco: Decoration.replace({
-            widget: new ImageWidget(src, alt),
+            widget: new ImageWidget(src, alt, titleSpec),
             block: false,
           }),
         });

@@ -66,7 +66,9 @@
   font-size: 0.4em; /* shrink the &nbsp; character to near-invisible */
 }
 
-.rv-content h1 { font-size: 1.5rem; font-weight: 700; color: #f1f5f9; margin: 0.75rem 0 0.5rem; line-height: 1.3; }
+/* H1: 문서 컨테이너 기준 가운데 정렬 + 고정 35px.
+ * Write Mode 의 .cm-h1 / .cm-h1-line 과 값을 반드시 일치시킬 것. */
+.rv-content h1 { font-size: 35px; font-weight: 700; color: #f1f5f9; margin: 0.75rem 0 0.5rem; line-height: 1.3; text-align: center; }
 .rv-content h2 { font-size: 1.25rem; font-weight: 600; color: #e2e8f0; margin: 0.625rem 0 0.4rem; line-height: 1.35; }
 .rv-content h3 { font-size: 1.05rem; font-weight: 600; color: #cbd5e1; margin: 0.5rem 0 0.35rem; }
 .rv-content h4,
@@ -148,6 +150,24 @@
 /* Images */
 .rv-content img { max-width: 100%; border-radius: 8px; margin: 0.5rem 0; }
 
+/* 이미지 커스텀 속성 문법: ![alt | ["title":"제목","title-position":"top"]](경로)
+ * width:fit-content 로 figure 를 실제 이미지 폭에 맞춰야 캡션이 이미지 기준으로
+ * 가운데 정렬된다. (컨테이너 폭 기준으로 정렬하면 좁은 이미지에서 캡션이 떠 보임) */
+.rv-content .rv-figure {
+  width: fit-content;
+  max-width: 100%;
+  margin: 0.5rem 0;
+}
+.rv-content .rv-figure img { margin: 0; }
+.rv-content .rv-figure-caption {
+  font-size: 0.85em;
+  color: #94a3b8;
+  text-align: center;
+  line-height: 1.5;
+}
+.rv-content .rv-figure-caption-top    { margin-bottom: 0.35rem; }
+.rv-content .rv-figure-caption-bottom { margin-top: 0.35rem; }
+
 /* Highlight (==text== → <mark>) */
 .rv-content mark {
   background: rgba(234, 179, 8, 0.18);
@@ -169,7 +189,9 @@
   font-weight: 800;
   user-select: none;
 }
-.cm-h1 { font-size: 1.5em; line-height: 1.4; }
+.cm-h1 { font-size: 35px; line-height: 1.4; }
+/* H1 라인 전체 가운데 정렬 (HeadingDecorator 의 Decoration.line) */
+.cm-editor .cm-h1-line { text-align: center; }
 .cm-h2 { font-size: 1.25em; line-height: 1.4; }
 .cm-h3 { font-size: 1.1em; color: #e2e8f0; line-height: 1.4; }
 .cm-h4, .cm-h5, .cm-h6 { font-size: 1em; color: #cbd5e1; line-height: 1.4; }
@@ -223,3 +245,16 @@
   width: 100%;
 }
 
+
+/* Write Mode 이미지 캡션 (ImageDecorator 의 ImageWidget) */
+.cm-image-widget { display: inline-block; max-width: 100%; }
+.cm-image-caption {
+  display: block;
+  font-size: 0.85em;
+  color: #94a3b8;
+  text-align: center;
+  line-height: 1.5;
+  user-select: none;
+}
+.cm-image-caption-top    { margin-bottom: 0.2rem; }
+.cm-image-caption-bottom { margin-top: 0.2rem; }

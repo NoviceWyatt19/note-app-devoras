@@ -160,6 +160,14 @@ const decorationBaseTheme = EditorView.baseTheme({
   '&.cm-editor .cm-code-block-widget-line br': {
     display: 'none',
   },
+  '&.cm-editor .cm-code-block-header': {
+    fontSize: '12px',
+    lineHeight: '1.5',
+  },
+  '&.cm-editor .cm-cb-lang': { fontSize: '11px' },
+  '&.cm-editor .cm-cb-title': { fontSize: '12px' },
+  '&.cm-editor .cm-cb-copied': { fontSize: '10px' },
+  '&.cm-editor .cm-image-caption': { fontSize: '0.85em', lineHeight: '1.5' },
   '&.cm-editor .cm-code-block-bottom': {
     borderBottomLeftRadius: '0.75rem',
     borderBottomRightRadius: '0.75rem',

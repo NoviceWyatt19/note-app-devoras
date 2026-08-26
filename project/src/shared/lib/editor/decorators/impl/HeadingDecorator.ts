@@ -39,6 +39,13 @@ export class HeadingDecorator implements SyntaxDecorator {
         
         const markerEnd = line.from + level + 1; // '#'s + space
 
+        // H1 가운데 정렬은 text-align 이라 mark(inline)로는 적용되지 않는다.
+        // 라인 전체에 걸리는 line decoration 이 필요하다.
+        // RangeSetBuilder 는 from 오름차순만 허용하므로 이 라인의 다른 데코보다 먼저 넣는다.
+        if (level === 1) {
+          builder.add(line.from, line.from, Decoration.line({ class: 'cm-h1-line' }));
+        }
+
         // Cursor-aware: if cursor is on this line, don't hide marker
         if (line.number === doc.lineAt(cursorHead).number) {
             builder.add(line.from, line.to, Decoration.mark({ class: `cm-heading cm-h${level}` }));

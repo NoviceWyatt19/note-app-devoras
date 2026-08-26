@@ -234,14 +234,14 @@ class CodeBlockHeaderWidget extends WidgetType {
     wrap.className = 'cm-code-block-header flex items-center justify-between px-4 py-1.5 bg-[#141520] border-b border-white/5 select-none w-full box-border rounded-t-xl border-t border-l border-r border-white/5 relative';
     
     const langSpan = document.createElement('span');
-    langSpan.className = 'text-[11px] font-mono text-slate-400 uppercase tracking-wider';
+    langSpan.className = 'cm-cb-lang font-mono text-slate-400 uppercase tracking-wider';
     langSpan.textContent = this.lang || 'plaintext';
     
     wrap.appendChild(langSpan);
 
     if (this.title) {
       const titleSpan = document.createElement('span');
-      titleSpan.className = 'text-[12px] font-medium text-slate-300 absolute left-1/2 -translate-x-1/2';
+      titleSpan.className = 'cm-cb-title font-medium text-slate-300 absolute left-1/2 -translate-x-1/2';
       titleSpan.textContent = this.title;
       wrap.appendChild(titleSpan);
     }
@@ -251,7 +251,7 @@ class CodeBlockHeaderWidget extends WidgetType {
     btn.title = 'Copy';
     btn.dataset.code = this.code;
     btn.innerHTML = `
-      <span class="text-[10px] copy-feedback hidden">Copied!</span>
+      <span class="cm-cb-copied copy-feedback hidden">Copied!</span>
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
     `;
     

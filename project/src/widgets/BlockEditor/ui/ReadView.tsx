@@ -7,6 +7,7 @@ import { useDocumentStore } from '@/entities/document/model/store';
 import { useWorkspaceStore } from '@/entities/workspace/model/store';
 import { useSettingsStore } from '@/entities/settings/model/store';
 import { parseCodeFenceInfo } from '@/shared/lib/markdown/codeFenceInfo';
+import { parseLabelAttrs, readTitleSpec } from '@/shared/lib/markdown/inlineAttrs';
 
 // ---------------------------------------------------------------------------
 // Marked instance (module-level singleton)
@@ -27,6 +28,25 @@ const markedParser = new Marked({ gfm: true, breaks: true });
 
 markedParser.use({
   renderer: {
+    /** Devoras 확장 이미지 문법:
+     *  ![alt | ["title":"제목", "title-position":"top"]](경로)
+     *  속성 블록이 없으면 기존 마크다운과 동일하게 <img> 만 출력한다. */
+    image(token) {
+      const { label: alt, attrs } = parseLabelAttrs(token.text);
+      const titleSpec = readTitleSpec(attrs);
+
+      const imgTag = `<img src="${escapeHtml(token.href)}" alt="${escapeHtml(alt)}">`;
+      if (!titleSpec) return imgTag;
+
+      const caption =
+        `<figcaption class="rv-figure-caption rv-figure-caption-${titleSpec.position}">` +
+        `${escapeHtml(titleSpec.title)}</figcaption>`;
+
+      return titleSpec.position === 'top'
+        ? `<figure class="rv-figure">${caption}${imgTag}</figure>`
+        : `<figure class="rv-figure">${imgTag}${caption}</figure>`;
+    },
+
     code(token) {
       const { text, lang } = token;
 

@@ -17,9 +17,7 @@ import {
 } from 'lucide-react';
 import { useSettingsStore } from '@/entities/settings/model/store';
 import { SettingsModal } from '@/widgets/SettingsModal/ui/SettingsModal';
-import { confirmDiscardIfDirty, hasDirtyTabs } from './lib/confirmClose';
-import { getCurrentWindow } from '@tauri-apps/api/window';
-import { ask } from '@tauri-apps/plugin-dialog';
+import { confirmDiscardIfDirty } from './lib/confirmClose';
 
 export const WorkspacePage: React.FC = () => {
   const [sidebarWidth, setSidebarWidth] = useState(250);

@@ -72,6 +72,28 @@ interface CodeMirrorBlockProps {
   onSelect: (offset: number) => void;
 }
 
+function createEditorTheme(settingsEditor: any) {
+  return EditorView.theme({
+    '&': { background: 'transparent !important', height: 'auto' },
+    '.cm-scroller': {
+      fontFamily: settingsEditor.fontFamily,
+      fontSize: `${settingsEditor.fontSize}px`,
+      overflow: 'hidden',
+      minWidth: '0',
+    },
+    '.cm-content': { caretColor: '#6366f1', padding: '4px 0', minWidth: '0' },
+    '.cm-line': { padding: '0 4px' },
+    '.cm-line *': {
+      fontSize: 'inherit',
+      lineHeight: 'inherit',
+      verticalAlign: 'baseline',
+    },
+    '.cm-widgetBuffer': { fontSize: 'inherit' },
+    '&.cm-focused .cm-cursor': { borderLeftColor: '#6366f1' },
+    '&.cm-focused': { outline: 'none' },
+  });
+}
+
 const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBlock({
   block,
   isFocused,
@@ -102,25 +124,7 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
     view.dispatch({
       effects: [
         lineWrappingCompartment.reconfigure(settings.editor.lineWrapping ? EditorView.lineWrapping : []),
-        editorThemeCompartment.reconfigure(EditorView.theme({
-          '&': { background: 'transparent !important', height: 'auto' },
-          '.cm-scroller': {
-            fontFamily: settings.editor.fontFamily,
-            fontSize: `${settings.editor.fontSize}px`,
-            overflow: 'hidden',
-            minWidth: '0',
-          },
-          '.cm-content': { caretColor: '#6366f1', padding: '4px 0', minWidth: '0' },
-          '.cm-line': { padding: '0 4px' },
-          '.cm-line *': {
-            fontSize: 'inherit',
-            lineHeight: 'inherit',
-            verticalAlign: 'baseline',
-          },
-          '.cm-widgetBuffer': { fontSize: 'inherit' },
-          '&.cm-focused .cm-cursor': { borderLeftColor: '#6366f1' },
-          '&.cm-focused': { outline: 'none' },
-        }))
+        editorThemeCompartment.reconfigure(createEditorTheme(settings.editor))
       ]
     });
   }, [settings.editor.lineWrapping, settings.editor.fontFamily, settings.editor.fontSize]);
@@ -212,25 +216,7 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
             update.state.selection.main.anchor,
           );
         }),
-        editorThemeCompartment.of(EditorView.theme({
-          '&': { background: 'transparent !important', height: 'auto' },
-          '.cm-scroller': {
-            fontFamily: settings.editor.fontFamily,
-            fontSize: `${settings.editor.fontSize}px`,
-            overflow: 'hidden',
-            minWidth: '0',
-          },
-          '.cm-content': { caretColor: '#6366f1', padding: '4px 0', minWidth: '0' },
-          '.cm-line': { padding: '0 4px' },
-          '.cm-line *': {
-            fontSize: 'inherit',
-            lineHeight: 'inherit',
-            verticalAlign: 'baseline',
-          },
-          '.cm-widgetBuffer': { fontSize: 'inherit' },
-          '&.cm-focused .cm-cursor': { borderLeftColor: '#6366f1' },
-          '&.cm-focused': { outline: 'none' },
-        })),
+        editorThemeCompartment.of(createEditorTheme(settings.editor)),
       ],
     });
 
