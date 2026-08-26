@@ -1,0 +1,43 @@
+# 🐛 FIX TICKET
+type: "FIX_TICKET"
+id: "BUG-20260827-01"
+# ━━━
+update: "2026-08-27 05:30"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "G0 커밋(c5a8e2e)의 useLayoutEffect 순서 오류로 EditorView 레지스트리가 영구 미등록되어 FormatToolbar·이미지 붙여넣기가 전면 무력화됨"
+status: "Done"
+severity: "P0"
+review_ref: "DEBUG_PLAN.md G2 R5 실기 검증 (T3, tauri-plugin-mcp-bridge)"
+verified_at: "v0.8.12"
+# ━━━
+bug_report:
+  symptom: "정상적으로 문서를 열고 블록을 클릭/포커스해도 FormatToolbar 의 굵게/기울임/취소선/링크 버튼이 아무 동작도 하지 않는다. 이미지 붙여넣기(Cmd+V)도 동일한 원인으로 무음 실패한다. window.__dumpRegistryState() 로 확인하면 registryKeys 가 문서를 아무리 조작해도 항상 빈 배열이다."
+  cause: >
+    c5a8e2e 에서 추가된 registerEditorView/unregisterEditorView useLayoutEffect 가
+    EditorView 를 생성하는 useLayoutEffect 보다 소스상 먼저 선언되어 있었다.
+    React 는 같은 컴포넌트의 layoutEffect 를 선언 순서대로 실행하므로, 최초 마운트 시
+    등록 이펙트가 먼저 실행되면서 viewRef.current 는 아직 null 이라 `if (viewRef.current)`
+    가드에 걸려 registerEditorView 가 스킵된다. 이후 paneId/block.id 가 바뀌지 않는 한
+    이 이펙트는 다시 실행되지 않으므로, 정상적으로 유지되는 블록은 앱 수명 내내
+    레지스트리에 단 한 번도 등록되지 않는다.
+  location:
+    - "project/src/widgets/BlockEditor/ui/BlockEditor.tsx (등록 이펙트가 생성 이펙트보다 먼저 선언됨)"
+  impact:
+    - "FormatToolbar 전 기능(Bold/Italic/Strikethrough/Link/CodeBlock/Table) 무력화"
+    - "useTauriInputManager 의 enabled: () => !!getActiveEditorView() 가 항상 false → 이미지 붙여넣기(INSERT_IMAGE) 전면 무력화"
+    - "Read 모드 전환 시 활성 뷰 blur 가드도 함께 무효화 (경미)"
+# ━━━
+reproduction:
+  - "T3(WKWebView, tauri-plugin-mcp-bridge 경유)에서 문서를 열고 아무 블록이나 클릭"
+  - "window.__dumpRegistryState().registryKeys 확인 → [] (항상 빈 배열)"
+  - "텍스트 선택 후 FormatToolbar Bold 클릭 → 문서 내용 변화 없음 (getActiveEditorView() === null)"
+# ━━━
+fix:
+  - "등록/해제 useLayoutEffect 를 뷰 생성 useLayoutEffect *뒤에* 오도록 재배치"
+  - "최초 마운트 시 생성 이펙트가 먼저 실행되어 viewRef.current 가 채워진 뒤 등록 이펙트가 실행되므로 정상 등록됨"
+  - "block.id/paneId 변경 시에도 등록 이펙트가 재실행되어 재등록되는 기존 동작은 유지"
+# ━━━
+verification:
+  - "[x] T3 실기: 클릭 후 window.__dumpRegistryState().registryKeys 에 3개 블록 모두 등록 확인"
+  - "[x] T3 실기: FormatToolbar Bold 클릭 → 선택 텍스트가 **로 감싸짐을 문서 diff 로 확인"
+  - "[ ] 이미지 붙여넣기 실기 확인 (본 세션에서는 클립보드 이미지 자산이 없어 미실행 — 레지스트리 등록만 확인)"
