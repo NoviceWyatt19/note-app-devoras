@@ -13,6 +13,7 @@ const editorThemeCompartment = new Compartment();
 
 import { markdown } from '@codemirror/lang-markdown';
 import { languages } from '@codemirror/language-data';
+import { LanguageDescription } from '@codemirror/language';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { FileEdit } from 'lucide-react';
 import { FormatToolbar } from './FormatToolbar';
@@ -35,6 +36,16 @@ import { HeadingDecorator } from '@/shared/lib/editor/decorators/impl/HeadingDec
 import { ListDecorator } from '@/shared/lib/editor/decorators/impl/ListDecorator';
 import { BlockquoteDecorator } from '@/shared/lib/editor/decorators/impl/BlockquoteDecorator';
 import { HorizontalRuleDecorator } from '@/shared/lib/editor/decorators/impl/HorizontalRuleDecorator';
+import { parseCodeFenceInfo } from '@/shared/lib/markdown/codeFenceInfo';
+
+/** CodeMirror 마크다운 파서는 코드펜스 info 문자열을 공백까지만 잘라 언어를 찾는다.
+ *  따라서 Devoras 확장 문법(```lang|title|="제목")을 그대로 넘기면 언어 매칭이 실패하거나
+ *  제목 안의 확장자에 퍼지 매칭되어 엉뚱한 언어로 하이라이팅된다.
+ *  info 를 먼저 파싱해 순수 언어 이름만 넘긴다. */
+const matchFenceLanguage = (info: string) => {
+  const { lang } = parseCodeFenceInfo(info);
+  return lang ? LanguageDescription.matchLanguageName(languages, lang, true) : null;
+};
 
 const markdownDecorationPlugin = createDecorationPlugin([
   new BoldItalicDecorator(),
@@ -161,7 +172,7 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
     const state = EditorState.create({
       doc: block.content,
       extensions: [
-        markdown({ codeLanguages: languages }),
+        markdown({ codeLanguages: matchFenceLanguage }),
         lineWrappingCompartment.of(settings.editor.lineWrapping ? EditorView.lineWrapping : []),
         oneDark,
         history(),

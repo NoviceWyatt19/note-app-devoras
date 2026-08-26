@@ -1,6 +1,7 @@
 import { Decoration, DecorationSet, WidgetType, ViewPlugin, EditorView } from '@codemirror/view';
 import { EditorState, Range } from '@codemirror/state';
 import { SyntaxDecorator } from '../types';
+import { parseCodeFenceInfo } from '@/shared/lib/markdown/codeFenceInfo';
 
 // Matches opening/closing code fences: ``` or ~~~
 const FENCE_OPEN_RE = /^(`{3,}|~{3,})/;
@@ -50,15 +51,8 @@ export class CodeBlockDecorator implements SyntaxDecorator {
 
       if (match) {
         const char = match[1][0];
-        let rawLang = text.slice(match[0].length).trim();
-        let title = '';
-        
-        // Parse |title|="My Title" or |tile|="My Title" with optional spaces
-        const titleMatch = rawLang.match(/\|(title|tile)\|\s*=\s*"([^"]+)"/);
-        if (titleMatch) {
-          title = titleMatch[2];
-          rawLang = rawLang.replace(titleMatch[0], '').trim();
-        }
+        // Devoras 확장 문법(```lang|title|="제목") 파싱은 shared 파서에 위임한다.
+        const { lang: rawLang, title } = parseCodeFenceInfo(text.slice(match[0].length));
 
         if (!currentFence) {
           currentFence = {
