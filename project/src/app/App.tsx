@@ -6,6 +6,9 @@ import { useRecentWorkspaceStore } from '@/entities/workspace/model/recentStore'
 import { useSettingsStore } from '@/entities/settings/model/store';
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { useDocumentStore } from '@/entities/document/model/store';
+import { hasDirtyTabs } from '@/pages/WorkspacePage/lib/confirmClose';
+import { ask } from '@tauri-apps/plugin-dialog';
 
 // Removed startWindowDrag to prevent blocking window reveal
 
@@ -59,6 +62,18 @@ function App() {
           // 실패 시 런처에 머무름
         }
       }
+
+      // 앱 닫기 방어
+      getCurrentWindow().onCloseRequested(async (e) => {
+        const { panes } = useDocumentStore.getState();
+        if (!hasDirtyTabs(panes)) return;
+        
+        e.preventDefault();
+        const canClose = await ask('저장되지 않은 변경 사항이 있습니다. 닫으시겠습니까?', { title: 'Devoras', kind: 'warning' });
+        if (canClose) {
+          await getCurrentWindow().destroy();
+        }
+      });
 
       // 윈도우 표시 (초기화 완료 후)
       setTimeout(() => {

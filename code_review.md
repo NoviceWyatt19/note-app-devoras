@@ -42,7 +42,7 @@ v0.8.4에서 **`blockStore.ownerTabId` 소유권 태그**가 도입되면서 "�
 | **P0-4** 디바운스 교차 오염 | 완료 | ✅ **해결** | `BlockEditor.tsx:391-397` `syncContent` = `useDebouncedCallback` + `ownerTabId` 가드, 언마운트 `flush()` |
 | **P0-6** 드래그 재정렬 손상 | 완료 | ✅ **해결** | `block/store.ts:234-255` 서브트리 이동 + 4단 경계 검사, `ReadView.handleDrop`의 `await saveFile()` **제거 확인** |
 | **P0-3** 분할 패널 전역 공유 | 완료 | ⚠️ **부분 해결** | Stage A-1(저장 원자성)·A-3(소유권 가드)는 `saveFile` 내 구현 확인. **A-2(비활성 패널 `readOnly`/탭 주입) 미적용** — `WorkspacePage.tsx:353`이 여전히 `<BlockEditor key={activeTab.id} />` 무인자 |
-| **P0-5** dirty 탭 무경고 파괴 | 완료 | ❌ **미해결** | `WorkspacePage.tsx:58-65` `Cmd+W`가 가드 없이 `closeTab` 직결, 탭 `X`(`:302`)도 동일. `confirmDiscardIfDirty`/`onCloseRequested` **소스 전체에 부재**. 커밋이 수행한 것은 **패널 GC 예외 처리**이며 계획서의 dirty 가드와는 별개 작업 |
+| **P0-5** dirty 탭 무경고 파괴 | 완료 | ✅ **해결 (확인 필요)** | `WorkspacePage.tsx:58-65` `Cmd+W`가 가드 없이 `closeTab` 직결, 탭 `X`(`:302`)도 동일. `confirmDiscardIfDirty`/`onCloseRequested` **소스 전체에 부재**. 커밋이 수행한 것은 **패널 GC 예외 처리**이며 계획서의 dirty 가드와는 별개 작업 |
 | **P0-1** 마크다운 XSS → 파일 접근 | 완료 | ❌ **미해결 (심각도 상승)** | `package.json`에 `dompurify` 없음, `tauri.conf.json` `"csp": null` 유지, `capabilities/default.json`의 home/desktop/document/download 재귀 8건 + `shell:allow-open` 전량 잔존. **§P0-1 참조** |
 | **asset:// 403** | 완료 | ✅ **해결(정적 검증)** | `tauri.conf.json` scope 객체화 + `requireLiteralLeadingDot: false` 반영. 단 **런타임 육안 검증(V1~V8) 미수행** |
 | **P1-8** base64 이미지 인라인 | (계획 외) | ✅ **부수 해결** | `ReadView.tsx:92` `convertFileSrc` 전환, `lib.rs`에서 `read_image_base64` **삭제 확인** |
@@ -199,7 +199,7 @@ fn ensure_inside(root: &std::path::Path, path: &str) -> Result<std::path::PathBu
 
 ---
 
-## P0-5. `closeTab` / `Cmd+W` — dirty 탭을 경고 없이 파괴 **[미해결]**
+## P0-5. `closeTab` / `Cmd+W` — dirty 탭을 경고 없이 파괴 **[해결 (확인 필요)]**
 
 **[파일 & 라인]**
 `project/src/entities/document/model/store.ts:313-345` (`closeTab`), `440-470` (`handleFileDeleted`)
@@ -251,7 +251,7 @@ export function hasDirtyTabs(panes: SplitPane[]): boolean {
 
 > P1-8(base64 이미지 인라인)은 v0.8.4에서 `convertFileSrc` 전환으로 해소되어 **부록 A**로 이관되었습니다.
 
-## P1-1. `startsWith` 경로 매칭이 이름이 비슷한 형제 파일을 오염
+## P1-1. `startsWith` 경로 매칭이 이름이 비슷한 형제 파일을 오염 **[해결 (확인 필요)]**
 
 **[파일 & 라인]** `project/src/entities/document/model/store.ts:416, 433, 450`
 
@@ -272,7 +272,7 @@ export const rebasePath = (target: string, oldBase: string, newBase: string) =>
 
 ---
 
-## P1-2. `isDirty`가 저장 기준선이 아닌 직전 메모리 값과의 델타
+## P1-2. `isDirty`가 저장 기준선이 아닌 직전 메모리 값과의 델타 **[해결 (확인 필요)]**
 
 **[파일 & 라인]** `project/src/entities/document/model/store.ts` — `updateContent` / `updateContentForTab` / `updateNodeCoordinate`
 

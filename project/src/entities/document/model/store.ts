@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { FileEntry, fileSystemRepository } from '@/shared/api/fs';
 import { MindNode, parseMarkdown } from '@/entities/document/lib/parser';
+import { isSameOrInside, rebasePath } from '@/shared/lib/path';
 import { useWorkspaceStore } from '@/entities/workspace/model/store';
 import { useBlockStore } from '@/entities/block/model/store';
 
@@ -19,6 +20,7 @@ export interface TabItem {
   filePath?: string;     // markdown, erd 일 때 파일 경로
   fileEntry?: FileEntry; // markdown, erd 일 때 FileEntry 저장
   isDirty?: boolean;
+  savedContent?: string;
   cache?: TabCache;      // 탭 전환 시 미저장 편집 내용을 보존하는 인메모리 캐시
 }
 
@@ -210,6 +212,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
           filePath: file.path,
           fileEntry: file,
           isDirty: false,
+          savedContent: content,
         });
       }
 
@@ -413,10 +416,10 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     const { panes } = get();
     const updatedPanes = panes.map((p) => {
       const updatedTabs = p.tabs.map((t) => {
-        if ((t.type === 'markdown' || t.type === 'erd') && t.filePath && t.filePath.startsWith(oldPath)) {
+        if ((t.type === 'markdown' || t.type === 'erd') && t.filePath && isSameOrInside(t.filePath, oldPath)) {
           // If the path exactly matches, or it's inside the renamed directory
-          const newFilePath = t.filePath.replace(oldPath, newPath);
-          const newTabId = t.id.replace(oldPath, newPath);
+          const newFilePath = rebasePath(t.filePath, oldPath, newPath);
+          const newTabId = rebasePath(t.id, oldPath, newPath);
           const newTitle = t.filePath === oldPath ? newName : t.title; // update title only if it's the exact file
           
           return {
@@ -430,8 +433,8 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
         return t;
       });
 
-      const updatedActiveTabId = p.activeTabId.startsWith(oldPath) 
-        ? p.activeTabId.replace(oldPath, newPath)
+      const updatedActiveTabId = isSameOrInside(p.activeTabId, oldPath) 
+        ? rebasePath(p.activeTabId, oldPath, newPath)
         : p.activeTabId;
 
       return { ...p, tabs: updatedTabs, activeTabId: updatedActiveTabId };
@@ -447,7 +450,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     
     panes.forEach(p => {
       p.tabs.forEach(t => {
-        if ((t.type === 'markdown' || t.type === 'erd') && t.filePath && t.filePath.startsWith(path)) {
+        if ((t.type === 'markdown' || t.type === 'erd') && t.filePath && isSameOrInside(t.filePath, path)) {
           tabsToClose.push({ paneId: p.id, tabId: t.id });
         }
       });
@@ -520,7 +523,8 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     });
 
     if (isActiveTab) {
-      const hasChanged = content !== rawContent;
+      const activeTab = panes.find(p => p.id === activePaneId)?.tabs.find(t => t.id === tabId);
+      const hasChanged = content !== (activeTab?.savedContent ?? rawContent);
       const updatedPanes = panes.map((p) => {
         if (p.id !== activePaneId) return p;
         return {
@@ -539,9 +543,10 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
         ...p,
         tabs: p.tabs.map(t => {
           if (t.id === tabId) {
+            const hasChanged = content !== (t.savedContent ?? t.cache?.rawContent ?? '');
             return {
               ...t,
-              isDirty: true,
+              isDirty: hasChanged,
               cache: t.cache ? { ...t.cache, rawContent: content, nodes: alignedNodes } : { rawContent: content, nodes: alignedNodes, spatialData: {} }
             };
           }
@@ -565,10 +570,11 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       return node;
     });
 
-    const hasChanged = content !== rawContent;
+    const { panes, activePaneId } = get();
+    const activeTab = panes.find(p => p.id === activePaneId)?.tabs.find(t => t.id === panes.find(p => p.id === activePaneId)?.activeTabId);
+    const hasChanged = content !== (activeTab?.savedContent ?? rawContent);
 
     // 현재 활성 탭의 isDirty 상태 업데이트
-    const { panes, activePaneId } = get();
     const updatedPanes = panes.map((p) => {
       if (p.id !== activePaneId) return p;
       return {
@@ -586,16 +592,25 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   },
 
   updateNodeCoordinate: (nodeId, x, y) => {
-    const { spatialData } = get();
+    const { spatialData, panes, activePaneId } = get();
     const currentFile = get().getCurrentFile();
     if (!currentFile) return;
 
     const updatedSpatial = { ...spatialData, [nodeId]: { x, y } };
     const updatedNodes = get().nodes.map((node) => (node.id === nodeId ? { ...node, x, y } : node));
 
+    const updatedPanes = panes.map((p) => {
+      if (p.id !== activePaneId) return p;
+      return {
+        ...p,
+        tabs: p.tabs.map((t) => (t.id === p.activeTabId ? { ...t, isDirty: true } : t)),
+      };
+    });
+
     set({
       spatialData: updatedSpatial,
       nodes: updatedNodes,
+      panes: updatedPanes,
       isDirty: true,
     });
   },

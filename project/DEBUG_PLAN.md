@@ -16,10 +16,10 @@
 | P0-2 | `openTab` 캐시 우회 미저장 소실 | ✅ 해결 (`843ff42`) | [BUG-20260826-02](../ticket/hist/debug/20260826_1740_opentab_cache_bypass_resolved.yml) |
 | P0-3 | 분할 패널 전역 상태 공유 | 🟠 **범위 축소 후 유효** | [REF-20260826-01](../ticket/refactor/20260826_1740_pane_scoped_document_state.yml) |
 | P0-4 | 디바운스 타이머 교차 오염 | ✅ 해결 (`843ff42`) | [BUG-20260826-03](../ticket/hist/debug/20260826_1740_debounce_timer_cleanup_resolved.yml) |
-| P0-5 | dirty 탭 무경고 종료 | 🔴 **유효** | [BUG-20260826-04](../ticket/debug/20260826_1740_dirty_tab_close_guard.yml) |
+| P0-5 | dirty 탭 무경고 종료 | ✅ **해결 (확인 필요)** | [BUG-20260826-04](../ticket/debug/20260826_1740_dirty_tab_close_guard.yml) |
 | P0-6 | 드래그 재정렬 문서 손상 | ✅ 해결 (`843ff42`) | [BUG-20260826-05](../ticket/hist/debug/20260826_1740_readview_reorder_subtree_resolved.yml) |
-| P1-1 | 경로 접두사 매칭 오염 | 🔴 **유효** | [BUG-20260826-06](../ticket/debug/20260826_1740_path_prefix_matching.yml) |
-| P1-2 | `isDirty` 저장 기준선 부재 | 🔴 **유효** | [BUG-20260826-07](../ticket/debug/20260826_1740_dirty_baseline_savedcontent.yml) |
+| P1-1 | 경로 접두사 매칭 오염 | ✅ **해결 (확인 필요)** | [BUG-20260826-06](../ticket/debug/20260826_1740_path_prefix_matching.yml) |
+| P1-2 | `isDirty` 저장 기준선 부재 | ✅ **해결 (확인 필요)** | [BUG-20260826-07](../ticket/debug/20260826_1740_dirty_baseline_savedcontent.yml) |
 | P1-3 | 워크스페이스 전환 시 `blockStore` 잔존 | 🔴 **유효** | [REF-20260826-02](../ticket/refactor/20260826_1740_blockstore_reset_on_context_switch.yml) |
 | P1-4 | 비헤딩 블록 키 충돌 (커서 유실) | 🔴 **유효** | [BUG-20260826-08](../ticket/debug/20260826_1740_block_key_collision.yml) |
 | P1-5 | 입력당 `onUpdate` 2회 호출 | 🔴 **유효** | [BUG-20260826-09](../ticket/debug/20260826_1740_duplicate_onupdate_dispatch.yml) |

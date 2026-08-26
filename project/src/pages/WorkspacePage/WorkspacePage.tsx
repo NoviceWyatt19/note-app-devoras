@@ -17,6 +17,9 @@ import {
 } from 'lucide-react';
 import { useSettingsStore } from '@/entities/settings/model/store';
 import { SettingsModal } from '@/widgets/SettingsModal/ui/SettingsModal';
+import { confirmDiscardIfDirty, hasDirtyTabs } from './lib/confirmClose';
+import { getCurrentWindow } from '@tauri-apps/api/window';
+import { ask } from '@tauri-apps/plugin-dialog';
 
 export const WorkspacePage: React.FC = () => {
   const [sidebarWidth, setSidebarWidth] = useState(250);
@@ -49,6 +52,7 @@ export const WorkspacePage: React.FC = () => {
   // Cmd+S 저장 / Cmd+\ 사이드바 토글 / Cmd+O 워크스페이스 열기 / Cmd+W 탭 닫기
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.isComposing) return;
       // 1. 저장 (Cmd+S)
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
@@ -60,7 +64,10 @@ export const WorkspacePage: React.FC = () => {
         const { panes, activePaneId, closeTab } = useDocumentStore.getState();
         const activePane = panes.find((p) => p.id === activePaneId);
         if (activePane && activePane.activeTabId) {
-          closeTab(activePane.id, activePane.activeTabId);
+          const tab = activePane.tabs.find(t => t.id === activePane.activeTabId);
+          confirmDiscardIfDirty(tab).then(canClose => {
+            if (canClose) closeTab(activePane.id, activePane.activeTabId);
+          });
         }
       }
       // 3. 사이드바 토글 (Cmd+\)
@@ -297,9 +304,10 @@ const PaneContainer: React.FC<{
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0" />
                 )}
                 <button
-                  onClick={(e) => {
+                  onClick={async (e) => {
                     e.stopPropagation();
-                    closeTab(pane.id, tab.id);
+                    const canClose = await confirmDiscardIfDirty(tab);
+                    if (canClose) closeTab(pane.id, tab.id);
                   }}
                   className="p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-white/20 text-mutedText hover:text-slate-100 ml-auto transition-all"
                 >

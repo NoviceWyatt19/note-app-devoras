@@ -27,6 +27,10 @@
     "dialog:default",
     "dialog:allow-open",
     "dialog:allow-save",
+    "dialog:allow-ask",
+    "dialog:allow-message",
+    "core:window:allow-destroy",
+    "core:window:allow-close",
     "shell:allow-open"
   ]
 }
