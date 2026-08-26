@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Devoras",
-  "version": "0.8.3",
+  "version": "0.8.5",
   "identifier": "com.devoras.desktop",
   "build": {
     "frontendDist": "../dist",
@@ -40,12 +40,13 @@
       "csp": null,
       "assetProtocol": {
         "enable": true,
-        "scope": [
-          "**",
-          "$DESKTOP/**",
-          "$HOME/**",
-          "$DOCUMENT/**"
-        ]
+        "scope": {
+          "allow": [
+            "**"
+          ],
+          "deny": [],
+          "requireLiteralLeadingDot": false
+        }
       }
     }
   },
