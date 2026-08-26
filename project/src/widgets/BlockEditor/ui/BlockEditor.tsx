@@ -186,8 +186,11 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
         oneDark,
         history(),
         drawSelection(),
-        keymap.of([...defaultKeymap, ...historyKeymap]),
+        // blockKeymap 이 defaultKeymap 보다 먼저 와야 한다: cursorDown/cursorUp 은
+        // 문서 경계에서도 항상 true 를 반환하므로, defaultKeymap 이 먼저 오면
+        // 블록 간 이동(ArrowUp/ArrowDown)이 경계에 도달해도 절대 발동하지 않는다.
         blockKeymap,
+        keymap.of([...defaultKeymap, ...historyKeymap]),
         markdownDecorationPlugin,
         codeBlockInteractionPlugin,
         createImeIsolationExtension(),
