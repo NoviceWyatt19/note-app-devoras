@@ -41,7 +41,10 @@
       "assetProtocol": {
         "enable": true,
         "scope": [
-          "**"
+          "**",
+          "$DESKTOP/**",
+          "$HOME/**",
+          "$DOCUMENT/**"
         ]
       }
     }

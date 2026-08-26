@@ -1,4 +1,4 @@
-use base64::{Engine as _, engine::general_purpose};
+
 
 /// 이미지 파일을 절대 경로에 저장하는 Rust 네이티브 커맨드.
 ///
