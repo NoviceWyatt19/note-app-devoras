@@ -1,0 +1,43 @@
+# 🐛 FIX TICKET
+type: "FIX_TICKET"
+id: "BUG-20260826-07"
+# ━━━
+update: "2026-08-26 17:40"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "isDirty 가 저장 기준선이 아닌 직전 메모리 값과의 델타로 계산되어 dirty 표시가 신뢰 불가한 문제"
+status: "Todo"
+severity: "P1"
+review_ref: "code_review.md §P1-2"
+verified_at: "v0.8.5"
+# ━━━
+bug_report:
+  symptom: "① 동일 내용을 다시 방출하는 경로가 실행되면 디스크는 여전히 옛 내용인데 dirty 점이 사라진다. ② 편집 후 Undo 로 저장 시점 텍스트로 되돌려도 dirty 가 해제되지 않는다."
+  cause: "hasChanged = content !== rawContent 로, 비교 대상이 '마지막으로 저장된 내용'이 아니라 '직전 인메모리 값'이다. 저장 기준선(savedContent)이 어디에도 보관되지 않는다."
+  location:
+    - "project/src/entities/document/model/store.ts:523 (updateContentForTab)"
+    - "project/src/entities/document/model/store.ts:568 (updateContent)"
+    - "project/src/entities/document/model/store.ts:updateNodeCoordinate (전역 isDirty 만 갱신, 탭 isDirty 미갱신)"
+# ━━━
+architecture_guidelines:
+  - "Baseline, Not Delta: dirty 판정 기준은 항상 '마지막 디스크 반영 내용'이다. TabItem 이 그 기준선을 보유한다."
+  - "One Writer: 패널/탭 dirty 플래그 갱신은 _setTabDirty(tabId, dirty) 단일 헬퍼를 통해서만 수행한다."
+  - "Coordinate Drag Parity: 마인드맵 좌표 변경도 문서 변경과 동일하게 탭 dirty 마커를 켠다."
+# ━━━
+tasks:
+  - "[ ] TabItem 에 savedContent: string 필드 추가"
+  - "[ ] loadFile / openTab / saveFile 에서 savedContent 를 디스크 반영 내용으로 갱신"
+  - "[ ] updateContentForTab(523) 및 updateContent(568) 의 판정을 content !== tab.savedContent 로 교체"
+  - "[ ] _setTabDirty(tabId, dirty) 헬퍼 추출 후 updateContent 계열과 updateNodeCoordinate 양쪽에서 호출"
+  - "[ ] TabCache 스냅샷/복원 시 savedContent 가 유실되지 않는지 확인 (0.8.4 _snapshotActiveTab 경로)"
+# ━━━
+harness:
+  path: "project/src/entities/document/__tests__/dirty_baseline_harness.ts"
+  run_command: "node --experimental-strip-types src/entities/document/__tests__/dirty_baseline_harness.ts"
+  cases:
+    - "저장 → 편집 → 동일 내용 재방출 → isDirty 가 true 로 유지되는지"
+    - "저장 → 편집 → 원문으로 되돌림 → isDirty 가 false 로 해제되는지"
+    - "노드 좌표 변경 → 해당 탭의 isDirty 가 true 가 되는지"
+# ━━━
+dod:
+  - "하네스 3케이스 통과"
+  - "탭 노란 점 표시가 실제 디스크 반영 여부와 항상 일치"

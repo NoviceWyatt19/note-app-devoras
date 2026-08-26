@@ -1,0 +1,42 @@
+# ♻️ REFACTOR TICKET
+type: "REFACTOR_TICKET"
+id: "REF-20260826-02"
+# ━━━
+update: "2026-08-26 17:40"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "워크스페이스 전환 시 blockStore 에 이전 문서 AST 가 잔존하는 문제 (메모리 회수 · 컨텍스트 격리)"
+status: "Todo"
+severity: "P1"
+review_ref: "code_review.md §P1-3"
+verified_at: "v0.8.5"
+# ━━━
+problem:
+  symptom: "워크스페이스를 변경해도 이전 워크스페이스 문서의 블록 트리가 메모리에 남는다. 다음 문서 로드 시 이전 문서의 블록 ID 가 키 매칭을 통해 재사용될 수 있다."
+  cause: "openWorkspace / openWorkspaceByPath 가 documentStore.resetDocumentState() 만 호출한다. blockStore 의 blocks / ownerTabId / activeBlockId 는 초기화 대상에 포함되어 있지 않으며, resetDocumentState 자체도 viewMode 를 되돌리지 않는다."
+  location:
+    - "project/src/entities/workspace/model/store.ts:35, 51 (resetDocumentState 단독 호출)"
+    - "project/src/entities/document/model/store.ts:302 (resetDocumentState — blocks 미포함, viewMode 미포함)"
+    - "project/src/entities/block/model/store.ts:109 (blocks/ownerTabId 초기값만 존재, reset 액션 없음)"
+# ━━━
+architecture_guidelines:
+  - "Boundary Reset: 워크스페이스 전환은 컨텍스트 경계다. 경계를 넘을 때 관련된 모든 스토어를 한 지점에서 명시적으로 초기화한다."
+  - "One Owner, One Reset: 개별 호출부가 스토어를 하나씩 비우게 하지 말고, 경계 전환 로직을 단일 함수로 통제한다(누락 방지)."
+  - "REF-20260826-01 선행 고려: 스코프 스토어 전환이 완료되면 본 이슈는 구조적으로 소멸한다. 그 전까지의 방어 조치로 취급한다."
+# ━━━
+tasks:
+  - "[ ] blockStore 에 resetBlocks() 추가 — { blocks: [], ownerTabId: null, activeBlockId: null, focusOffset: 0 }"
+  - "[ ] documentStore.resetDocumentState 에서 resetBlocks() 호출 및 viewMode: 'write' 복원 추가"
+  - "[ ] (선택) 경계 전환을 총괄하는 useWorkspaceManager 훅으로 초기화 호출을 일원화"
+  - "[ ] 워크스페이스 전환 전후 blocks.length 를 로그로 확인하는 검증 절차 문서화"
+# ━━━
+harness:
+  path: "project/src/entities/workspace/__tests__/workspace_boundary_harness.ts"
+  run_command: "node --experimental-strip-types src/entities/workspace/__tests__/workspace_boundary_harness.ts"
+  cases:
+    - "문서 로드 → 워크스페이스 전환 → blockStore.blocks.length === 0 && ownerTabId === null"
+    - "전환 후 새 문서 로드 → 생성된 블록 ID 가 이전 워크스페이스 블록 ID 와 교집합 0"
+    - "전환 후 viewMode 가 'write' 로 복원되는지"
+# ━━━
+dod:
+  - "하네스 3케이스 통과"
+  - "워크스페이스 A(대형 문서) → B 전환 후 힙 스냅샷에서 A 의 블록 객체가 회수되는지 육안 확인"

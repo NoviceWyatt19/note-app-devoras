@@ -1,0 +1,54 @@
+# 🐛 FIX TICKET
+type: "FIX_TICKET"
+id: "BUG-20260826-01"
+# ━━━
+update: "2026-08-26 17:40"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "신뢰할 수 없는 마크다운의 HTML 주입 → 임의 코드 실행 및 파일시스템 전체 노출 차단"
+status: "Todo"
+severity: "P0"
+review_ref: "code_review.md §P0-1"
+verified_at: "v0.8.5"
+# ━━━
+bug_report:
+  symptom: "외부에서 받은 .md 파일을 Read 모드로 여는 것만으로 웹뷰에서 임의 스크립트가 실행되고, asset:// 프로토콜을 통해 홈 디렉터리 전 영역(dotfile 포함)을 읽거나 save_image_file 로 임의 경로에 파일을 쓸 수 있다."
+  cause: "① marked 가 새니타이저 없이 동작하고 preprocessMd 가 raw HTML 을 주입하며 코드펜스 title 값이 이스케이프 없이 보간됨 → dangerouslySetInnerHTML 로 삽입. ② csp:null 이라 인라인 이벤트 핸들러(onerror 등)가 그대로 실행됨. ③ save_image_file 이 경로 검증 없이 std::fs::write 를 호출. ④ assetProtocol.scope 가 allow:['**'] + requireLiteralLeadingDot:false 라 ~/.ssh 같은 dot 경로까지 읽기 허용."
+  location:
+    - "project/src/widgets/BlockEditor/ui/ReadView.tsx:16 (marked 인스턴스, 새니타이저 없음)"
+    - "project/src/widgets/BlockEditor/ui/ReadView.tsx:35 (safeText — & 미처리)"
+    - "project/src/widgets/BlockEditor/ui/ReadView.tsx:41 (title 무이스케이프 보간)"
+    - "project/src/widgets/BlockEditor/ui/ReadView.tsx:65-73 (preprocessMd raw HTML 주입)"
+    - "project/src/widgets/BlockEditor/ui/ReadView.tsx:97-99, 433-434 (renderBlockToHtml → dangerouslySetInnerHTML)"
+    - "project/src-tauri/tauri.conf.json:40 (csp: null)"
+    - "project/src-tauri/tauri.conf.json assetProtocol.scope (allow '**' + requireLiteralLeadingDot:false)"
+    - "project/src-tauri/src/lib.rs:12-28 (save_image_file 경로 무검증)"
+    - "project/src-tauri/capabilities/default.json:19-20 (fs:allow-home-read/write-recursive)"
+# ━━━
+architecture_guidelines:
+  - "Sanitize at the Boundary: 마크다운→HTML 변환 결과는 DOM 삽입 직전 단 한 곳(renderBlockToHtml)에서 반드시 새니타이즈한다."
+  - "Escape Before Interpolate: 템플릿 문자열에 사용자 입력을 넣을 때는 & 를 먼저 치환하는 공통 escapeHtml 헬퍼만 사용한다."
+  - "Least Privilege on FS: Rust 커맨드와 asset scope 는 '현재 워크스페이스 하위'만 허용하고, 홈 전체 재귀 권한은 제거한다."
+  - "No Regression on Images: 0.8.5 에서 확정된 .devoras/ dot 디렉터리 렌더링(requireLiteralLeadingDot:false)은 유지해야 한다. 스코프를 좁히되 dot 옵션은 건드리지 않는다."
+# ━━━
+tasks:
+  - "[ ] dompurify 및 @types/dompurify 의존성 추가"
+  - "[ ] ReadView.tsx 에 escapeHtml 헬퍼 추가(& → &amp; 우선 치환)하고 safeText(35) / title(41) 양쪽에 적용"
+  - "[ ] renderBlockToHtml(97-99) 반환값을 DOMPurify.sanitize 로 감싸고 ADD_ATTR 에 data-src, data-code 허용"
+  - "[ ] tauri.conf.json 의 csp 를 default-src 'self'; img-src 'self' asset: data:; style-src 'self' 'unsafe-inline'; script-src 'self' 로 설정"
+  - "[ ] lib.rs 에 ensure_inside(root, path) 헬퍼를 추가하여 save_image_file 이 워크스페이스 루트 밖 경로를 거부하도록 수정 (tauri::State 로 워크스페이스 루트 주입)"
+  - "[ ] assetProtocol.scope.allow 를 '**' 에서 워크스페이스 기반 경로로 축소하고, deny 에 $HOME/.ssh/**, $HOME/.aws/**, $HOME/.config/** 추가"
+  - "[ ] capabilities/default.json 에서 desktop/document/download 재귀 권한 중 실사용하지 않는 항목 제거"
+# ━━━
+harness:
+  path: "project/src/widgets/BlockEditor/__tests__/markdown_sanitize_harness.ts"
+  run_command: "node --experimental-strip-types src/widgets/BlockEditor/__tests__/markdown_sanitize_harness.ts"
+  cases:
+    - "img onerror 페이로드가 포함된 마크다운 → 출력 HTML 에 onerror 속성 0건"
+    - "코드펜스 |title|=\"<img src=x onerror=alert(1)>\" → 태그가 이스케이프된 텍스트로만 남는지"
+    - "정상 문서(굵게/표/코드블록/이미지) → 새니타이즈 전후 렌더 결과 동일(회귀 없음)"
+# ━━━
+dod:
+  - "위 하네스 3케이스 통과"
+  - "pnpm tauri dev 실행 후 기존 .devoras/images 이미지가 여전히 렌더링됨(0.8.5 회귀 없음)"
+  - "DevTools 콘솔에 CSP 위반 경고 0건"
+  - "워크스페이스 밖 절대 경로로 save_image_file 호출 시 Err 반환 확인"

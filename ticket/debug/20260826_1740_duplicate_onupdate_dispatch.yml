@@ -1,0 +1,40 @@
+# 🐛 FIX TICKET
+type: "FIX_TICKET"
+id: "BUG-20260826-09"
+# ━━━
+update: "2026-08-26 17:40"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "키 입력 1회당 onUpdate 가 2회 호출되어 블록 갱신·디바운스가 중복 실행되는 문제"
+status: "Todo"
+severity: "P1"
+review_ref: "code_review.md §P1-5"
+verified_at: "v0.8.5"
+# ━━━
+bug_report:
+  symptom: "문자 하나를 입력할 때마다 블록 갱신 로직 전체가 두 번 실행된다. 문서가 커질수록 입력 지연이 체감된다."
+  cause: "EditorView.domEventHandlers({ input }) 과 EditorView.updateListener 가 일반 타이핑에 대해 모두 발화하며 각각 callbacksRef.current.onUpdate 를 호출한다. 두 경로는 상호 배타적이지 않다."
+  location:
+    - "project/src/widgets/BlockEditor/ui/BlockEditor.tsx:174-183 (domEventHandlers.input)"
+    - "project/src/widgets/BlockEditor/ui/BlockEditor.tsx:184-203 (updateListener)"
+# ━━━
+architecture_guidelines:
+  - "Single Update Path: 문서 변경 통지는 updateListener 하나로 일원화한다."
+  - "Keep the Stronger Guard: updateListener 는 external 트랜잭션 필터와 IME 조합 가드(isImeComposingRef, view.composing)를 이미 갖추고 있어 input 핸들러의 상위 호환이다."
+  - "IME Safety First: 제거 후에도 한글 조합 중 onUpdate 가 발생하지 않는지 반드시 재확인한다(BUG-20260810-02 회귀 방지)."
+# ━━━
+tasks:
+  - "[ ] domEventHandlers({ input }) 블록(174-183) 제거"
+  - "[ ] 제거 후 조합/붙여넣기/드래그 입력에서도 updateListener 가 정상 발화하는지 확인"
+  - "[ ] 입력 1회당 updateBlockContent 호출 횟수를 계측해 1회임을 확인"
+# ━━━
+harness:
+  path: "project/src/widgets/BlockEditor/__tests__/ime_isolation_harness.ts"
+  run_command: "node --experimental-strip-types src/widgets/BlockEditor/__tests__/ime_isolation_harness.ts"
+  cases:
+    - "일반 타이핑 1문자 → onUpdate 호출 1회"
+    - "한글 조합 중 → onUpdate 호출 0회, 조합 완료 후 1회"
+    - "external 어노테이션 트랜잭션 → onUpdate 호출 0회"
+# ━━━
+dod:
+  - "기존 IME 하네스 회귀 없음"
+  - "입력당 onUpdate 1회 계측 확인"

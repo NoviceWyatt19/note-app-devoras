@@ -1,0 +1,41 @@
+# 🐛 FIX TICKET
+type: "FIX_TICKET"
+id: "BUG-20260826-11"
+# ━━━
+update: "2026-08-26 17:40"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "블록 병합 시 H5/H6 마크가 남고, 재생성된 트리에 존재하지 않는 ID 로 포커스를 복원하는 문제"
+status: "Todo"
+severity: "P1"
+review_ref: "code_review.md §P1-7"
+verified_at: "v0.8.5"
+# ━━━
+bug_report:
+  symptom: "① H5/H6 블록의 맨 앞에서 Backspace 로 병합하면 '##### ' 리터럴이 본문에 그대로 남는다. ② 병합 직후 커서가 사라지는 경우가 있다."
+  cause: "① cleanedCurrentText 의 정규식이 /^#{1,4}\\s*/ 라 parseHeadingLine 이 인식하는 #{1,6} 중 H5/H6 를 놓친다. ② setBlocksFromContent 로 트리를 재생성한 뒤 재생성 이전 스냅샷의 previousBlock.id 로 activeBlockId 를 지정한다. 키 매칭이 어긋나 새 id 가 부여되면 그 id 는 더 이상 존재하지 않는다."
+  location:
+    - "project/src/entities/block/model/store.ts:205 (replace(/^#{1,4}\\s*/, ''))"
+    - "project/src/entities/block/model/store.ts:218-223 (setBlocksFromContent 이후 previousBlock.id 로 포커스 지정)"
+    - "project/src/shared/lib/headingId.ts:40 (parseHeadingLine — #{1,6})"
+# ━━━
+architecture_guidelines:
+  - "Single Heading Grammar: 헤딩 인식 범위는 parseHeadingLine 과 항상 동일해야 한다(#{1,6})."
+  - "Resolve After Rebuild: 트리 재생성 후의 포커스 대상은 '재생성된 트리'에서 위치(index) 기준으로 다시 조회한다."
+  - "BUG-20260826-08 연계: 키 충돌이 해소되면 ②의 재현 빈도가 낮아지지만, 위치 기반 복원은 독립적으로 필요하다."
+# ━━━
+tasks:
+  - "[ ] 205 라인의 정규식을 /^#{1,6}\\s*/ 로 수정"
+  - "[ ] setBlocksFromContent 호출 이후 flattenTree(get().blocks)[index - 1].id 로 activeBlockId 재조회"
+  - "[ ] focusOffset 이 병합 지점(이전 블록 길이)과 여전히 일치하는지 확인"
+# ━━━
+harness:
+  path: "project/src/entities/block/__tests__/merge_block_harness.ts"
+  run_command: "node --experimental-strip-types src/entities/block/__tests__/merge_block_harness.ts"
+  cases:
+    - "H5 블록 병합 → 결과 텍스트에 '#' 문자 0개"
+    - "H1~H6 각 레벨 병합 → 마크가 모두 제거되는지"
+    - "병합 후 activeBlockId 가 재생성된 트리에 실제 존재하는 id 인지"
+# ━━━
+dod:
+  - "하네스 3케이스 통과"
+  - "H5/H6 를 사용하는 문서에서 Backspace 병합 후 커서가 병합 지점에 유지됨"

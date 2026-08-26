@@ -1,0 +1,26 @@
+# 🗂️ FIX TICKET
+type: "FIX_TICKET"
+id: "BUG-20260826-03"
+# ━━━
+update: "2026-08-26 17:40"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "150ms 동기화 타이머의 언마운트 정리 부재로 인한 문서 간 교차 오염 (해결 확인)"
+status: "Done"
+severity: "P0"
+review_ref: "code_review.md §P0-4"
+resolved_by: "843ff42 fix(0.8.4): 교차 탭 오염 방어 및 데이터 동기화 안정성 확보"
+verified_at: "v0.8.5"
+# ━━━
+bug_report:
+  symptom: "탭 전환 직전 150ms 이내에 입력이 있으면, 예약된 타이머가 새 문서 컨텍스트에서 발화해 엉뚱한 탭을 dirty 로 만들거나 내용을 덮어쓸 수 있었다."
+  cause: "contentSyncTimerRef 가 다음 키 입력 시에만 해제되고 언마운트 정리 훅이 없었다."
+# ━━━
+resolution:
+  - "shared/lib/useDebouncedCallback.ts 신설 — cancel/flush 를 노출하는 디바운스 훅"
+  - "BlockEditor 언마운트 시 syncContent.flush() 로 flush-then-cancel (BlockEditor.tsx:397-400)"
+  - "blockStore.ownerTabId 와 ownerTabIdRef 를 대조해 소유 탭이 다르면 동기화를 건너뜀 (BlockEditor.tsx:393)"
+# ━━━
+tasks:
+  - "[x] useDebouncedCallback 훅 추출"
+  - "[x] 언마운트 flush 적용"
+  - "[x] ownerTabId 가드 추가"

@@ -1,0 +1,43 @@
+# 🐛 FIX TICKET
+type: "FIX_TICKET"
+id: "BUG-20260826-06"
+# ━━━
+update: "2026-08-26 17:40"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "경로 접두사(startsWith) 매칭으로 이름이 비슷한 형제 파일의 탭이 오염/오폐쇄되는 문제"
+status: "Todo"
+severity: "P1"
+review_ref: "code_review.md §P1-1"
+verified_at: "v0.8.5"
+# ━━━
+bug_report:
+  symptom: "폴더 /w/plan 을 /w/roadmap 으로 이름 변경하면 열려 있던 /w/plan_v2.md 탭까지 /w/roadmap_v2.md 로 잘못 바뀐다. 폴더 /w/doc 삭제 시 /w/document.md 탭이 함께 닫힌다."
+  cause: "경로를 path 경계가 아닌 단순 문자열 접두사로 비교한다. 치환 역시 String.replace(oldPath, newPath) 라 앵커링되지 않는다."
+  location:
+    - "project/src/entities/document/model/store.ts:416 (handleFileRenamed — filePath.startsWith(oldPath))"
+    - "project/src/entities/document/model/store.ts:433 (activeTabId.startsWith(oldPath))"
+    - "project/src/entities/document/model/store.ts:450 (handleFileDeleted — filePath.startsWith(path))"
+# ━━━
+architecture_guidelines:
+  - "Path Is Not String: 경로 비교는 반드시 구분자 경계를 포함한다 (target === base || target.startsWith(base + '/'))."
+  - "Single Source: 경로 유틸을 shared/lib/path.ts 한 곳에 두고 document store 전 호출부가 이를 사용한다."
+  - "Anchored Rebase: 치환은 replace() 가 아니라 newBase + target.slice(oldBase.length) 로 접두사 위치를 고정한다."
+# ━━━
+tasks:
+  - "[ ] project/src/shared/lib/path.ts 신설 — isSameOrInside(target, base), rebasePath(target, oldBase, newBase)"
+  - "[ ] handleFileRenamed(416, 433) 의 startsWith / replace 를 신규 유틸로 교체"
+  - "[ ] handleFileDeleted(450) 의 startsWith 를 isSameOrInside 로 교체"
+  - "[ ] fileEntry.path 및 tab.id 재작성 경로도 동일 유틸을 사용하도록 통일"
+# ━━━
+harness:
+  path: "project/src/shared/lib/__tests__/path_harness.ts"
+  run_command: "node --experimental-strip-types src/shared/lib/__tests__/path_harness.ts"
+  cases:
+    - "isSameOrInside('/w/plan_v2.md', '/w/plan') === false"
+    - "isSameOrInside('/w/plan/a.md', '/w/plan') === true"
+    - "rebasePath('/w/plan/a.md', '/w/plan', '/w/roadmap') === '/w/roadmap/a.md'"
+    - "경로 중간에 base 문자열이 반복 등장하는 케이스(/w/plan/plan.md)에서 접두사만 치환되는지"
+# ━━━
+dod:
+  - "하네스 4케이스 통과"
+  - "실제 앱에서 유사 이름 형제 파일을 열어둔 채 폴더 이름 변경/삭제 시 무관한 탭이 영향받지 않음"

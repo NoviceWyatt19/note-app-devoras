@@ -1,0 +1,53 @@
+# ♻️ REFACTOR TICKET
+type: "REFACTOR_TICKET"
+id: "REF-20260826-01"
+# ━━━
+update: "2026-08-26 17:40"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "분할 패널이 전역 단일 문서 상태를 공유하는 구조 해소 (패널/탭 스코프 상태 도입)"
+status: "Todo"
+severity: "P0"
+review_ref: "code_review.md §P0-3 (구 Critical-3 후속)"
+verified_at: "v0.8.5"
+# ━━━
+problem:
+  symptom: "패널을 좌우로 분할하고 각 패널에서 서로 다른 탭을 활성화해도, 두 패널이 모두 '활성 패널의 문서'를 렌더링한다. 탭 바 표시와 실제 내용이 불일치한다."
+  cause: "PaneContainer 가 패널마다 <BlockEditor> 를 마운트하지만, BlockEditor 는 파일을 getCurrentFile()(활성 패널의 탭)에서, 내용을 전역 useBlockStore.blocks / useDocumentStore.rawContent 에서 읽는다. 즉 인스턴스는 N개지만 데이터 소스는 1개다."
+  location:
+    - "project/src/pages/WorkspacePage/WorkspacePage.tsx:353 (<BlockEditor key={activeTab.id} /> — 탭 주입 없음)"
+    - "project/src/widgets/BlockEditor/ui/BlockEditor.tsx:355 (useDocumentStore(s => s.getCurrentFile()))"
+    - "project/src/entities/document/model/store.ts (rawContent/nodes/isDirty/viewMode 전역 단일 필드)"
+# ━━━
+already_mitigated:
+  note: "0.8.4(843ff42)에서 교차 오염 '피해'는 상당 부분 차단됨. 본 티켓은 남은 '표시 정확성' 문제를 다룬다."
+  done:
+    - "blockStore.ownerTabId 도입 — 다른 탭 소유 블록으로는 쓰기 차단 (block/model/store.ts:13)"
+    - "saveFile(paneId?, tabId?) 로 저장 대상 명시화 + ownerTabId 일치 검사 (document/model/store.ts:473)"
+    - "updateContentForTab(tabId, content) 로 탭 지정 갱신 경로 분리"
+# ━━━
+architecture_guidelines:
+  - "Explicit Ownership: 컴포넌트는 자신이 그리는 탭을 prop 으로 명시적으로 받는다. 전역 '활성 탭' 조회로 자기 데이터를 유추하지 않는다."
+  - "Lifecycle-Bound State: 문서 상태는 탭 언마운트와 함께 소멸해야 한다. Context Provider 스코프 스토어가 최종 목표다."
+  - "Incremental Migration: 1단계(prop 주입)만으로도 표시 불일치는 해소된다. 2단계(스코프 스토어)는 별도 배치로 분리 가능하다."
+  - "Snapshot Interface Reuse: advanced_rendering_optimization.md Phase 1(상태 스냅샷)과 동일 지점을 건드리므로 인터페이스를 한 번만 설계한다."
+# ━━━
+tasks:
+  - "[ ] 1단계: BlockEditor 에 tab: TabItem prop 추가, PaneContainer(353)에서 pane 의 activeTab 을 주입"
+  - "[ ] 1단계: BlockEditor 내부의 getCurrentFile() 의존(355, 404)을 prop 기반으로 교체"
+  - "[ ] 1단계: 내용 소스를 tab.cache?.rawContent ?? rawContent 순으로 해석"
+  - "[ ] 2단계: PaneContainer 에서 생성하는 TabDocumentProvider(React Context) 설계 — rawContent/nodes/blocks/isDirty/viewMode 를 탭 단위로 보유"
+  - "[ ] 2단계: blockStore 를 전역 싱글톤에서 Provider 스코프 인스턴스로 전환하고 ownerTabId 가드를 제거(구조적으로 불필요해짐)"
+  - "[ ] 2단계: MindView / ReadView / ErdDesignerMainView 를 Provider 소비자로 전환"
+# ━━━
+harness:
+  path: "project/src/entities/document/__tests__/pane_isolation_harness.ts"
+  run_command: "node --experimental-strip-types src/entities/document/__tests__/pane_isolation_harness.ts"
+  cases:
+    - "패널A=docX, 패널B=docY 상태에서 각 패널의 해석 결과가 서로 다른 문서를 가리키는지"
+    - "패널A 편집 후 패널B 탭 전환 → 패널A 내용이 오염되지 않는지"
+    - "동일 파일이 두 패널에 열린 경우 한쪽 저장 후 다른 쪽이 최신 내용을 반영하는지"
+# ━━━
+dod:
+  - "하네스 3케이스 통과"
+  - "실제 앱에서 좌우 분할 후 각 패널에 다른 파일을 열었을 때 각각 올바른 내용이 표시됨"
+  - "1단계 완료 시점에 기존 단일 패널 사용 흐름에 회귀 없음"

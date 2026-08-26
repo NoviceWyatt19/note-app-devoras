@@ -1,0 +1,26 @@
+# 🗂️ FIX TICKET
+type: "FIX_TICKET"
+id: "BUG-20260826-02"
+# ━━━
+update: "2026-08-26 17:40"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "openTab 이 TabCache 를 우회해 미저장 편집이 소실되던 문제 (해결 확인)"
+status: "Done"
+severity: "P0"
+review_ref: "code_review.md §P0-2"
+resolved_by: "843ff42 fix(0.8.4): 교차 탭 오염 방어 및 데이터 동기화 안정성 확보"
+verified_at: "v0.8.5"
+# ━━━
+bug_report:
+  symptom: "파일 탐색기에서 다른 파일을 선택하면 이전 탭의 미저장 편집이 사라졌다. 이미 열린 dirty 파일을 다시 클릭하면 경고 없이 디스크 내용으로 롤백됐다."
+  cause: "캐시 백업이 setActiveTab 에만 있었고, openTab 은 무조건 readFile 후 isDirty:false 로 덮어썼다."
+# ━━━
+resolution:
+  - "_snapshotActiveTab() 액션을 분리해 openTab 진입부에서도 떠나는 탭의 버퍼를 보존 (document/model/store.ts:123)"
+  - "이미 열린 탭이면 existingTab.cache 에서 복원하고 디스크 I/O 를 생략 (document/model/store.ts:162-164)"
+  - "openSeq 카운터로 비동기 로드 경합 시 최신 요청만 반영"
+# ━━━
+tasks:
+  - "[x] _snapshotActiveTab 추출 및 openTab/setActiveTab 양쪽 적용"
+  - "[x] 캐시 우선 복원 분기 추가"
+  - "[ ] (후속) 저장 기준선 도입은 BUG-20260826-07 로 분리"

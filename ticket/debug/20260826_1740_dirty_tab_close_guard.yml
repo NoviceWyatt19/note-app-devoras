@@ -1,0 +1,45 @@
+# 🐛 FIX TICKET
+type: "FIX_TICKET"
+id: "BUG-20260826-04"
+# ━━━
+update: "2026-08-26 17:40"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "미저장(dirty) 탭이 Cmd+W · X 버튼 · 앱 종료 시 경고 없이 파괴되는 문제"
+status: "Todo"
+severity: "P0"
+review_ref: "code_review.md §P0-5"
+verified_at: "v0.8.5"
+# ━━━
+bug_report:
+  symptom: "편집 중인(노란 점 표시) 탭을 Cmd+W 또는 탭의 X 버튼으로 닫으면 아무 경고 없이 즉시 사라지고 편집 내용이 소실된다. 앱을 그냥 종료해도 동일하다."
+  cause: "closeTab 은 tabs 배열에서 대상을 필터링해 제거할 뿐 isDirty/cache 를 확인하지 않는다. 0.8.4 에서 도입된 TabCache 도 탭이 제거되면 함께 폐기된다. 현재 dirty 경고가 존재하는 유일한 경로는 FileExplorer 의 파일 선택 시점뿐이다."
+  location:
+    - "project/src/entities/document/model/store.ts:313 (closeTab — 가드 없음)"
+    - "project/src/pages/WorkspacePage/WorkspacePage.tsx:58-64 (Cmd+W)"
+    - "project/src/pages/WorkspacePage/WorkspacePage.tsx:302 (탭 X 버튼)"
+    - "project/src/entities/document/model/store.ts:handleFileDeleted (closeTab 반복 호출)"
+# ━━━
+architecture_guidelines:
+  - "Store Stays Pure: 스토어 액션은 window.confirm 같은 부수효과를 갖지 않는다. 확인 절차는 UI 경계(WorkspacePage/PaneContainer)에서 처리한다."
+  - "Single Guard Helper: Cmd+W 와 X 버튼이 동일한 closeTabSafely 헬퍼를 공유하여 가드 누락을 구조적으로 차단한다."
+  - "External Deletion Exception: handleFileDeleted 는 파일이 이미 사라진 상황이므로 확인 없이 닫되, dirty 였다면 콘솔/토스트로 사실을 알린다."
+# ━━━
+tasks:
+  - "[ ] widgets 계층에 closeTabSafely(paneId, tabId) 헬퍼 추가 — tab.isDirty 시 window.confirm 후 closeTab 호출"
+  - "[ ] WorkspacePage Cmd+W 핸들러(58-64)를 헬퍼 호출로 교체"
+  - "[ ] PaneContainer 탭 X 버튼(302)을 헬퍼 호출로 교체"
+  - "[ ] App 레벨에 getCurrentWindow().onCloseRequested 등록 — dirty 탭이 1개 이상이면 확인 다이얼로그 후 종료"
+  - "[ ] handleFileDeleted 경로는 확인 없이 닫되 dirty 였던 탭 목록을 console.warn 으로 남김"
+# ━━━
+harness:
+  path: "project/src/entities/document/__tests__/tab_close_guard_harness.ts"
+  run_command: "node --experimental-strip-types src/entities/document/__tests__/tab_close_guard_harness.ts"
+  cases:
+    - "dirty=false 탭 닫기 → confirm 미호출, 탭 제거됨"
+    - "dirty=true 탭 닫기 + confirm=false → 탭과 cache 가 모두 보존됨"
+    - "dirty=true 탭 닫기 + confirm=true → 탭 제거됨"
+# ━━━
+dod:
+  - "하네스 3케이스 통과"
+  - "실제 앱에서 편집 후 Cmd+W → 확인 창 노출, 취소 시 편집 내용 유지"
+  - "dirty 탭이 있는 상태로 앱 종료 시도 → 확인 창 노출"

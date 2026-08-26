@@ -1,0 +1,26 @@
+# 🗂️ REFACTOR TICKET
+type: "REFACTOR_TICKET"
+id: "REF-20260826-03"
+# ━━━
+update: "2026-08-26 17:40"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "이미지 base64 Data URL 인라인을 asset 프로토콜로 전환 (해결 확인)"
+status: "Done"
+severity: "P1"
+review_ref: "code_review.md §P1-8, advanced_rendering_optimization.md §5"
+resolved_by: "843ff42 (convertFileSrc 전환) + 091ee49 (asset scope dot 디렉터리 허용)"
+verified_at: "v0.8.5"
+# ━━━
+problem:
+  symptom: "모든 이미지를 read_image_base64 로 읽어 원본 대비 약 1.37배 크기의 Data URL 로 DOM 에 상주시켰다. blocks 변경마다 재실행되고 document 전역 querySelectorAll 로 다른 패널의 이미지까지 긁었다."
+  cause: "asset 프로토콜 대신 IPC 왕복 + base64 인라인 방식을 사용했고, Rust 측 read_image_base64 는 async 선언이면서 내부는 블로킹 std::fs::read 였다."
+# ━━━
+resolution:
+  - "ReadView.resolveAssetPaths 와 ImageDecorator.toDOM 을 convertFileSrc 기반으로 전환"
+  - "Rust read_image_base64 커맨드 및 base64 의존성 제거 (lib.rs)"
+  - "assetProtocol.scope 를 객체 형태로 바꾸고 requireLiteralLeadingDot:false 지정 — .devoras/ dot 디렉터리 렌더링 복구"
+# ━━━
+tasks:
+  - "[x] convertFileSrc 전환 및 base64 경로 제거"
+  - "[x] dot 디렉터리 scope 이슈 해결"
+  - "[ ] (후속) scope '**' 축소는 BUG-20260826-01 에서 다룸"

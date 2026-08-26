@@ -1,0 +1,27 @@
+# 🗂️ FIX TICKET
+type: "FIX_TICKET"
+id: "BUG-20260826-05"
+# ━━━
+update: "2026-08-26 17:40"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "Read 모드 드래그 재정렬이 자식 블록을 고아로 만들고 즉시 디스크에 기록하던 문제 (해결 확인)"
+status: "Done"
+severity: "P0"
+review_ref: "code_review.md §P0-6"
+resolved_by: "843ff42 fix(0.8.4): 교차 탭 오염 방어 및 데이터 동기화 안정성 확보"
+verified_at: "v0.8.5"
+# ━━━
+bug_report:
+  symptom: "H2 카드를 드래그하면 헤딩 한 줄만 이동하고 본문/하위 섹션은 제자리에 남아 직전 헤딩의 하위로 재편입됐다. 뒤엉킨 결과가 사용자가 인지하기 전에 저장됐다."
+  cause: "reorderBlocks 가 flattenTree 의 평면 인덱스 하나만 splice 했고, findIndex 의 -1 에 대한 경계 검사도 없었다."
+# ━━━
+resolution:
+  - "서브트리를 group 으로 묶어 통째로 이동 (block/model/store.ts:reorderBlocks Step 2)"
+  - "fromIndex/toIndex 경계 검사 및 자기 자손으로의 드롭 금지 가드 추가 (Step 1·3)"
+  - "아래로 이동 시 target 서브트리 뒤에 삽입되도록 오프셋 보정 (Step 4)"
+  - "handleDrop 의 즉시 saveFile() 제거 — updateContentForTab 으로 dirty 표시만 남김"
+# ━━━
+tasks:
+  - "[x] 서브트리 단위 이동으로 재작성"
+  - "[x] 경계/자손 가드 추가"
+  - "[x] 자동 저장 제거"
