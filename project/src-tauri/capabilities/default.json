@@ -31,7 +31,6 @@
     "dialog:allow-message",
     "core:window:allow-destroy",
     "core:window:allow-close",
-    "shell:allow-open",
-    "mcp-bridge:default"
+    "shell:allow-open"
   ]
 }

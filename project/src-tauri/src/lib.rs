@@ -70,8 +70,6 @@ pub fn run() {
             .level(log::LevelFilter::Info)
             .build(),
         )?;
-        #[cfg(debug_assertions)]
-        app.handle().plugin(tauri_plugin_mcp_bridge::init())?;
       }
       Ok(())
     })
