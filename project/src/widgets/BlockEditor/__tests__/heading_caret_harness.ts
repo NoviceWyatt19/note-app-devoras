@@ -14,8 +14,11 @@ export async function runCaretHarness() {
   // 1. Get initial state
   const initialHead = view.state.selection.main.head;
   const initialCoords = view.coordsAtPos(initialHead);
-  // @ts-ignore
-  const scrollContainer = document.querySelector('.block-node-wrapper').parentElement;
+  const scrollContainer = document.querySelector('.block-node-wrapper')?.parentElement;
+  if (!scrollContainer) {
+    console.error("No scroll container found.");
+    return;
+  }
   const initialScrollTop = scrollContainer.scrollTop;
 
   console.log({ initialHead, initialCoords, initialScrollTop });
