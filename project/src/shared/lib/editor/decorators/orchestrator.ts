@@ -100,6 +100,48 @@ class ImeLatchPlugin implements PluginValue {
 // ---------------------------------------------------------------------------
 
 const decorationBaseTheme = EditorView.baseTheme({
+
+  '&.cm-editor .cm-h1-line': {
+    fontSize: '35px',
+    fontWeight: '700',
+    color: '#f1f5f9',
+    margin: '0.75rem 0 0.5rem',
+    lineHeight: '1.3',
+    textAlign: 'center',
+  },
+  '&.cm-editor .cm-h2-line': {
+    fontSize: '1.25rem',
+    fontWeight: '600',
+    color: '#e2e8f0',
+    margin: '0.625rem 0 0.4rem',
+    lineHeight: '1.35',
+  },
+  '&.cm-editor .cm-h3-line': {
+    fontSize: '1.05rem',
+    fontWeight: '600',
+    color: '#cbd5e1',
+    margin: '0.5rem 0 0.35rem',
+    lineHeight: '1.4',
+  },
+  '&.cm-editor .cm-h4-line, &.cm-editor .cm-h5-line, &.cm-editor .cm-h6-line': {
+    fontSize: '0.9rem',
+    fontWeight: '600',
+    color: '#94a3b8',
+    margin: '0.4rem 0 0.25rem',
+    lineHeight: '1.4',
+  },
+  '&.cm-editor .cm-heading-badge': {
+    display: 'inline-block',
+    marginRight: '0.5rem',
+    fontSize: '0.65rem',
+    color: '#6366f1',
+    backgroundColor: 'rgba(99, 102, 241, 0.15)',
+    padding: '0.15rem 0.4rem',
+    borderRadius: '4px',
+    fontWeight: '800',
+    userSelect: 'none',
+  },
+
   // Strikethrough mark
   '&.cm-editor .cm-strikethrough': {
     textDecoration: 'line-through',

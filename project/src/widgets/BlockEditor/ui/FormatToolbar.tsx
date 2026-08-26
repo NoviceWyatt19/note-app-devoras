@@ -1,6 +1,6 @@
 import React from 'react';
 import { Bold, Italic, Strikethrough, Link2, Code2, Table, Eye, Edit3, Minus, Plus } from 'lucide-react';
-import { getActiveEditorView } from '@/shared/lib/activeEditorView';
+import { getActiveEditorView } from '@/shared/lib/editorViewRegistry';
 import { useDocumentStore } from '@/entities/document/model/store';
 import { useSettingsStore } from '@/entities/settings/model/store';
 // ---------------------------------------------------------------------------

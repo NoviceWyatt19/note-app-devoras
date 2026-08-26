@@ -1,9 +1,11 @@
 # Phase 3.5: 핵심 UX 확장 — 상세 구현 계획
 
 > **프로젝트**: Devoras Design (Tauri 2 + React 18 + Zustand + CodeMirror 6)
-> **현재 버전**: `0.6.4`
+> **현재 버전**: `0.8.10` (본 계획 작성 시점 `0.6.4`)
 > **기준 문서**: `function_roadmap.md`, `architecture_stages.md`, `FUNCTIONS_RELATIONSHIP.md`, Phase 3.5 기획서 5건
 > **선행 완료**: Tier 1 버그 전량 수정, Tier 2 구조 정비 (parser 분리, splitPane 방향, O(N) 최적화, ERD useEffect 제거)
+>
+> ⚠️ **2026-08-27 갱신** — `project/DEBUG_PLAN.md` 의 **편집 표면 상시화(Option B)** 로 CodeMirror 인스턴스가 "패널당 1개"에서 **"블록당 1개"** 로 바뀝니다. 이 전제에 의존하는 **§2.5(Compartment)**, **§4A.5(파일 내 검색)**, **§4A.6(EditorViewRegistry)** 에 정정 주석을 삽입했습니다. 해당 절을 구현하기 전에 주석을 먼저 읽으세요.
 
 ---
 
@@ -557,6 +559,15 @@ useEffect(() => {
 > [!WARNING]
 > **`editorView`를 직접 재생성하지 마세요!** CodeMirror를 remount하면 스크롤 위치, 커서, undo 히스토리가 모두 사라집니다.
 > 반드시 `Compartment.reconfigure()` + `dispatch({ effects })` 패턴을 사용하세요.
+
+> [!IMPORTANT]
+> **다중 인스턴스 대응 (2026-08-27 갱신 — `DEBUG_PLAN.md` 편집 표면 상시화)**
+>
+> 이 절은 "패널당 EditorView 1개"를 전제로 작성되었습니다. **편집 표면 상시화 이후 인스턴스는 블록 수(N)만큼 존재합니다.**
+>
+> - `lineWrappingCompartment` / `editorThemeCompartment` 는 현재 `BlockEditor.tsx` **모듈 레벨 싱글턴**입니다. `Compartment` 객체 자체는 여러 `EditorState` 에서 재사용해도 무방하지만, **`reconfigure` 이펙트는 뷰마다 개별 dispatch 해야 합니다.**
+> - 따라서 설정 변경 1회 = **N회 dispatch** 입니다. 블록이 많은 문서에서 폰트 크기 슬라이더를 드래그하면 프레임 드랍이 발생할 수 있으므로, **설정 변경에 디바운스를 걸거나 가상화 윈도 내 인스턴스에만 즉시 적용**하고 나머지는 마운트 시점에 반영하는 전략을 검토하세요.
+> - 언마운트된(가상화로 내려간) 블록은 마운트 시 **최신 설정으로 `EditorState.create`** 되므로 별도 동기화가 필요 없습니다.
 
 ### 2.6 설정 모달 UI 구성
 
@@ -1305,6 +1316,20 @@ export const useGlobalSearchStore = create<GlobalSearchState>((set, get) => ({
 
 ### 4A.5 파일 내 검색 — CodeMirror SearchCursor
 
+> [!CAUTION]
+> **설계 결함 정정 (2026-08-27)**
+>
+> 아래 코드는 `view.state.doc` 이 **문서 전체**를 담는다고 가정하지만, Devoras 의 `BlockEditor` 는 문서를 **블록 단위로 분할**하므로 각 `EditorView` 는 **블록 하나의 텍스트만** 보유합니다. 즉 이 구현은 **현재 아키텍처에서 이미 오작동**합니다(포커스된 블록 하나만 검색됨). 편집 표면 상시화 이후에는 인스턴스가 N개가 되어 문제가 더 명확해질 뿐, 새로 생기는 결함이 아닙니다.
+>
+> **올바른 설계 — 검색은 뷰가 아니라 모델 위에서 수행한다:**
+>
+> 1. `useBlockStore.getState().getMergedContent()` 로 **문서 전체 문자열**을 얻는다 (저장 여부와 무관한 인메모리 상태라는 원래 요구사항을 그대로 만족).
+> 2. 그 위에서 매칭을 수집하고, 각 히트의 절대 오프셋을 **`(blockId, blockOffset)`** 으로 변환한다. `flattenTree` 순회로 누적 길이를 더해가며 매핑하며, 블록 경계의 `\n` 1자를 반드시 계상할 것 (`getMergedContent` 가 `join('\n')` 이므로).
+> 3. 점프 시 **해당 블록의 `EditorView` 를 레지스트리에서 조회**(§4A.6)하여 그 뷰에만 `dispatch` 한다. 블록이 가상화로 언마운트된 상태면 **먼저 스크롤하여 마운트시킨 뒤** dispatch 한다.
+> 4. `scrollIntoView: true` 는 이 경로에서는 **의도된 동작**이다(검색 점프는 사용자가 요청한 이동). BUG-20260827-13 의 클릭 경로와 혼동하지 말 것.
+>
+> 아래 코드는 **단일 뷰 전제의 참고용**으로만 남겨둡니다. 그대로 구현하지 마세요.
+
 파일 내 검색(`Cmd+F`)은 **저장 여부와 무관하게** 에디터의 현재 인메모리 상태를 검색합니다. CodeMirror의 내장 `SearchCursor`를 사용합니다.
 
 ```typescript
@@ -1364,6 +1389,32 @@ if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === 'f') {
 ```
 
 ### 4A.6 EditorViewRegistry (Sprint 4B 선행 인프라)
+
+> [!IMPORTANT]
+> **키 구조 변경 (2026-08-27 — `DEBUG_PLAN.md` §5 E3 과 동일 지점)**
+>
+> 아래 설계는 `paneId → EditorView` 로 **패널당 1개**를 전제합니다. 편집 표면 상시화 이후에는 **패널당 N개(블록 수)** 가 되므로 키를 확장해야 합니다.
+>
+> ```typescript
+> // 레지스트리 키: `${paneId}::${blockId}`
+> const registry = new Map<string, EditorView>();
+> // 캐럿을 보유한 블록을 패널별로 별도 추적 (렌더링 트리거가 아닌 파생 상태)
+> const caretHolder = new Map<string, string>();  // paneId -> blockId
+>
+> export function getActiveEditorView(): EditorView | null {
+>   const { activePaneId } = useDocumentStore.getState();
+>   const blockId = caretHolder.get(activePaneId);
+>   return blockId ? registry.get(`${activePaneId}::${blockId}`) ?? null : null;
+> }
+> export function getEditorViewForBlock(paneId: string, blockId: string): EditorView | null {
+>   return registry.get(`${paneId}::${blockId}`) ?? null;
+> }
+> ```
+>
+> - 등록/해제는 `BlockEditor` 가 아니라 **`CodeMirrorBlock` 의 마운트/언마운트**에서 수행합니다. 가상화로 블록이 내려가면 자동으로 해제되어야 합니다.
+> - `caretHolder` 는 `updateListener` 의 `focusChanged` 에서 갱신합니다. **이 값이 렌더링을 트리거해서는 안 됩니다** — 트리거화가 곧 BUG-20260827-13 의 재발입니다.
+> - 이 전환으로 기존 **BUG-20260826-10**(언마운트 시 전역 활성 뷰가 무조건 `null` 이 되는 결함)은 **구조적으로 소멸**합니다. 해당 티켓은 본 작업에 흡수됩니다.
+> - `shared/lib/activeEditorView.ts` 의 단일 싱글턴은 이 레지스트리로 **대체 후 삭제**합니다.
 
 전역 검색 결과 점프와 파일 내 검색 모두 "어느 패널의 에디터에 dispatch할 것인가"를 알아야 합니다. 현재 `getActiveEditorView()`는 단일 전역 참조이므로 멀티 패널 환경에서 부정확합니다.
 

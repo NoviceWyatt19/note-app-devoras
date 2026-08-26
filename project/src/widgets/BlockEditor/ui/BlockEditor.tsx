@@ -17,16 +17,12 @@ import { LanguageDescription } from '@codemirror/language';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { FileEdit } from 'lucide-react';
 import { FormatToolbar } from './FormatToolbar';
-import { ReadView, renderBlockToHtml } from './ReadView';
-import { getScrollParent } from '@/shared/lib/scrollUtils';
+import { ReadView } from './ReadView';
 
-let pendingScrollAnchor: {
-  scrollContainer: HTMLElement;
-  oldRectTop: number;
-  element: HTMLElement;
-} | null = null;
 
-import { setActiveEditorView, getActiveEditorView } from '@/shared/lib/activeEditorView';
+
+
+import { registerEditorView, unregisterEditorView, reportCaretFocus, getActiveEditorView } from '@/shared/lib/editorViewRegistry';
 import { useTauriInputManager } from '@/shared/lib/editor/useTauriInputManager';
 import { useImeInputManager } from '@/shared/lib/editor/useImeInputManager';
 import { createImeIsolationExtension } from '@/shared/lib/editor/extensions/ImeIsolation';
@@ -70,6 +66,7 @@ const markdownDecorationPlugin = createDecorationPlugin([
 ]);
 
 interface CodeMirrorBlockProps {
+  paneId: string;
   block: EditorBlock;
   isFocused: boolean;
   focusOffset: number;
@@ -77,7 +74,6 @@ interface CodeMirrorBlockProps {
   onMerge: () => void;
   onFocusPrev: () => void;
   onFocusNext: () => void;
-  onSelect: (offset: number) => void;
 }
 
 function createEditorTheme(settingsEditor: any) {
@@ -91,7 +87,7 @@ function createEditorTheme(settingsEditor: any) {
     },
     '.cm-content': { caretColor: '#6366f1', padding: '4px 0', minWidth: '0' },
     '.cm-line': { padding: '0 4px' },
-    '.cm-line *': {
+    '.cm-line > span:not([class*="cm-"])': {
       fontSize: 'inherit',
       lineHeight: 'inherit',
       verticalAlign: 'baseline',
@@ -103,6 +99,7 @@ function createEditorTheme(settingsEditor: any) {
 }
 
 const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBlock({
+  paneId,
   block,
   isFocused,
   focusOffset,
@@ -110,7 +107,6 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
   onMerge,
   onFocusPrev,
   onFocusNext,
-  onSelect,
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
@@ -207,8 +203,7 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
         }),
         EditorView.updateListener.of((update) => {
           if (update.focusChanged && update.view.hasFocus) {
-            setActiveEditorView(update.view);
-            onSelect(update.state.selection.main.head);
+            reportCaretFocus(paneId, block.id);
           }
 
           if (!update.docChanged) return;
@@ -231,13 +226,14 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
 
     const view = new EditorView({ state, parent: containerRef.current });
     viewRef.current = view;
+    registerEditorView(paneId, block.id, view);
 
     return () => {
       view.destroy();
       viewRef.current = null;
-      setActiveEditorView(null);
+      unregisterEditorView(paneId, block.id);
     };
-  }, []);
+  }, [paneId, block.id]);
 
   useEffect(() => {
     const view = viewRef.current;
@@ -274,9 +270,7 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
   // Remove individual borders/backgrounds here so BlockNode can handle the layout tree.
   return (
     <div
-      className={`group relative py-1 transition-all duration-200 ${
-        isFocused ? 'bg-primary/10 rounded-lg' : 'hover:bg-darkPanel/30 rounded-lg'
-      }`}
+      className="group relative py-1 transition-all duration-200 focus-within:bg-primary/10 hover:bg-darkPanel/30 rounded-lg"
     >
       <div ref={containerRef} className="w-full" />
     </div>
@@ -287,6 +281,7 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
 // Recursive Block Node
 // ---------------------------------------------------------------------------
 const BlockNode = React.memo<{
+  paneId: string;
   block: EditorBlock;
   activeBlockId: string | null;
   focusOffset: number;
@@ -294,9 +289,8 @@ const BlockNode = React.memo<{
   handleMerge: (id: string) => void;
   focusBlock: (id: string, offset?: number) => void;
   handleFocusMove: (id: string, direction: 'prev' | 'next') => void;
-}>(({ block, activeBlockId, focusOffset, handleBlockUpdate, handleMerge, focusBlock, handleFocusMove }) => {
+}>(({ paneId, block, activeBlockId, focusOffset, handleBlockUpdate, handleMerge, focusBlock, handleFocusMove }) => {
   
-  const containerRef = useRef<HTMLDivElement>(null);
   const getLevelStyles = (level: number) => {
     switch(level) {
       case 1: 
@@ -310,82 +304,28 @@ const BlockNode = React.memo<{
     }
   };
 
-  const { workspacePath } = useWorkspaceStore();
   const isFocused = activeBlockId === block.id;
-
-  const handleBlockClick = () => {
-    if (isFocused) return;
-    window.getSelection()?.removeAllRanges(); // D-4
-    
-    if (containerRef.current) {
-      const scrollParent = getScrollParent(containerRef.current);
-      if (scrollParent) {
-        pendingScrollAnchor = {
-          scrollContainer: scrollParent,
-          oldRectTop: containerRef.current.getBoundingClientRect().top,
-          element: containerRef.current,
-        };
-      }
-    }
-    focusBlock(block.id, block.content.length);
-  };
-
-  React.useLayoutEffect(() => {
-    if (pendingScrollAnchor && pendingScrollAnchor.element === containerRef.current) {
-      const { scrollContainer, oldRectTop, element } = pendingScrollAnchor;
-      
-      const correctScroll = () => {
-        const newRectTop = element.getBoundingClientRect().top;
-        const diff = newRectTop - oldRectTop;
-        if (Math.abs(diff) > 0) {
-          scrollContainer.scrollTop += diff;
-        }
-      };
-
-      correctScroll();
-
-      const images = element.querySelectorAll('img');
-      images.forEach(img => {
-        if (!img.complete) {
-          img.addEventListener('load', correctScroll, { once: true });
-        }
-      });
-      pendingScrollAnchor = null;
-    }
-  });
 
   return (
     <div className={`block-node-wrapper transition-colors duration-200 ${getLevelStyles(block.level)}`}>
-      <div 
-        ref={containerRef}
-        className={block.level === 1 ? 'pb-3 mb-5 border-b-2 border-darkBorder/40' : ''}
-        onClick={handleBlockClick}
-      >
-        {isFocused ? (
-          <CodeMirrorBlock
-            block={block}
-            isFocused={true}
-            focusOffset={focusOffset}
-            onUpdate={(text, offset) => handleBlockUpdate(block.id, text, offset)}
-            onMerge={() => handleMerge(block.id)}
-            onFocusPrev={() => handleFocusMove(block.id, 'prev')}
-            onFocusNext={() => handleFocusMove(block.id, 'next')}
-            onSelect={(offset: number) => focusBlock(block.id, offset)}
-          />
-        ) : (
-          <div 
-            className="rv-content cursor-text py-1"
-            dangerouslySetInnerHTML={{
-              __html: renderBlockToHtml(block.content, workspacePath),
-            }}
-          />
-        )}
+      <div className={block.level === 1 ? 'pb-3 mb-5 border-b-2 border-darkBorder/40' : ''}>
+        <CodeMirrorBlock
+          paneId={paneId}
+          block={block}
+          isFocused={isFocused}
+          focusOffset={focusOffset}
+          onUpdate={(text, offset) => handleBlockUpdate(block.id, text, offset)}
+          onMerge={() => handleMerge(block.id)}
+          onFocusPrev={() => handleFocusMove(block.id, 'prev')}
+          onFocusNext={() => handleFocusMove(block.id, 'next')}
+        />
       </div>
       {block.children.length > 0 && (
         <div className={`block-children ${block.level > 0 ? 'mt-4' : 'mt-1'}`}>
           {block.children.map(child => (
             <BlockNode
               key={child.id}
+              paneId={paneId}
               block={child}
               activeBlockId={activeBlockId}
               focusOffset={focusOffset}
@@ -404,7 +344,7 @@ const BlockNode = React.memo<{
 // ---------------------------------------------------------------------------
 // Main Editor
 // ---------------------------------------------------------------------------
-export const BlockEditor: React.FC = () => {
+export const BlockEditor: React.FC<{ paneId?: string }> = ({ paneId = 'pane-main' }) => {
   const currentFile = useDocumentStore(s => s.getCurrentFile());
   const viewMode = useDocumentStore(s => s.viewMode);
   const { settings } = useSettingsStore();
@@ -611,6 +551,7 @@ export const BlockEditor: React.FC = () => {
             {blocks.map((rootBlock) => (
               <BlockNode
                 key={rootBlock.id}
+                paneId={paneId}
                 block={rootBlock}
                 activeBlockId={activeBlockId}
                 focusOffset={focusOffset}

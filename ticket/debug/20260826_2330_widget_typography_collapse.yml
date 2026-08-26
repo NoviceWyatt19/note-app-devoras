@@ -1,0 +1,105 @@
+# 🐛 FIX TICKET
+type: "FIX_TICKET"
+id: "BUG-20260826-12"
+# ━━━
+update: "2026-08-26 23:30"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "`.cm-line *` 전역 리셋이 Write Mode 데코레이터 위젯의 타이포그래피를 무력화 — 코드블록 타이틀 완전 소실"
+status: "Todo"
+severity: "P1"
+review_ref: "code_review.md §P1-9"
+verified_at: "v0.8.8 (미커밋 작업본)"
+# ━━━
+bug_report:
+  symptom: |
+    코드펜스 `|title|="제목"` 의 타이틀이 블록을 편집(포커스)하는 순간 사라진다.
+    블록이 포커스되지 않은 동안에는(renderBlockToHtml 경로) 정상 표시되므로
+    "작업을 시작하면 타이틀이 사라진다"로 관측된다.
+    실제로는 타이틀뿐 아니라 헤더의 언어 라벨과 'Copied!' 피드백도 함께 0×0 으로 렌더된다.
+  cause: |
+    BlockEditor 의 editorThemeCompartment 에 있는
+    `'.cm-line *': { fontSize: 'inherit', lineHeight: 'inherit', verticalAlign: 'baseline' }`
+    가 원인이다. CodeMirror 테마는 셀렉터에 테마 클래스를 붙여 `.ͼN .cm-line *` 로 컴파일되므로
+    명시도가 (0,2,1) 이다. 위젯 내부에 붙은 일반 CSS 클래스(.cm-heading-badge 등)와
+    Tailwind 유틸리티(text-[11px] 등)는 (0,1,0) 이라 **전부 패배**한다.
+
+    피해는 두 갈래다.
+    ① 0 으로 붕괴 — 코드블록 헤더가 놓이는 라인은 orchestrator 의 baseTheme 에서
+       `.cm-code-block-widget-line { font-size: 0 !important; line-height: 0 !important }`
+       를 받는다. `.cm-line *` 가 자손 전체를 `inherit` 으로 만들므로 위젯 서브트리가
+       통째로 0px 를 상속한다 → 텍스트가 0×0. (헤더 바 자체는 padding 으로 35px 유지되어
+       "빈 바"만 보인다.)
+    ② 조용한 크기 덮어쓰기 — index.css 에 정의된 위젯 타이포그래피가 에디터 기본 폰트로 대체된다.
+
+    도입 시점: `ce6b96c` (0.6.1, 2026-08-18) "normalize inline widget font sizes".
+    코드블록 타이틀 기능(`9015c50`, 2026-08-13)보다 **나중**에 들어왔으므로 명백한 회귀다.
+    당시 의도는 인라인 위젯이 line-height 를 흔들어 헤딩 생성 시 캐럿이 튀는 문제를 막는 것이었다.
+  measured:
+    - "코드블록 헤더 언어 라벨  text-[11px] → 0px (0×0)"
+    - "코드블록 헤더 타이틀    text-[12px] → 0px (0×0)  ← 신고된 증상"
+    - "헤딩 배지 .cm-heading-badge  0.65rem(10.4px) → 14px"
+    - "이미지 캡션 .cm-image-caption 0.85em(11.9px) → 14px"
+    - "H1 .cm-h1  35px → 14px  ← 0.8.8 에서 넣은 H1 디자인이 Write Mode 에서 미적용"
+    - "인라인 코드 .cm-inline-code 0.88em → 12.32px  ✅ 유일한 생존자"
+  variant_measurements: |
+    4개 후보안을 실제 브라우저에서 격리 계측한 결과(상세: claude-history/impl/IMPL_PLAN_20260826_2349_widget_typography.md §4):
+      A 현행                     — 타이틀 0px/0×0. 라인높이 평문19.6 H1 19.6 H2 19.6 체크박스19.6
+      B 리셋 제거만              — 타이틀 12px 이나 rect 43×0 (line-height:0 상속) → 화면상 여전히 안 보임. 함정.
+      C 리셋 제거 + 표적 정규화  — 전 항목 정상이나 H1 라인 19.6→49, H2 19.6→24.5 (0.6.1 억제 대상 재발 위험)
+      D 리셋 유지 + baseTheme 재선언 — 헤더 전 항목 정상, 라인 높이 현행과 완전 동일 → 채택(Stage 1)
+    ※ B 때문에 하네스는 fontSize 뿐 아니라 getBoundingClientRect().height > 0 을 반드시 검사해야 한다.
+  discriminator: |
+    `.cm-inline-code` 만 살아남는 이유가 해법을 가리킨다.
+    이 클래스는 orchestrator 의 `EditorView.baseTheme({'&.cm-editor .cm-inline-code': …})` 로
+    정의되어 `.ͼ1.cm-editor .cm-inline-code` = (0,3,0) 이 되고 `.cm-line *` (0,2,1) 을 이긴다.
+    즉 **baseTheme 로 정의된 위젯 스타일은 이기고, 일반 CSS/Tailwind 클래스는 진다.**
+  location:
+    - "project/src/widgets/BlockEditor/ui/BlockEditor.tsx:115-119 (reconfigure 쪽 `.cm-line *`)"
+    - "project/src/widgets/BlockEditor/ui/BlockEditor.tsx:225-229 (초기 생성 쪽 `.cm-line *` — 동일 리터럴 중복)"
+    - "project/src/shared/lib/editor/decorators/orchestrator.ts:152-159 (.cm-code-block-widget-line font-size:0)"
+    - "project/src/shared/lib/editor/decorators/impl/CodeBlockDecorator.ts:240-262 (헤더 위젯 — Tailwind 유틸로 타이포그래피 지정)"
+    - "project/src/app/styles/index.css:181 (.cm-heading-badge), :192 (.cm-h1), :251 (.cm-image-caption)"
+# ━━━
+scope_guard:
+  - "`.cm-line *` 리셋은 수정·삭제 금지. 그대로 둔 채 baseTheme 재선언으로 이기는 방식(변형 D)만 적용한다."
+  - "`.cm-h1` / `.cm-heading-badge` 의 Write Mode 미적용은 알려진 잔존 상태다. 함께 고치지 말 것."
+# ━━━
+architecture_guidelines:
+  - "Widget Styles Belong to the Theme: CodeMirror 위젯의 타이포그래피는 index.css 나 Tailwind 유틸이 아니라 decorationBaseTheme 에 정의한다. 명시도 싸움에서 이기는 유일한 계층이다."
+  - "No Blanket Selectors Inside .cm-line: `*` 리셋은 데코레이터 시스템 전체를 인질로 잡는다. 리셋 대상은 CodeMirror 가 직접 만드는 하이라이트 토큰으로 한정한다."
+  - "Collapsed Lines Must Not Cascade: 라인 높이 붕괴용 font-size:0 은 위젯 루트에서 명시적 폰트 크기로 차단되어야 한다. 상속으로 새어나가면 안 된다."
+  - "Single Source for the Theme: 테마 리터럴이 두 군데(초기/reconfigure) 복제되어 있다. 한쪽만 고치면 설정 변경 전까지 증상이 남는다. 상수로 추출할 것."
+  - "Do Not Regress 0.6.1: 원래 목적(인라인 위젯이 line-height 를 흔들어 캐럿이 튀는 문제)은 반드시 유지되어야 한다. 리셋을 제거만 하는 수정은 금지."
+# ━━━
+tasks:
+  # ── Stage 1 — 필수 · 무위험 (실측 검증 완료: 라인 높이 현행과 100% 동일)
+  - "[ ] BlockEditor.tsx 테마 리터럴을 createEditorTheme() 로 추출해 :105/:215 중복 제거 (동작 변경 0)"
+  - "[ ] CodeBlockDecorator 헤더 자식에 의미 클래스 부여 (cm-cb-lang / cm-cb-title / cm-cb-copied) 및 text-[Npx] 유틸 제거"
+  - "[ ] orchestrator decorationBaseTheme 에 .cm-code-block-header{fontSize:12px;lineHeight:1.5} + 자식 3종 크기 선언 추가"
+  - "[ ] .cm-image-caption 의 fontSize/lineHeight 를 index.css → decorationBaseTheme 로 이전"
+  # ── Stage 2 — 보류 확정 (2026-08-26 사용자 결정). 이번 티켓 범위 아님.
+  # 조건: DEBUG_PLAN 전 항목(B1~B5) 해소 + architecture_stages Stage 3(Worker)·Stage 4(Multi-Window)
+  #       스레드/프로세스 분리 완료 후 재개. 그때 캐럿 점프 재현 조건이 줄어 난이도가 떨어진다.
+  - "[보류] .cm-line * 리셋 축소 + .cm-heading-badge/.cm-h1 baseTheme 이전 — 착수 금지"
+# ━━━
+harness:
+  path: "project/src/widgets/BlockEditor/__tests__/widget_typography_harness.ts"
+  note: |
+    getComputedStyle 기반이라 jsdom 이 아닌 실제 브라우저 컨텍스트가 필요하다.
+    앱의 editorThemeCompartment 테마를 **반드시 포함**해 EditorView 를 생성할 것.
+    이 테마를 빼고 만든 하네스는 전부 통과하므로 결함을 놓친다(이번 사고의 직접 원인).
+  cases:
+    - "코드블록 헤더 타이틀 span 의 computed fontSize 가 12px 이고 rect 가 0×0 이 아닐 것"
+    - "코드블록 헤더 언어 라벨 span 이 11px 일 것"
+    - "헤딩 배지가 10.4px(0.65rem) 일 것"
+    - "이미지 캡션이 0.85em 환산값일 것"
+    - "H1 라인의 .cm-h1 이 35px 이고 text-align:center 를 유지할 것"
+    - "인라인 코드가 기존대로 0.88em 일 것 (회귀 없음)"
+    - "0.6.1 회귀 가드: 헤딩 배지가 있는 라인과 없는 라인의 .cm-line 높이 차가 1px 이내일 것"
+# ━━━
+dod:
+  - "`.cm-line *` 리셋이 수정 전과 동일하게 남아 있을 것 (git diff 로 확인)"
+  - "위 하네스 7케이스 통과 (앱 테마 포함 상태에서)"
+  - "pnpm tauri dev 로 블록을 포커스한 상태에서 코드블록 타이틀이 Read Mode 와 동일하게 보일 것"
+  - "헤딩을 새로 만들 때 캐럿이 튀지 않을 것 (0.6.1 원래 결함 미재발)"
+  - "Write Mode 와 Read Mode 의 H1 크기가 육안으로 동일할 것"

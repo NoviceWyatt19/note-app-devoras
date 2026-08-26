@@ -178,23 +178,6 @@
 
 /* Custom CodeMirror WYSIWYG Decorators */
 .cm-heading { font-weight: bold; color: #f1f5f9; }
-.cm-heading-badge {
-  display: inline-block;
-  margin-right: 0.5rem;
-  font-size: 0.65rem;
-  color: #6366f1;
-  background: rgba(99, 102, 241, 0.15);
-  padding: 0.15rem 0.4rem;
-  border-radius: 4px;
-  font-weight: 800;
-  user-select: none;
-}
-.cm-h1 { font-size: 35px; line-height: 1.4; }
-/* H1 라인 전체 가운데 정렬 (HeadingDecorator 의 Decoration.line) */
-.cm-editor .cm-h1-line { text-align: center; }
-.cm-h2 { font-size: 1.25em; line-height: 1.4; }
-.cm-h3 { font-size: 1.1em; color: #e2e8f0; line-height: 1.4; }
-.cm-h4, .cm-h5, .cm-h6 { font-size: 1em; color: #cbd5e1; line-height: 1.4; }
 
 .cm-blockquote-line {
   border-left: 3px solid #6366f1;

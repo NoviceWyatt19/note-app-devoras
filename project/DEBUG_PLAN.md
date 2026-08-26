@@ -1,234 +1,318 @@
-# DEBUG_PLAN.md — code_review P0 · P1 결함 해소 실행 계획 (티켓 인덱스)
+# DEBUG_PLAN.md — 편집 표면 상시화(Option B) 및 Write Mode 타이포그래피 통합
 
-> **대상**: `project/` (Devoras `v0.8.5` — package.json / Cargo.toml / tauri.conf.json 정렬 완료)
-> **입력 문서**: [`code_review.md`](../code_review.md) §P0-1~P0-6, §P1-1~P1-8
-> **직전 계획서 아카이브**: `claude-history/debug/DEBUG_PLAN_20260826_174031.md` (asset:// 403 / dot 디렉터리 — **완료**)
-> **경로 표기**: 저장소 루트 기준
-> **⚠️ 재검증 완료**: 리뷰 작성 시점은 `v0.8.2`. 아래 상태는 **현재 `v0.8.5` 코드로 14개 항목을 전수 재확인**한 결과이며, 이미 해결된 4건은 실행 대상에서 제외했다.
-
----
-
-## 0. 재검증 결과 요약
-
-| # | 항목 | v0.8.5 상태 | 티켓 |
-|---|---|---|---|
-| P0-1 | 마크다운 HTML 주입 → 코드 실행 / FS 노출 | 🔴 **유효** | [BUG-20260826-01](../ticket/debug/20260826_1740_markdown_html_injection_and_fs_scope.yml) |
-| P0-2 | `openTab` 캐시 우회 미저장 소실 | ✅ 해결 (`843ff42`) | [BUG-20260826-02](../ticket/hist/debug/20260826_1740_opentab_cache_bypass_resolved.yml) |
-| P0-3 | 분할 패널 전역 상태 공유 | 🟠 **범위 축소 후 유효** | [REF-20260826-01](../ticket/refactor/20260826_1740_pane_scoped_document_state.yml) |
-| P0-4 | 디바운스 타이머 교차 오염 | ✅ 해결 (`843ff42`) | [BUG-20260826-03](../ticket/hist/debug/20260826_1740_debounce_timer_cleanup_resolved.yml) |
-| P0-5 | dirty 탭 무경고 종료 | ✅ **해결 (확인 필요)** | [BUG-20260826-04](../ticket/debug/20260826_1740_dirty_tab_close_guard.yml) |
-| P0-6 | 드래그 재정렬 문서 손상 | ✅ 해결 (`843ff42`) | [BUG-20260826-05](../ticket/hist/debug/20260826_1740_readview_reorder_subtree_resolved.yml) |
-| P1-1 | 경로 접두사 매칭 오염 | ✅ **해결 (확인 필요)** | [BUG-20260826-06](../ticket/debug/20260826_1740_path_prefix_matching.yml) |
-| P1-2 | `isDirty` 저장 기준선 부재 | ✅ **해결 (확인 필요)** | [BUG-20260826-07](../ticket/debug/20260826_1740_dirty_baseline_savedcontent.yml) |
-| P1-3 | 워크스페이스 전환 시 `blockStore` 잔존 | 🔴 **유효** | [REF-20260826-02](../ticket/refactor/20260826_1740_blockstore_reset_on_context_switch.yml) |
-| P1-4 | 비헤딩 블록 키 충돌 (커서 유실) | 🔴 **유효** | [BUG-20260826-08](../ticket/debug/20260826_1740_block_key_collision.yml) |
-| P1-5 | 입력당 `onUpdate` 2회 호출 | 🔴 **유효** | [BUG-20260826-09](../ticket/debug/20260826_1740_duplicate_onupdate_dispatch.yml) |
-| P1-6 | 언마운트 시 전역 활성 뷰 null | 🔴 **유효** | [BUG-20260826-10](../ticket/debug/20260826_1740_active_editor_view_null_on_unmount.yml) |
-| P1-7 | 병합 regex(H5/H6) · 포커스 복원 | 🔴 **유효** | [BUG-20260826-11](../ticket/debug/20260826_1740_merge_heading_regex_and_focus.yml) |
-| P1-8 | 이미지 base64 인라인 | ✅ 해결 (`843ff42`+`091ee49`) | [REF-20260826-03](../ticket/hist/debug/20260826_1740_image_base64_to_asset_protocol_resolved.yml) |
-| **P1-9** | **`.cm-line *` 가 위젯 타이포그래피 무력화 (신규)** | 🔴 **유효** | [BUG-20260826-12](../ticket/debug/20260826_2330_widget_typography_collapse.yml) |
-
-**실행 대상 11건** (🔴 10 + 🟠 1) / **해결 완료 4건**.
-
-> **2026-08-26 23:30 추가** — P1-9 는 코드 리뷰가 아니라 사용자 UX 신고에서 출발해 재현·계측으로 확인된 신규 회귀다. 상세는 §2 B5.
-
-### P0-3 이 "범위 축소"인 이유
-
-`843ff42`(0.8.4)가 **피해**는 차단했다 — `blockStore.ownerTabId` 소유권 검사, `saveFile(paneId, tabId)` 대상 명시화, `updateContentForTab` 분리로 **다른 탭 파일에 엉뚱한 내용이 저장되는 경로는 막혔다**.
-남은 것은 **표시 정확성**이다. `BlockEditor` 는 여전히 `getCurrentFile()`(활성 패널의 탭)로 자기 문서를 유추하므로(`BlockEditor.tsx:355`), 좌우 분할 시 **두 패널이 같은 문서를 렌더링**한다. 데이터 손상이 아닌 UX 결함으로 심각도를 낮춰 REF 티켓으로 이관했다.
+> **대상**: `project/` (Devoras `v0.8.10`)
+> **선행 시도**: `2a1bd79` (0.8.10, D-2~D-5 보정 전략) — **실패. 본 계획으로 대체한다.**
+> **직전 계획서 아카이브**: [`claude-history/debug/DEBUG_PLAN_20260827_041501.md`](../claude-history/debug/DEBUG_PLAN_20260827_041501.md) (보정 전략 — 폐기)
+> **P0·P1 티켓 인덱스**: [`claude-history/debug/DEBUG_PLAN_20260827_025711.md`](../claude-history/debug/DEBUG_PLAN_20260827_025711.md) (B2~B4 잔여 — 계속 유효)
+> **경로 표기**: 저장소 루트 기준 / 링크는 `project/` 기준
+> **스코프**: **Stage 1.** 단, **Write Mode 타이포그래피(구 후보 C)를 이번 배치에 정식 편입한다.** 종전의 "Stage 3/4 이후로 연기" 결정은 **철회**한다.
 
 ---
 
-## 1. 실행 순서 & 게이트
+## 0. 이 문서가 이전 계획을 대체하는 이유
 
-| Batch | 목적 | 티켓 | 선행 | 게이트 |
-|---|---|---|---|---|
-| **B1** | 사용자 데이터 보호 | BUG-04, BUG-06, BUG-07 | 없음 | 각 하네스 통과 + 수동 시나리오 |
-| **B2** | 보안 경계 확립 | BUG-01 | 없음 (B1 과 병렬 가능) | 0.8.5 이미지 렌더링 회귀 0건 |
-| **B3** | 에디터 입력 안정성 | BUG-08 → BUG-11, BUG-09, BUG-10 | B1 | IME 하네스 회귀 0건 |
-| **B4** | 구조 개편 | REF-01(1단계) → REF-02 → REF-01(2단계) | B1, B3 | 단일 패널 사용 흐름 회귀 0건 |
-| **B5** | Write Mode 위젯 표시 정확성 (Stage 1 only) | BUG-12 | 없음 (독립) | 앱 테마 포함 하네스 7케이스 + 라인 높이 수정 전과 동일 |
+`DEBUG_PLAN_20260827_025711.md` 는 스크롤 점프를 **보정(compensation)** 으로 해결하려 했다. `2a1bd79` 로 D-2~D-5 가 전부 구현되었으나 **증상이 남았다.** 실패는 구현 품질이 아니라 **전략 선택**의 문제였다(§1.2). 본 문서는 보정을 버리고 **원인 자체를 제거**한다.
 
-### 배치 내 의존 관계
-
-- **BUG-08 → BUG-11**: 키 충돌이 해소되어야 병합 후 포커스 복원의 재현 조건이 안정된다. 순서를 지킬 것.
-- **BUG-07 ↔ REF-01**: 둘 다 `document/model/store.ts` 의 `updateContent` 계열을 건드린다. BUG-07 을 **먼저** 끝내고 REF-01 에 착수해야 충돌이 없다.
-- **REF-02 ⊂ REF-01(2단계)**: 스코프 스토어 전환이 끝나면 REF-02 는 구조적으로 소멸한다. REF-01 2단계를 곧바로 진행할 계획이면 REF-02 는 **건너뛰어도 무방**하다.
-- **REF-01 1단계 ↔ 렌더링 최적화**: [`advanced_rendering_optimization.md`](../advanced_rendering_optimization.md) Phase 1(상태 스냅샷)과 동일 지점이다. **반드시 함께 설계**할 것.
+| 구분 | 문서 | 상태 |
+|---|---|---|
+| P0·P1 티켓 인덱스 (B2/B3/B4 잔여) | `claude-history/debug/DEBUG_PLAN_20260827_025711.md` | 유효 |
+| 보정 전략 (D-1~D-6) | `claude-history/debug/DEBUG_PLAN_20260827_041501.md` | **폐기** |
+| **본 문서 — 편집 표면 상시화 + 타이포그래피** | `project/DEBUG_PLAN.md` | **유효** |
 
 ---
 
-## 2. 배치별 상세
+## 1. 0.8.10 은 왜 실패했는가
 
-### B1 — 사용자 데이터 보호 (최우선)
+### 1.1 무엇이 구현되었나
 
-| 티켓 | 한 줄 요약 | 핵심 수정 지점 |
-|---|---|---|
-| [BUG-20260826-04](../ticket/debug/20260826_1740_dirty_tab_close_guard.yml) | dirty 탭 종료 가드 (Cmd+W · X · 앱 종료) | `WorkspacePage.tsx:58-64, 302` |
-| [BUG-20260826-06](../ticket/debug/20260826_1740_path_prefix_matching.yml) | 경로 경계 매칭 유틸 도입 | `document/model/store.ts:416, 433, 450` |
-| [BUG-20260826-07](../ticket/debug/20260826_1740_dirty_baseline_savedcontent.yml) | `savedContent` 기준선 도입 | `document/model/store.ts:523, 568` |
+`2a1bd79` 는 계획대로 전부 구현했다 — FLIP 앵커 보정, 마운트 시 초기 selection 확정, `scrollIntoView: false`, DOM selection 비우기, `useLayoutEffect` 전환, 패딩 대칭화, 이미지 `min-height`.
 
-### B2 — 보안 경계 (외부 파일 공유/배포 전 필수)
+### 1.2 그럼에도 남은 결함 3가지
 
-| 티켓 | 한 줄 요약 | 핵심 수정 지점 |
-|---|---|---|
-| [BUG-20260826-01](../ticket/debug/20260826_1740_markdown_html_injection_and_fs_scope.yml) | 새니타이저 + CSP + Rust 경로 검증 + scope 축소 | `ReadView.tsx:16/35/41/97`, `tauri.conf.json:40`, `lib.rs:12` |
+#### (a) 이미지 로드 가드가 **구조적으로 죽은 코드**다
 
-> **0.8.5 회귀 주의**: `requireLiteralLeadingDot: false` 는 `.devoras/` 이미지 렌더링의 전제 조건이다. scope 를 좁히더라도 **이 옵션은 유지**할 것. 상세 근거는 아카이브 계획서 `DEBUG_PLAN_20260826_174031.md` §4 참조.
+[`BlockEditor.tsx`](src/widgets/BlockEditor/ui/BlockEditor.tsx) 의 보정 로직은 `!img.complete` 인 이미지에만 `load` 리스너를 건다. 그러나 [`ImageDecorator.ts:36`](src/shared/lib/editor/decorators/impl/ImageDecorator.ts#L36) 은 `img.src` 를 **1×1 data-URI GIF** 로 먼저 설정한다. **data URI 는 동기적으로 `complete === true` 가 된다.**
 
-### B3 — 에디터 입력 안정성
+→ 레이아웃 이펙트 실행 시점에 `img.complete` 는 참이고, 리스너는 **하나도 붙지 않는다.** 뒤이어 발생하는 실제 `asset://` 로드는 **아무도 감시하지 않는다.** 가드가 잡으려던 바로 그 로드를 건너뛴다.
 
-| 티켓 | 한 줄 요약 | 핵심 수정 지점 |
-|---|---|---|
-| [BUG-20260826-08](../ticket/debug/20260826_1740_block_key_collision.yml) | 비헤딩 블록 위치 기반 키 | `block/model/store.ts:48` |
-| [BUG-20260826-11](../ticket/debug/20260826_1740_merge_heading_regex_and_focus.yml) | `#{1,6}` 수정 + 재생성 후 포커스 재조회 | `block/model/store.ts:205, 218-223` |
-| [BUG-20260826-09](../ticket/debug/20260826_1740_duplicate_onupdate_dispatch.yml) | `domEventHandlers.input` 제거 | `BlockEditor.tsx:174-183` |
-| [BUG-20260826-10](../ticket/debug/20260826_1740_active_editor_view_null_on_unmount.yml) | 활성 뷰 포인터 소유권 가드 | `BlockEditor.tsx:229-233` |
+#### (b) 포커스를 **잃는** 블록 A 는 앵커 대상이 아니다
 
-### B4 — 구조 개편
+보정은 `pendingScrollAnchor.element === containerRef.current` 인 블록, 즉 **클릭된 블록 B** 에서만 실행된다. 그러나 블록 A 는 CodeMirror → `rv-content` 로 **새로 마운트**되며 `<img>` 가 전부 새로 생성된다. A 가 B 보다 **위**에 있으면 A 의 비동기 이미지 로드가 B 를 아래로 밀지만 **보정은 발화하지 않는다.** A 를 감시하는 코드가 없다.
 
-| 티켓 | 한 줄 요약 | 핵심 수정 지점 |
-|---|---|---|
-| [REF-20260826-01](../ticket/refactor/20260826_1740_pane_scoped_document_state.yml) | 탭 prop 주입(1단계) → 탭 스코프 Context(2단계) | `WorkspacePage.tsx:353`, `BlockEditor.tsx:355` |
-| [REF-20260826-02](../ticket/refactor/20260826_1740_blockstore_reset_on_context_switch.yml) | 경계 전환 시 `blockStore` 초기화 | `workspace/model/store.ts:35, 51` |
+#### (c) (a)·(b) 를 고쳐도 이긴다는 보장이 없다
+
+보정은 **열린 집합의 비동기 높이 변화**를 뒤쫓는 피드백 루프다. 이미지·KaTeX·`hljs` 재레이아웃·웹폰트 스왑이 각각 별도의 감시 대상이며, 앞으로 추가될 모든 비동기 렌더러가 이 버그를 **조용히 재개방**한다. 보정은 원리적으로 **뒤쫓을 수만 있고 예방할 수 없다.**
+
+### 1.3 결론
+
+**보정 전략은 폐기한다.** (a)·(b) 를 수리하는 후속 작업을 **하지 말 것** — 그 코드는 §5 E2 에서 삭제 대상이다.
 
 ---
 
-## 3. 공통 검증 절차
+## 2. 근본 원인 — 캐럿 위치와 렌더링 모드의 결합
 
-### 3.1 하네스 우선 원칙
+현재 설계는 독립적이어야 할 두 가지를 하나로 묶는다.
 
-`ticket/reference/new_ticket_templates.md` §3 하네스 규격에 따라, 각 티켓은 **UI 빌드 없이 단일 로직을 검증하는 하네스**를 먼저 작성한다. 모든 하네스 실행 명령은 `project/` 에서:
+| 개념 | 본래 소속 |
+|---|---|
+| **캐럿 위치** | 문서(document)의 속성 |
+| **렌더링 모드** (원본 마크다운 ↔ `marked` HTML) | DOM 의 속성 |
 
-```bash
-node --experimental-strip-types <harness_path>
-```
+`activeBlockId` 가 이 둘을 결박한다([`BlockEditor.tsx:308-326`](src/widgets/BlockEditor/ui/BlockEditor.tsx#L308)). 그 결과:
 
-기존 하네스 참고: `project/src/shared/lib/fs/__tests__/image_asset_harness.ts`, `project/src/widgets/BlockEditor/__tests__/ime_isolation_harness.ts`
+> **캐럿을 움직이는 행위가 곧 레이아웃 이벤트다.**
 
-### 3.2 배치 종료 시 공통 회귀 체크
+이것이 결함의 본체다. "블록 활성화"는 사용자가 요구한 상호작용 개념이 **아니다.** CodeMirror 인스턴스가 문서 전체에 **단 하나뿐이고**, 클릭할 때마다 그것을 **이사시켜야 하기 때문에** 생긴 구현 부산물이다.
 
-| # | 항목 | 기준 |
-|---|---|---|
-| R1 | 문서 열기 → 편집 → `Cmd+S` | 디스크 반영 및 dirty 해제 |
-| R2 | 탭 3개 전환 왕복 | 각 탭 내용 유지, 교차 오염 0건 |
-| R3 | 한글 연속 입력 | 조합 끊김 · 텍스트 증식 0건 |
-| R4 | `.devoras/images` 이미지 | Read/Write 양쪽 렌더링 (0.8.5 회귀 방지) |
-| R5 | 좌우 분할 후 패널 닫기 | 탭 병합 정상, 최소 1패널 유지 |
-| R6 | 워크스페이스 전환 | 이전 문서 내용 잔존 0건 |
-
-### 3.3 커밋 규칙
-
-`.agents/AGENTS.md` 에 따라 커밋 전 패치 버전업(`0.8.5 → 0.8.6 …`) 및 `package.json` / `Cargo.toml` / `tauri.conf.json`(+`Cargo.lock`) 동시 갱신. 티켓 1건 = 커밋 1건을 원칙으로 하고, 커밋 메시지에 티켓 ID 를 포함한다.
-
-```
-fix(0.8.6): dirty 탭 종료 가드 추가 (BUG-20260826-04)
-```
+캐럿 이동이 아무것도 재렌더하지 않으면 이 문제는 **완화되는 것이 아니라 존재하지 않게 된다.**
 
 ---
 
-### B5 — Write Mode 위젯 타이포그래피 붕괴 (신규 · 독립 배치)
+## 3. 채택 방향 — Option B: 편집 표면 상시화
 
-> 티켓: [BUG-20260826-12](../ticket/debug/20260826_2330_widget_typography_collapse.yml) · 심각도 P1 · 회귀 도입 `ce6b96c`(0.6.1)
-> **실행 사양서**: [claude-history/impl/IMPL_PLAN_20260826_2349_widget_typography.md](../claude-history/impl/IMPL_PLAN_20260826_2349_widget_typography.md) — 구현 담당 에이전트는 이 문서만 읽으면 된다.
+### 3.1 두 후보
 
-#### 신고된 증상
+| | **Option A — 문서 전체 단일 CodeMirror** | **Option B — 블록별 CodeMirror 상시 마운트 ★채택** |
+|---|---|---|
+| 클릭 처리 | CM 네이티브 (라인 단위 구문 노출) | CM 네이티브 (블록 내부) |
+| 중첩 카드 디자인 | **표현 불가에 가깝다.** 평면 라인 목록에 중첩 라운드 컨테이너를 그리려면 `Decoration.line` 편법 필요 | **완전 보존** |
+| 인스턴스 수 | 1 | N (블록 수) |
+| 가상화 필요성 | 낮음 (CM 자체 뷰포트 렌더링) | **높음** |
+| 블록 트리 모델 | 유지 (MindView/ERD/ReadView 용) | 유지 |
+| 이번 결함 해소 | ✅ | ✅ |
 
-코드펜스 `|title|="제목"` 의 타이틀이 **블록을 편집하기 시작하면 사라진다**.
-블록이 포커스되지 않은 동안에는 보이므로 "작업을 시작하면 없어진다"로 관측된다.
+**Option B 를 채택한다.** [`getLevelStyles`](src/widgets/BlockEditor/ui/BlockEditor.tsx#L286) 가 H2 → 라운드 카드, H3 → 중첩 카드로 렌더하는 **현재 시각 디자인을 유지**하면서 결함을 제거할 수 있는 유일한 선택지다. 또한 §3.3 대로 기존 로드맵과 이미 정렬되어 있다.
 
-#### 계측된 실제 범위
+### 3.2 Option B 가 바꾸는 것
 
-증상은 타이틀 하나가 아니라 **Write Mode 데코레이터 위젯 전반**이다.
-앱의 `editorThemeCompartment` 테마를 포함한 상태로 `getComputedStyle` 계측한 결과:
+| 항목 | 현재 | Option B |
+|---|---|---|
+| CodeMirror 인스턴스 | 포커스된 블록 1개 | **모든 (가상화 윈도 내) 블록** |
+| 비포커스 블록 렌더 | `marked` HTML (`rv-content`) | **CodeMirror + 데코레이터** |
+| 클릭 → 캐럿 | React state → 리마운트 → `focusOffset` | **CM 네이티브 `mousedown`** |
+| `activeBlockId` | 렌더링 **트리거** | 캐럿 위치에서 **파생되는 값** |
+| 클릭 경로의 React state | 있음 | **없음** |
+| 클릭 전후 레이아웃 | 두 블록이 표현 교체 | **완전 동일** |
 
-| 대상 | 설계값 | 실제 | 판정 |
-|---|---|---|---|
-| 코드블록 헤더 언어 라벨 (`text-[11px]`) | 11px | **0px (0×0)** | 완전 소실 |
-| 코드블록 헤더 타이틀 (`text-[12px]`) | 12px | **0px (0×0)** | **← 신고된 증상** |
-| `Copied!` 피드백 (`text-[10px]`) | 10px | **0px (0×0)** | 완전 소실 |
-| 헤딩 배지 `.cm-heading-badge` | 0.65rem (10.4px) | 14px | 35% 확대 |
-| 이미지 캡션 `.cm-image-caption` | 0.85em (11.9px) | 14px | 축소 미적용 |
-| H1 `.cm-h1` | 35px | 14px | **0.8.8 H1 디자인이 Write Mode 에 미반영** |
-| 인라인 코드 `.cm-inline-code` | 0.88em | 12.32px | ✅ 유일한 생존자 |
+**부수 효과 — H5 가 무료로 해소된다.** `focusBlock(block.id, block.content.length)` 는 갓 마운트된 에디터가 클릭 지점을 알 수 없어서 존재했다. 상시 마운트된 에디터는 안다. **연기했던 "클릭 좌표 → 오프셋" 별도 티켓은 불필요해진다.**
 
-#### 근본 원인
+### 3.3 기존 로드맵과의 정렬
 
-`BlockEditor.tsx:115` / `:225` 의
+- Write Mode 의 데코레이터 11종(Bold/Italic·Strikethrough·Checkbox·CodeBlock·Latex·Hyperlink·Image·Heading·List·Blockquote·HorizontalRule)은 **이미 마크다운 표면 전체를 렌더**한다. Write Mode 의 `rv-content` 는 그것과 **상당 부분 중복**이다.
+- 가상화는 [`advanced_rendering_optimization.md`](../advanced_rendering_optimization.md) **§3.4** 에 이미 계획되어 있다. Option B 는 그 항목의 **착수 시점을 앞당길 뿐 새 부채를 만들지 않는다.**
+- [`code_review.md`](../code_review.md) **P2-3**(`renderBlockToHtml` 렌더마다 재파싱)은 Write Mode 에서 **소멸**한다.
+
+---
+
+## 4. 스코프 확장 — 타이포그래피가 필수가 된 이유
+
+### 4.1 인과
+
+현재 Write Mode 는 **두 렌더러가 공존**한다.
+
+| | 비포커스 블록 | 포커스 블록 |
+|---|---|---|
+| 렌더러 | `marked` → `.rv-content` | CodeMirror 데코레이터 |
+| H1 크기 | **35px** ([`index.css:71`](src/app/styles/index.css#L71)) | **14px** (`.cm-h1` 무력화) |
+
+Option B 는 `marked` 렌더러를 Write Mode 에서 **제거**한다. 따라서 `.cm-h1` 이 무력화된 상태 그대로 두면 **Write Mode 전체의 헤딩이 14px 로 보인다.** 종전에는 "포커스한 블록만 작아지는" 국소 결함이었으나, Option B 이후에는 **문서 전체의 시각 결함**이 된다.
+
+→ **타이포그래피는 선택이 아니라 Option B 의 구성 요소다.** (사용자 결정, 2026-08-27)
+
+### 4.2 무력화의 정확한 기전 (0.8.9 계측 결과 — 재조사 불필요)
+
+[`BlockEditor.tsx:93-97`](src/widgets/BlockEditor/ui/BlockEditor.tsx#L93) 의
 
 ```ts
 '.cm-line *': { fontSize: 'inherit', lineHeight: 'inherit', verticalAlign: 'baseline' }
 ```
 
-가 원인이다. CodeMirror 테마는 셀렉터에 테마 클래스를 붙여 `.ͼN .cm-line *` 로 컴파일되므로
-명시도가 **(0,2,1)** 이다. 위젯 내부의 일반 CSS 클래스와 Tailwind 유틸리티는 **(0,1,0)** 이라
-전부 패배한다.
+은 `.ͼN .cm-line *` 로 컴파일되어 명시도 **(0,2,1)** 이다. `.cm-h1` 등은 [`index.css:192-196`](src/app/styles/index.css#L192) 의 **평범한 CSS 클래스 (0,1,0)** 이고, [`HeadingDecorator.ts:38`](src/shared/lib/editor/decorators/impl/HeadingDecorator.ts#L38) 이 `Decoration.mark` 로 **`.cm-line` 내부의 인라인 span** 에 붙이므로 전부 패배한다.
 
-피해가 두 갈래로 갈린다.
+0.8.9 는 **후보 D**(리셋 유지 + `baseTheme` 재선언)를 채택해 코드블록 헤더 계열만 구제했다. 헤딩은 **의도적으로 남겨둔 상태**이며, 이번에 그 잔여를 해소한다.
 
-- **① 0 으로 붕괴** — 코드블록 헤더가 놓이는 라인은 `orchestrator.ts:152` 의
-  `.cm-code-block-widget-line { font-size: 0 !important }` 를 받는다(라인 잔여 높이 제거 목적).
-  `.cm-line *` 가 자손 전체를 `inherit` 으로 만들어 **위젯 서브트리가 통째로 0px 를 상속**한다.
-  헤더 바 자체는 padding 으로 35px 를 유지하므로 사용자에게는 "빈 바"로 보인다.
-- **② 조용한 크기 덮어쓰기** — `index.css` 에 정의된 위젯 타이포그래피가 에디터 기본 폰트로 대체된다.
+### 4.3 0.6.1 캐럿 회귀 위험을 어떻게 다룰 것인가
 
-#### 해법을 가리키는 단서
+종전에 후보 C 를 보류한 이유는 `ce6b96c`(0.6.1)가 억제한 **헤딩 생성 시 캐럿 점프**를 되살릴 위험 때문이었다. 0.8.9 계측에서 후보 B/C 는 라인 높이를 19.6 → **49**(H1) / **24.5**(H2)로 변동시켰다.
 
-`.cm-inline-code` 만 살아남는다. 이 클래스는 `orchestrator.ts` 의
-`EditorView.baseTheme({'&.cm-editor .cm-inline-code': …})` 로 정의되어
-`.ͼ1.cm-editor .cm-inline-code` = **(0,3,0)** 이 되고 `.cm-line *` 를 이긴다.
+**본 계획의 완화 전략 — 헤딩 크기를 인라인이 아니라 라인 레벨에 선언한다.**
 
-> **baseTheme 로 정의된 위젯 스타일은 이기고, 일반 CSS / Tailwind 클래스는 진다.**
+| | 종전 후보 C | **본 계획 (C′)** |
+|---|---|---|
+| 적용 지점 | `Decoration.mark` (인라인 span) | **`Decoration.line`** (`.cm-h1-line` / 신규 `.cm-h2-line` · `.cm-h3-line`) |
+| CM 의 높이 측정 | 인라인 자식 메트릭에 의존 → 불안정 | **라인 자체의 속성 → 결정론적** |
+| 명시도 | `index.css` (0,1,0) — 패배 | **`decorationBaseTheme` `&.cm-editor .cm-h1-line` (0,3,0) — 승리** |
 
-#### 회귀 가드 (반드시 유지)
+`.cm-h1-line` 은 [`HeadingDecorator.ts:46`](src/shared/lib/editor/decorators/impl/HeadingDecorator.ts#L46) 에 **이미 존재**한다(현재는 `text-align: center` 전용). H2/H3 로 확장하고 거기에 `font-size`/`line-height` 를 싣는 것이 최소 변경이다.
 
-`ce6b96c`(0.6.1) 의 원래 목적은 *"인라인 위젯이 line-height 를 흔들어 헤딩 생성 시 캐럿이 튀는 문제"* 해소다.
-**리셋을 단순 제거하는 수정은 금지**한다. 축소하되 원래 목적은 보존해야 한다.
-
-#### 후보안 실측 비교 (완료 — 재조사 불필요)
-
-4개 안을 페이지 리로드로 격리해 계측했다. 상세 수치는 [인수인계 문서](../claude-history/impl/IMPL_PLAN_20260826_2349_widget_typography.md) §4.
-
-| | A. 현행 | B. 리셋 제거만 | C. 리셋 제거 + 표적 정규화 | **D. 리셋 유지 + baseTheme 재선언** |
-|---|---|---|---|---|
-| 헤더 타이틀 | 0px / 0×0 | 12px / **43×0** ⚠ | 12px / 43×18 ✅ | 12px / 43×18 ✅ |
-| `.cm-h1` | 14px | 35px | 35px | 14px (불변) |
-| 라인 높이 (평문/H1/H2/체크박스) | 19.6/19.6/19.6/19.6 | 19.6/**49**/**24.5**/19.6 | 19.6/**49**/**24.5**/19.6 | 19.6/19.6/19.6/19.6 |
-| 0.6.1 캐럿 회귀 위험 | — | 있음 | 있음 | **없음** |
-
-- **B 는 함정** — `fontSize` 만 보면 고쳐진 듯하나 `line-height:0` 이 상속되어 높이가 0 이다.
-  하네스는 반드시 `rect.height > 0` 을 검사할 것.
-- **D 채택 (Stage 1)** — 라인 메트릭이 현행과 완전히 동일해 0.6.1 회귀 여지가 구조적으로 없다.
-- **C 는 보류 확정** (2026-08-26 결정) — 헤딩 크기를 Write Mode 에 반영하는 것은 0.6.1 이 억제한
-  캐럿 점프를 되살리는 것이다. **DEBUG_PLAN 전 항목 해소 + `architecture_stages.md` Stage 3(Worker) ·
-  Stage 4(Multi-Window) 스레드 분리 완료 후** 근본 해소한다. 편집 입력 경로가 렌더링과 격리되면
-  재현 조건 자체가 줄어 난이도가 떨어진다.
-  → **`.cm-line *` 리셋은 이번 작업에서 건드리지 않는다.** `.cm-h1` 35px 의 Write Mode 미적용은
-  의도된 잔존 상태로 둔다.
-
-#### 실행 순서 (Stage 1)
-
-1. 테마 리터럴을 `createEditorTheme(settings)` 모듈 상수로 추출 — `:115` 와 `:225` 가 동일 리터럴 복제라
-   한쪽만 고치면 **설정을 바꾸기 전까지 증상이 남는다**. 이 정리가 선행되어야 한다.
-2. `.cm-line *` 를 CodeMirror 하이라이트 토큰만 겨냥하도록 축소.
-3. 위젯 타이포그래피를 `decorationBaseTheme` 로 이전 (코드블록 헤더 → 헤딩 배지 → 이미지 캡션 → `.cm-h1`).
-4. 위젯 루트에 명시적 폰트 기준을 두어 `font-size:0` 상속을 차단.
-
-#### 이 결함이 남긴 교훈 (프로세스)
-
-0.8.8 작업에서 H1 35px 을 "검증 완료"로 보고했으나, 검증 하네스가 **앱 테마를 포함하지 않아** 통과했다.
-Write Mode 시각 검증 하네스는 `editorThemeCompartment` 테마를 반드시 포함해야 한다.
-포함하지 않은 하네스는 이 결함군을 **구조적으로 탐지할 수 없다**.
+> ⚠️ **이 완화가 캐럿 점프를 없앤다고 단정하지 말 것.** 헤딩 크기를 보여주는 이상 라인 높이 변화 자체는 **불가피**하다(모든 라이브 프리뷰 에디터가 동일). 목표는 **"변화가 캐럿 자신의 라인에서, CM 의 측정 사이클 안에서 동기적으로 일어나게 하는 것"** 이다. E5 의 캐럿 하네스가 **게이트**이며, 실패 시 E6 의 폴백으로 간다.
 
 ---
 
-## 4. 해결 완료 아카이브
+## 5. 실행 계획
 
-아래 4건은 `v0.8.4` / `v0.8.5` 에서 이미 해소되었다. 회귀 방지를 위해 Done 티켓으로 보존한다.
+> **E1~E7 은 구 D-1~D-6 을 대체한다.** 구 계획의 잔여 작업(이미지 가드 수리 등)에 착수하지 말 것.
 
-- [BUG-20260826-02](../ticket/hist/debug/20260826_1740_opentab_cache_bypass_resolved.yml) — `openTab` 캐시 우회 (`843ff42`)
-- [BUG-20260826-03](../ticket/hist/debug/20260826_1740_debounce_timer_cleanup_resolved.yml) — 디바운스 타이머 정리 (`843ff42`)
-- [BUG-20260826-05](../ticket/hist/debug/20260826_1740_readview_reorder_subtree_resolved.yml) — 서브트리 재정렬 (`843ff42`)
-- [REF-20260826-03](../ticket/hist/debug/20260826_1740_image_base64_to_asset_protocol_resolved.yml) — asset 프로토콜 전환 (`843ff42` + `091ee49`)
+### E0. 타당성 게이트 — 인스턴스 비용 실측 (**선행 · 이 결과로 계획이 바뀔 수 있다**)
 
-이전 계획서: `claude-history/debug/DEBUG_PLAN_20260826_170853.md` (P0 초안), `claude-history/debug/DEBUG_PLAN_20260826_174031.md` (asset:// 403 — 완료)
+Option B 의 유일한 실질 리스크는 **N 개 인스턴스의 비용**이다. 코드를 고치기 전에 먼저 측정한다.
+
+| 항목 | 방법 | 판정 기준 |
+|---|---|---|
+| 초기화 시간 | 블록 N=50 / 200 / 500 인 문서에서 전체 마운트까지 경과 시간 | N=200 에서 **300ms 이하** |
+| 메모리 | 마운트 전후 힙 사용량 (Tauri devtools) | 블록당 **150KB 이하** |
+| 입력 지연 | 마운트 완료 후 타이핑 프레임 시간 | **16ms 이하 유지** |
+
+- **통과** → E1 부터 그대로 진행, 가상화는 E7 로 후행.
+- **실패(N=200 에서 예산 초과)** → **E7 가상화를 E1 앞으로 끌어올린다.** 순서만 바뀌고 방향은 유지.
+- **심각한 실패(블록당 500KB 초과 등)** → 중단하고 Option A 재검토. 이 경우 중첩 카드 디자인의 포기 여부를 **사용자에게 확인**할 것.
+
+> **`pnpm tauri:dev`(WKWebView)에서 측정한다.** Chromium 수치는 참고용이다.
+
+### E1. `activeBlockId` 를 트리거에서 파생값으로 전환
+
+| 지점 | 작업 |
+|---|---|
+| [`BlockEditor.tsx:302-327`](src/widgets/BlockEditor/ui/BlockEditor.tsx#L302) | `BlockNode` 의 조건부 렌더(`isFocused ? CodeMirrorBlock : rv-content`)를 **제거**. 항상 `CodeMirrorBlock` 을 렌더한다 |
+| [`BlockEditor.tsx:306`](src/widgets/BlockEditor/ui/BlockEditor.tsx#L306) | `onClick` 핸들러 **삭제**. 클릭은 CM 이 네이티브로 처리한다 |
+| [`BlockEditor.tsx:199-203`](src/widgets/BlockEditor/ui/BlockEditor.tsx#L199) | `updateListener` 의 `focusChanged` 에서 `activeBlockId` 를 **보고**한다 (설정이 아니라 반영) |
+| [`block/model/store.ts:227`](src/entities/block/model/store.ts#L227) | `focusBlock` 은 **키보드 이동(ArrowUp/Down·Backspace 병합) 전용**으로 축소. 클릭 경로에서 호출 금지 |
+| [`BlockEditor.tsx:245-259`](src/widgets/BlockEditor/ui/BlockEditor.tsx#L245) | 포커스 동기화 이펙트를 **프로그래밍적 이동(키보드/병합/검색 점프)에만** 반응하도록 축소 |
+
+**핵심 불변식**: *클릭 경로에서 React state 를 건드리지 않는다.* 이 불변식이 깨지면 결함이 되돌아온다.
+
+### E2. 보정 기구 제거 (`2a1bd79` 되돌리기)
+
+| 제거 | 근거 |
+|---|---|
+| `pendingScrollAnchor` 모듈 변수 + FLIP 보정 `useLayoutEffect` | 스왑이 사라져 보정 대상이 없다 |
+| `window.getSelection()?.removeAllRanges()` (D-4) | 정적 HTML 이 없으므로 잔여 selection 자체가 없다. **`FormatToolbar` 회귀(R5) 위험도 함께 소멸** |
+| `rv-content ... py-1` 대칭화 (D-5-a) | Write Mode 에서 `rv-content` 가 사라진다 |
+
+| 보존 | 근거 |
+|---|---|
+| `useLayoutEffect` 전환 (D-5-b) | 여전히 옳다 |
+| `EditorState.create({ selection })` (D-3-2) | 마운트 시 캐럿 확정 — 여전히 필요 |
+| 이미지 `min-height` (D-5-d) | 데코레이터 이미지 붕괴 완화로 계속 유효 |
+| [`scrollUtils.ts`](src/shared/lib/scrollUtils.ts) | 범용 유틸. 검색 점프 등에서 재사용 가능 |
+
+> `rv-content` / `renderBlockToHtml` 자체는 **삭제하지 말 것.** [`ReadView.tsx`](src/widgets/BlockEditor/ui/ReadView.tsx) 가 Read Mode 에서 계속 사용한다.
+
+### E3. 다중 인스턴스 인프라
+
+| 항목 | 작업 |
+|---|---|
+| **EditorView 레지스트리** | [`activeEditorView.ts`](src/shared/lib/activeEditorView.ts) 의 단일 싱글턴은 N 인스턴스에서 부정확하다. `(paneId, blockId) → EditorView` 레지스트리로 교체하고 "캐럿을 보유한 블록"을 별도 추적. **[`implementation_plan.md`](../implementation_plan.md) §4A.6 과 동일 지점 — 반드시 함께 설계할 것** (§7) |
+| **Compartment** | [`BlockEditor.tsx:11-12`](src/widgets/BlockEditor/ui/BlockEditor.tsx#L11) 의 모듈 레벨 `lineWrappingCompartment` / `editorThemeCompartment` 는 인스턴스마다 `reconfigure` 를 dispatch 해야 한다. 설정 변경 시 **N 회 dispatch** 가 발생하므로 배치 처리 검토 |
+| **`setActiveEditorView(null)`** | 현재 [`BlockEditor.tsx:229`](src/widgets/BlockEditor/ui/BlockEditor.tsx#L229) 은 **어떤** 뷰가 파괴되든 전역 포인터를 null 로 만든다(기존 BUG-20260826-10). 레지스트리 전환으로 **구조적으로 소멸** |
+
+### E4. 타이포그래피 정상화 (§4)
+
+1. **`.cm-line *` 리셋을 CodeMirror 하이라이트 토큰만 겨냥하도록 축소한다.** 위젯·헤딩 마크가 걸리지 않게 할 것. 0.6.1 의 원래 목적(인라인 위젯의 line-height 교란 억제)은 **보존**한다.
+2. **헤딩 크기를 라인 레벨로 옮긴다.** [`HeadingDecorator.ts:46`](src/shared/lib/editor/decorators/impl/HeadingDecorator.ts#L46) 의 `.cm-h1-line` 패턴을 H2/H3 로 확장하고, `font-size`/`line-height` 를 라인 데코레이션에 싣는다.
+3. **`decorationBaseTheme` 로 이전한다.** [`orchestrator.ts:102`](src/shared/lib/editor/decorators/orchestrator.ts#L102) 에 `&.cm-editor .cm-h{1,2,3}-line` 및 `.cm-heading-badge` 를 선언해 (0,3,0) 을 확보한다. [`index.css:180-196`](src/app/styles/index.css#L180) 의 대응 정의는 제거하거나 Read Mode 전용으로 격리.
+4. **Read Mode 와 값을 일치시킨다.** [`index.css:70`](src/app/styles/index.css#L70) 주석이 이미 요구하는 사항이다. H1 35px 기준으로 양쪽을 맞춘다.
+
+### E5. 캐럿 안정성 검증 (**E4 의 게이트**)
+
+`project/src/widgets/BlockEditor/__tests__/heading_caret_harness.ts`
+(**`editorThemeCompartment` 앱 테마를 반드시 포함할 것** — 0.8.8 의 교훈, §8)
+
+| # | 시나리오 | 기준 |
+|---|---|---|
+| C1 | 평문 라인 맨 앞에서 `# ` 입력 | 캐럿이 입력 지점 유지, 뷰포트 점프 없음 |
+| C2 | `## ` → `# ` 승격 | 동일 |
+| C3 | H1 라인에서 `#` 삭제 → 평문 강등 | 동일 |
+| C4 | 헤딩 라인 중간에서 연속 타이핑 | 프레임당 캐럿 좌표 튐 0건 |
+| C5 | 각 라인 높이 실측 | 설계값과 일치, `rect.height > 0` (후보 B 함정 방지) |
+
+**C1~C4 중 하나라도 실패하면 E6 폴백으로 간다.**
+
+### E6. 폴백 — E5 실패 시에만
+
+캐럿 점프가 해소되지 않으면 **헤딩 크기 축소 적용**을 검토한다. 예: H1 35px → 24px 등 라인 높이 변동폭을 줄인 절충값. Read Mode 와의 값 불일치는 감수하되 **사용자에게 보고하고 승인받을 것.**
+
+`.cm-line *` 리셋을 원상 복구하는 선택지는 **없다** — Option B 에서 그것은 문서 전체 헤딩이 14px 이 된다는 뜻이다.
+
+### E7. 가상화 (E0 결과에 따라 순서 변동)
+
+- 뷰포트 ±2 화면 높이를 윈도로 잡아 **캐럿 근처에서는 마운트/언마운트가 절대 일어나지 않게** 한다.
+- 블록 높이를 측정·캐시하고 언마운트 구간은 **정확한 높이의 플레이스홀더 div** 로 대체한다. 이것을 지키지 않으면 **가상화가 스크롤 점프를 다시 만든다.**
+- [`advanced_rendering_optimization.md`](../advanced_rendering_optimization.md) §3.4 및 Phase 1(상태 스냅샷)과 **동일 지점**이다.
+
+---
+
+## 6. 검증
+
+### 6.1 본 결함 통과 기준 (전부 `pnpm tauri:dev`)
+
+| # | 시나리오 | 기준 |
+|---|---|---|
+| V1 | 뷰포트 중앙의 다른 블록 클릭 | `scrollTop` 변화 **0px** |
+| V2 | 뷰포트 상단/하단 가장자리 블록 클릭 | 클릭 요소 `rect.top` 변화 **0px** |
+| V3 | **이미지 포함 블록** ↔ 다른 블록 왕복 | 이미지 로드 완료 후에도 `rect.top` 불변 (§1.2(a)(b) 회귀 가드) |
+| V4 | 코드펜스 포함 블록 왕복 10회 | 누적 드리프트 **0px** |
+| V5 | 클릭 지점 캐럿 정확도 | 클릭한 **문자 위치**에 캐럿 (§3.2 부수 효과) |
+| V6 | 좌우 분할 2패널 각각 클릭 | 반대 패널 `scrollTop` 불변 |
+
+> **V1~V4 의 기준이 "±2px" 가 아니라 "0px" 인 점에 주목할 것.** 보정이 아니라 제거이므로 오차가 존재할 이유가 없다. 0 이 아니면 어딘가에 스왑이 남아 있다는 뜻이다.
+
+### 6.2 타이포그래피 통과 기준
+
+| # | 항목 | 기준 |
+|---|---|---|
+| T1 | Write Mode H1/H2/H3 | 설계값 적용, `rect.height > 0` |
+| T2 | Read ↔ Write 전환 | 헤딩 크기 **동일**, 전환 시 점프 없음 |
+| T3 | 코드블록 헤더 언어/타이틀/`Copied!` | 0.8.9 값 유지 (**BUG-20260826-12 회귀 0건**) |
+| T4 | `.cm-heading-badge` · `.cm-image-caption` | 설계값 |
+| T5 | `.cm-inline-code` | 0.88em 유지 |
+| T6 | C1~C5 (E5) | 전항 통과 |
+
+### 6.3 회귀 가드
+
+| # | 항목 | 기준 |
+|---|---|---|
+| R1 | 한글 IME 연속 입력 | 조합 끊김·증식 **0건** ([`ime_isolation_harness.ts`](src/widgets/BlockEditor/__tests__/ime_isolation_harness.ts)). **N 인스턴스에서 IME 격리가 유지되는지 반드시 재검증** |
+| R2 | `ArrowUp`/`ArrowDown` 블록 간 이동 | 정상. 프로그래밍적 포커스 이동 경로는 E1 이후에도 살아 있어야 함 |
+| R3 | `Backspace` 블록 병합 | 캐럿 위치 유지 (20260719 티켓 회귀) |
+| R4 | 헤딩 입력으로 블록 분할 | 분할 후 캐럿 정상 |
+| R5 | `FormatToolbar` | 레지스트리 전환 후에도 활성 뷰 정확 (E3) |
+| R6 | Read Mode 렌더링 | `rv-content` 경로 무손상 |
+| R7 | `.devoras/images` 이미지 | Read/Write 양쪽 렌더링 |
+| R8 | 탭 3개 전환 왕복 | 내용 유지, 교차 오염 0건 |
+| R9 | 대형 문서(200+ 블록) 열기 | E0 예산 내 |
+
+### 6.4 커밋 분할
+
+`.agents/AGENTS.md` 에 따라 패치 버전업 및 `package.json` / `Cargo.toml` / `tauri.conf.json`(+`Cargo.lock`) 동시 갱신.
+
+| 커밋 | 내용 | 게이트 |
+|---|---|---|
+| 1 | E0 계측 하네스 + 결과 기록 | — |
+| 2 | E3 레지스트리 전환 | R5 |
+| 3 | E1 상시 마운트 + E2 보정 제거 | V1~V6, R1~R4 |
+| 4 | E4 타이포그래피 + E5 캐럿 하네스 | T1~T6 |
+| 5 | E7 가상화 | R9, V1~V4 재검증 |
+
+> **커밋 3 과 4 를 합치지 말 것.** 합치면 캐럿 회귀의 원인이 상시 마운트인지 타이포그래피인지 이분 탐색할 수 없다.
+
+---
+
+## 7. 연계 문서 갱신 (본 계획과 동시에 반영됨)
+
+| 문서 | 갱신 내용 |
+|---|---|
+| [`project/architecture_stages.md`](architecture_stages.md) | Stage 1 에 "편집 표면 상시화" 항목 추가, Stage 3 고려사항에 가상화 선행 관계 명시 |
+| [`advanced_rendering_optimization.md`](../advanced_rendering_optimization.md) | §3.4 에 블록 에디터 가상화 요구사항 추가, Phase 1 착수 조건 변경, §5 에 P2-3 소멸 반영 |
+| [`implementation_plan.md`](../implementation_plan.md) | §2.5 Compartment 다중 인스턴스 대응, §4A.5 파일 내 검색 설계 결함 정정, §4A.6 레지스트리 키 구조 변경 |
+
+---
+
+## 8. 다음 담당 에이전트에게
+
+1. **E0 를 건너뛰지 말 것.** Option B 의 유일한 실질 리스크는 인스턴스 비용이며, 코드를 다 고친 뒤에 발견하면 되돌리는 비용이 크다.
+2. **0.8.10 의 보정 코드를 수리하려 하지 말 것.** §1.2 의 (a)(b) 는 알려진 결함이지만 §5 E2 에서 **삭제** 대상이다.
+3. **"클릭 경로에서 React state 를 건드리지 않는다"** 는 불변식을 지켜라. 편의를 위해 `onClick` 을 하나만 되살리는 순간 결함이 복귀한다.
+4. **V1~V4 기준은 0px 다.** 근사치로 통과시키지 말 것.
+5. **검증 하네스는 `editorThemeCompartment` 앱 테마를 포함해야 한다.** 0.8.8 은 테마를 포함하지 않은 하네스로 H1 35px 을 "검증 완료"로 보고했고, 그 결과가 BUG-20260826-12 였다. 포함하지 않은 하네스는 이 결함군을 **구조적으로 탐지할 수 없다.**
+6. **E5 실패 시 임의로 헤딩 크기를 정하지 말 것.** E6 폴백은 사용자 승인 사항이다.

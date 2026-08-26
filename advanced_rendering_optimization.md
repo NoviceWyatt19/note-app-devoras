@@ -1,6 +1,6 @@
 # 고급 렌더링 & 메모리 최적화 전략 (Advanced Rendering & Memory Optimization Strategy)
 
-> **최종 갱신**: 2026-08-26 | **대상 버전**: `v0.8.2`
+> **최종 갱신**: 2026-08-27 | **대상 버전**: `v0.8.10`
 > **통합 이력**: `ticket/impl/advanced_rendering_optimization.md`(36줄)와 `project/advanced_rendering_optimization.md`(44줄) 두 독립 초안을 본 문서로 통합.
 > **연계 문서**: [`code_review.md`](code_review.md) — 아래 §5는 현재 코드에서 이미 발생 중인 메모리 이슈와의 연결 지점입니다.
 
@@ -58,6 +58,17 @@ Tauri(WKWebView/WebView2) 환경에서는 WebView의 Heap Memory 한계로 인�
 - **리스트 가상화**: 무한 스크롤 TODO 리스트, 스케줄러 타임라인, 수만 노드 마인드맵은 뷰포트(Frustum Culling / Bounding Box) 내부 요소만 DOM에 마운트합니다. (예: `@tanstack/react-virtual`)
 - **WebGL Geometry Instancing**: 동일 모델/재질을 공유하는 3D 노드는 `InstancedMesh`로 묶어 드로우 콜을 1회로 최소화합니다.
 
+#### 3.4.1. 블록 에디터 가상화 (2026-08-27 신규 · **우선순위 상향**)
+
+`DEBUG_PLAN.md` 의 **편집 표면 상시화(Option B)** 로 CodeMirror 인스턴스가 **포커스된 1개 → 블록 수 N개**로 늘어납니다. 이 문서에서 가장 먼저 실현되는 가상화 대상이 마인드맵이 아니라 **블록 에디터**가 되었습니다.
+
+- **착수 조건**: `DEBUG_PLAN.md` §5 **E0 타당성 게이트**의 실측 결과에 따릅니다.
+  - N=200 에서 마운트 300ms 이하 · 블록당 150KB 이하 → 가상화는 후행(E7) 가능
+  - 예산 초과 → **가상화를 상시화 구현보다 먼저** 수행
+- **윈도 크기**: 뷰포트 **±2 화면 높이**. 캐럿 근처에서 마운트/언마운트가 절대 일어나지 않아야 합니다.
+- **⚠️ 높이 캐시는 선택이 아니라 필수**: 언마운트 구간을 **정확한 실측 높이의 플레이스홀더**로 대체하지 않으면, **가상화 자체가 BUG-20260827-13(스크롤 점프)을 재생산**합니다. 블록 높이를 측정·캐시하는 인프라를 가상화와 **동시에** 만들어야 합니다.
+- **`architecture_stages.md` Stage 3 와의 관계**: 캔버스 뷰포트 컬링과 동일한 윈도잉 개념을 공유하도록 설계하여 중복 구현을 피합니다.
+
 ---
 
 ## 📅 4. 구현 로드맵 (Implementation Roadmap)
@@ -66,6 +77,7 @@ Tauri(WKWebView/WebView2) 환경에서는 WebView의 Heap Memory 한계로 인�
 |---|---|---|
 | **Phase 0 (현재)** | 에디터·ReactFlow 탭은 전환 시 언마운트하지 않아 빠른 전환을 보장하되, **동시 열람 탭 수 제한** 또는 경량 캐싱만 적용 | v0.8.x |
 | **Phase 1** | 상태 스냅샷 아키텍처 도입 — 탭 전환 시 로컬 상태(Scroll/Zoom/Selection)를 전역 스토어에 임시 저장하는 인터페이스 구현 | 탭 스코프 스토어 리팩터링과 동시 진행 |
+| **Phase 1.5 (신규)** | **블록 에디터 가상화** (§3.4.1) — 높이 캐시 + 플레이스홀더 인프라 포함 | `DEBUG_PLAN.md` E0 게이트 결과에 따라 **E1 이전 또는 E7** |
 | **Phase 2** | TTL 기반 언마운터(Garbage Collector Component) 래퍼 개발 — 백그라운드 5분 경과 탭을 더미 컨테이너로 교체 | Phase 1 완료 직후 |
 | **Phase 3** | Web Worker 파이프라인 구축 — 마크다운 파서 및 대규모 노드 연산의 Worker 모듈화 | 문서 크기 이슈 발생 시 |
 | **Phase 4** | 3D 뷰 적용 및 검증 — Child WebView 분리 + 메모리 풋프린트 모니터링 | 3D Freeform 뷰 도입 시점 |
@@ -83,5 +95,6 @@ Tauri(WKWebView/WebView2) 환경에서는 WebView의 Heap Memory 한계로 인�
 | **P1-8** 이미지 base64 인라인 | 모든 이미지를 원본 대비 약 1.37배 크기의 Data URL로 DOM에 상주시킴 | §3.4 최적화 이전에 제거해야 할 최대 단일 할당원. `convertFileSrc` 전환으로 즉시 해소 가능 |
 | **P1-3** 워크스페이스 전환 시 `blockStore` 잔존 | 이전 워크스페이스 문서 AST가 앱 종료까지 회수되지 않음 | §3.1 라이프사이클 관리의 최소 전제 조건 |
 | **P2-1** 스토어 전체 구독 | 입력 1회마다 MindView SVG 전체 리렌더 | §3.2 스레드 분리 이전에 렌더 범위부터 좁혀야 효과 측정이 가능 |
-| **P2-3** `renderBlockToHtml` 렌더마다 재파싱 | 블록 수 × 리렌더 횟수만큼 `marked` + `hljs` 재실행 | §3.4 가상화의 사전 정리 대상 |
+| **P2-3** `renderBlockToHtml` 렌더마다 재파싱 | 블록 수 × 리렌더 횟수만큼 `marked` + `hljs` 재실행 | **Write Mode 에서는 편집 표면 상시화로 소멸**(`marked` 경로 자체가 제거됨). Read Mode 경로는 잔존하므로 §3.4 정리 대상으로 유지 |
+| **신규** 블록당 CodeMirror 인스턴스 | 상시화 이후 인스턴스 수 = 블록 수. WKWebView 힙에 직접 계상됨 | §3.4.1 의 **직접 동기.** E0 게이트에서 블록당 150KB 예산으로 실측 |
 | **P0-4** 디바운스 타이머 미정리 | 언마운트된 컴포넌트의 타이머가 살아남아 다른 문서 컨텍스트에서 발화 | §3.1 TTL 언마운트 도입 시 **동일 결함이 대규모로 재현**되므로 선행 수정 필수 |
