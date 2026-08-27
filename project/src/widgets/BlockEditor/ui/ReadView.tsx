@@ -8,6 +8,7 @@ import { useWorkspaceStore } from '@/entities/workspace/model/store';
 import { useSettingsStore } from '@/entities/settings/model/store';
 import { parseCodeFenceInfo } from '@/shared/lib/markdown/codeFenceInfo';
 import { parseLabelAttrs, readTitleSpec } from '@/shared/lib/markdown/inlineAttrs';
+import { customSymbolMarkedExtension } from '@/shared/lib/markdown/customSymbolMarked';
 
 // ---------------------------------------------------------------------------
 // Marked instance (module-level singleton)
@@ -25,6 +26,9 @@ function escapeHtml(raw: string): string {
 }
 
 const markedParser = new Marked({ gfm: true, breaks: true });
+
+// 커스텀 심볼(`->`, `=>`) 인라인 렌더링 — Write Mode 의 CustomSymbolDecorator 와 같은 레지스트리를 공유한다.
+markedParser.use(customSymbolMarkedExtension());
 
 markedParser.use({
   renderer: {

@@ -40,6 +40,7 @@ import { HeadingDecorator } from '@/shared/lib/editor/decorators/impl/HeadingDec
 import { ListDecorator } from '@/shared/lib/editor/decorators/impl/ListDecorator';
 import { BlockquoteDecorator } from '@/shared/lib/editor/decorators/impl/BlockquoteDecorator';
 import { HorizontalRuleDecorator } from '@/shared/lib/editor/decorators/impl/HorizontalRuleDecorator';
+import { CustomSymbolDecorator } from '@/shared/lib/editor/decorators/impl/CustomSymbolDecorator';
 import { parseCodeFenceInfo } from '@/shared/lib/markdown/codeFenceInfo';
 
 /** CodeMirror 마크다운 파서는 코드펜스 info 문자열을 공백까지만 잘라 언어를 찾는다.
@@ -63,6 +64,7 @@ const markdownDecorationPlugin = createDecorationPlugin([
   new ListDecorator(),
   new BlockquoteDecorator(),
   new HorizontalRuleDecorator(),
+  new CustomSymbolDecorator(),
 ]);
 
 interface CodeMirrorBlockProps {

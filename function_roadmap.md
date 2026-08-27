@@ -68,7 +68,10 @@
 - **[ ]** 이미지 상세 뷰어 (사이드 탭에서 이미지 줌인/줌아웃 및 패닝 지원) — *참조: `functions/image_side_view.pdf`*
 - **[ ]** 애플리케이션 사용자 설정 파일(`.devoras/settings.json`) 저장 연동
 - **[ ]** 단일 블록 포커스 에디팅 (Zen Mode)
-- **[ ]** 인라인 스마트 커스텀 심볼 (Inline Smart Custom Symbols)
+- **[~]** 인라인 스마트 커스텀 심볼 (Inline Smart Custom Symbols)
+  - *선구현 완료*: 내장 화살표 심볼 `->` `=>` 를 Read/Write Mode 양쪽에서 인라인 SVG 로 렌더링.
+    심볼 정의는 `shared/lib/markdown/customSymbols.ts` 레지스트리가 단독 소유하며,
+    `registerCustomSymbols()` 로 사용자 정의 심볼을 주입할 수 있게 열어 두었다.
   - 사용자가 심볼의 특성·기능·의미를 직접 정의하고, 에디터 내에서 미니멀한 위젯(뱃지)으로 렌더링
   - 커서를 일정 시간 호버링하면 정의된 의미가 툴팁으로 표시 (잊어버림 방지)
   - *구현 전제조건:* (1) 인터랙티브 상태 변경 가능 (클릭 시 토글 등), (2) 워크스페이스 전역 쿼리 시스템(PKM 메타데이터 Aggregation)이 준비될 때 재진행

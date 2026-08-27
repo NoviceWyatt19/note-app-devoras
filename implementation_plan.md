@@ -6,6 +6,8 @@
 > **선행 완료**: Tier 1 버그 전량 수정, Tier 2 구조 정비 (parser 분리, splitPane 방향, O(N) 최적화, ERD useEffect 제거)
 >
 > ⚠️ **2026-08-27 갱신** — `project/DEBUG_PLAN.md` 의 **편집 표면 상시화(Option B)** 로 CodeMirror 인스턴스가 "패널당 1개"에서 **"블록당 1개"** 로 바뀝니다. 이 전제에 의존하는 **§2.5(Compartment)**, **§4A.5(파일 내 검색)**, **§4A.6(EditorViewRegistry)** 에 정정 주석을 삽입했습니다. 해당 절을 구현하기 전에 주석을 먼저 읽으세요.
+>
+> ⚠️ **2026-08-27 추가 갱신** — 커스텀 문법(`->`/`=>`) 선구현 스파이크를 진행하며 Stage 5 「커스텀 심볼 파싱 격리」 가정이 반증되었습니다. 새 절 **「스파이크: 커스텀 문법 선구현 및 파생 과제」** 를 추가했고, `SyntaxDecorator` 중재 인프라가 신규 파생 과제로 열렸습니다 (`Open Questions` #5, #6).
 
 ---
 
@@ -1988,6 +1990,129 @@ moveTabToPane: (sourcePaneId: string, targetPaneId: string, tabId: string) => {
 
 ---
 
+## 스파이크: 커스텀 문법 선구현 및 파생 과제
+
+> **수행일**: 2026-08-27 · **상태**: 선구현 완료, 파생 과제 미착수
+> **참조**: `project/architecture_stages.md` Stage 5 「선구현 검증 결과」 · `function_roadmap.md` Phase 6
+
+### S.1 배경과 목적
+
+Phase 6 「인라인 스마트 커스텀 심볼」은 사용자가 심볼을 직접 정의하는 기능이라 **데코레이터 개수가 열려 있습니다.** 본구현 전에 **문법을 하나 추가하면 실제로 무엇이 깨지는지**를 확인하기 위해, 화살표 심볼 `->`(단선) / `=>`(쌍선) 를 Read/Write 양쪽에 선구현했습니다.
+
+목적은 기능 자체보다 **필요 변경점의 식별**이었고, 실제로 Stage 5 의 기존 가정 하나가 반증되었습니다.
+
+### S.2 산출물
+
+| 파일 경로 | 역할 |
+|-----------|------|
+| `src/shared/lib/markdown/customSymbols.ts` | 심볼 정의·글리프·매칭·SVG 생성의 단독 소유자 |
+| `src/shared/lib/markdown/protectedRegions.ts` | 치환 금지 구간 계산 (순수 문자열 함수) — **임시 부채, §S.4 완료 시 삭제 대상** |
+| `src/shared/lib/markdown/customSymbolMarked.ts` | Read Mode 어댑터 (marked 인라인 토크나이저) |
+| `src/shared/lib/editor/decorators/impl/CustomSymbolDecorator.ts` | Write Mode 어댑터 (CodeMirror 위젯) |
+| `src/shared/lib/markdown/__tests__/custom_symbol_harness.ts` | 하네스 17건 (`pnpm test:symbol`) |
+
+### S.3 확인된 사실
+
+> [!WARNING]
+> **핵심 발견**: CodeMirror 는 **서로 겹치는 `Decoration.replace` 를 허용하지 않습니다.** 따라서 새 replace 계열 데코레이터는 **기존 replace 데코레이터 전부의 점유 범위를 알아야** 합니다. 현재 `protectedRegions.ts` 가 CodeBlock·Latex·Image·Hyperlink 의 점유 범위를 **복사해서** 들고 있으며, 이것이 이번 스파이크가 드러낸 최대 부채입니다.
+
+| # | 확인 내용 | 근거 |
+|---|-----------|------|
+| 1 | 격리 기준은 "코드인가"가 아니라 **"이미 누가 replace 로 점유했는가"** | 수식 `$a -> b$`, 이미지 `![a -> b](x)`, 링크 목적지 모두 보호 필요 |
+| 2 | 새 replace 데코레이터마다 기존 전부를 알아야 함 → **N² 결합** | `protectedRegions.ts` 의 4개 정규식이 전부 타 데코레이터 지식 |
+| 3 | 결합 위치를 **문법 분류가 예측하지 못함** | `ListDecorator.ts:37` 의 `isCheckbox` 는 분류 *내부* 결합, Latex↔CustomSymbol 은 분류 *횡단* 결합 |
+| 4 | 구분자 없는 토큰은 **인접 문자 가드**가 필수 | `-->`(HTML 주석), `==>`, `<->`, `->>` 오탐 |
+| 5 | Read/Write 렌더 경로가 **비대칭** | Read 는 marked 토크나이저라 코드 격리 자동, Write 는 수동 계산 |
+| 6 | Read Mode 에 KaTeX 경로가 없음 | 수식 보호가 Write Mode 에만 필요했던 이유. 모드 간 기능 격차 존재 |
+| 7 | 보호 구간을 순수 함수로 분리하니 **CodeMirror 없이 검증 가능** | 하네스 17건이 DOM 없이 통과 |
+| 8 | `buildAll` 은 데코레이터마다 문서를 **전수 재순회** (현재 12회) | `orchestrator.ts` — 상세는 `advanced_rendering_optimization.md` §3.4.2 |
+
+### S.4 파생 과제: `SyntaxDecorator` 인터페이스 확장
+
+#### 세 가지 안 비교
+
+| | A. 현행 유지 | B. 문법 타입별 그룹화 | **C. 플랫 + 중앙 중재 (권장)** |
+|---|---|---|---|
+| 방식 | 각 데코레이터가 방어 코드를 복사 | 인라인/블럭/리스트/프리랜더링 4분류로 레지스트리 분리 | 플랫 배열 유지 + `priority`/`claims` 선언 + 오케스트레이터 중재 |
+| 유지보수 | 추가 시 기존 전부 학습 필요 (N²) | **다중 소속 문제로 악화** | 추가 시 `priority` 만 선언 |
+| 안정성 | 불변식 강제 없음 — `RangeSet.join` 이 겹침을 통과시킴 | 그룹 내부만 보호, 그룹 간 관통 | 겹침을 한 곳에서 거부·로깅 |
+| 효율성 | 12회 전수 스캔 + 펜스 판정 중복 | 그룹 배칭 가능 | 구조 사전 스캔 1회 공유 |
+
+> [!NOTE]
+> **B안을 반려한 이유**: 실제 데코레이터가 분류를 가로지릅니다. `LatexDecorator` 는 인라인(`INLINE_RE`) + 블럭(`DISPLAY_FENCE_RE`) + 프리랜더링(KaTeX) 3분류에 걸치고, `CodeBlockDecorator` 는 블럭 + 프리랜더링 + 인라인 코드, `CheckboxDecorator` 는 리스트 문법인데 동작은 인라인 replace 입니다. 분류를 실행 축으로 쓰면 어느 그룹에 넣을지 매번 판단해야 하고, S.3 #3 처럼 **분류 경계가 결합을 예측하지도 못합니다.**
+> 분류는 **폴더 레이아웃·문서·뷰 모드별 on/off 태그**로는 유용하므로, 계층이 아니라 **라벨**로 남기는 것을 권장합니다.
+
+#### C안 인터페이스 초안
+
+```typescript
+// src/shared/lib/editor/decorators/types.ts
+
+/** 데코레이터가 선언하는 점유 종류. 오케스트레이터는 'replace' 끼리만 중재하면 된다. */
+export type DecorationClaim = 'mark' | 'line' | 'replace';
+
+/** 오케스트레이터가 1회 계산해 모든 데코레이터에 공유하는 구조 정보. */
+export interface DecorationContext {
+  /** 라인별 코드펜스/수식펜스 소속 상태 */
+  readonly lineKinds: readonly LineKind[];
+  /** 이번 패스에서 상위 우선순위가 이미 점유한 범위 (정렬됨) */
+  readonly claimed: readonly TextSpan[];
+}
+
+export interface SyntaxDecorator {
+  readonly name: string;
+
+  /** 겹칠 때 승자를 정한다. 큰 값이 우선. 미선언 시 0. */
+  readonly priority?: number;
+
+  /** 이 데코레이터가 선언하는 점유 종류. 미선언 시 'mark' 취급(=중재 불필요). */
+  readonly claims?: DecorationClaim;
+
+  /** 문법 분류 — 실행에는 쓰이지 않는 라벨. 문서/뷰 모드 필터링용. */
+  readonly kind?: 'inline' | 'block' | 'list' | 'prerender';
+
+  createDecorations(state: EditorState, ctx: DecorationContext): DecorationSet;
+}
+```
+
+권장 우선순위: `CodeBlock(100) > Latex(90) > Image(80) > Hyperlink(70) > Heading/List/Blockquote/HR(50) > BoldItalic/Strikethrough(30) > CustomSymbol(10)`
+
+#### 기대 효과
+
+- `protectedRegions.ts` 의 **타 데코레이터 지식이 소멸** → 각 데코레이터는 자기 문법만 앎
+- 겹침 거부가 한 곳에 모여 **BUG-20260810-04/05 계열 결함의 재발 경로 차단**
+- 기존 11개 데코레이터는 `priority` 기본값으로 **무수정 동작** (점진 이관 가능)
+
+### S.5 단계별 작업
+
+| # | 작업 | 비고 |
+|---|------|------|
+| 1 | `types.ts` 에 `priority`/`claims`/`kind`/`DecorationContext` 추가 (전부 옵셔널) | 기존 데코레이터 무수정 통과 확인 |
+| 2 | `orchestrator.ts` `buildAll` 을 **정렬 → 점유 원장 누적 → 겹침 거부** 파이프라인으로 교체 | 거부 시 `console.warn` 으로 데코레이터명 로깅 |
+| 3 | 구조 사전 스캔(라인 분류)을 `buildAll` 에서 1회 수행해 `ctx` 로 전달 | `protectedRegions.ts` 로직을 여기로 승격 |
+| 4 | `CustomSymbolDecorator` 를 `ctx.claimed` 기반으로 전환하고 `protectedRegions.ts` **삭제** | 하네스는 승격된 함수를 대상으로 재작성 |
+| 5 | `CodeBlock`/`Latex`/`Image`/`Hyperlink` 에 `claims: 'replace'` + `priority` 선언 | 나머지는 기본값 유지 |
+
+### S.6 검증
+
+```bash
+pnpm tsc --noEmit
+pnpm test:symbol          # 하네스 17건 (Node 22.6+ 필요)
+pnpm lint
+```
+
+수동 검증 시나리오:
+
+| # | 시나리오 | 확인 항목 |
+|---|---------|-----------|
+| 1 | `$x -> y$` 를 Write Mode 에서 편집 | KaTeX 위젯만 표시, 화살표 위젯 미생성, 콘솔 경고 없음 |
+| 2 | `![a -> b](img.png)` | 이미지 위젯만 표시 |
+| 3 | 코드펜스 안 `const f = (x) => x` | 원문 유지 (Read/Write 양쪽) |
+| 4 | `<!-- 주석 -->` | 화살표로 변환되지 않음 |
+| 5 | 심볼 위에 캐럿 진입 → 이탈 | 원문 노출 → 위젯 복귀, IME 조합 중 재빌드 없음 |
+
+
+---
+
 ## 커밋 전략
 
 각 Sprint 완료 시 AGENTS.md 규칙에 따라 커밋합니다:
@@ -2035,7 +2160,7 @@ pnpm tauri:build
 ## Open Questions
 
 > [!NOTE]
-> 이전에 열려 있던 4개 질문이 모두 사용자 결정으로 해소되었습니다.
+> 이전에 열려 있던 4개 질문이 모두 사용자 결정으로 해소되었습니다. 스파이크(§S)에서 새로 2건이 열렸습니다.
 
 | # | 질문 | 결정 | 반영 위치 |
 |---|------|------|-----------|
@@ -2043,3 +2168,5 @@ pnpm tauri:build
 | 2 | 검색 범위 | ✅ 전역 검색(디스크) + 파일 내 검색(인메모리) 완전 분리. dirty 탭은 JS에서 병합 | Sprint 4A 분리 설계 |
 | 3 | 탭 Tear-off 고려 | ✅ `EditorViewRegistry` 도입으로 향후 tear-off 시 paneId 기반 EditorView 분리 확장 용이 | Sprint 4A.6 |
 | 4 | 설정 저장 위치 | ✅ 앱 설정(`settings.json`)은 App Data Dir(전역), 테마(`.devoras/themes/*.yml`)는 워크스페이스별 | Sprint 2 + Sprint 3 |
+| 5 | 데코레이터 중재를 언제 넣을까 | ⏳ **미결정.** Stage 1(에디터 안정화) 중이거나, Phase 6 커스텀 심볼 본구현 직전 중 택1. 전자는 안정화 스코프가 늘어나고, 후자는 그때까지 `protectedRegions.ts` 의 N² 부채를 유지 | §S.4/§S.5 — 착수 전 결정 필요 |
+| 6 | 사용자 정의 심볼의 충돌 검사 시점 | ⏳ **미결정.** 심볼 등록 시(즉시 실패) vs 렌더 시(느슨하게 허용 후 무시) 중 정책 미정. 인접 문자 가드(S.3 #4)를 사용자 입력에도 적용할지가 걸려 있음 | 워크스페이스 전역 쿼리 시스템 설계와 함께 결정 |

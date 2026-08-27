@@ -176,6 +176,23 @@
   border-radius: 3px;
 }
 
+/* 커스텀 심볼 (`->`, `=>` → 인라인 화살표)
+ * Read Mode / Write Mode 가 동일한 마크업(.dv-symbol > svg)을 공유한다.
+ * stroke 는 currentColor 이므로 주변 텍스트 색(제목·강조·인용 등)을 그대로 따라간다. */
+.dv-symbol {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: -0.06em;
+  margin: 0 0.12em;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.dv-symbol > svg {
+  display: block;
+  overflow: visible;
+}
+
 /* Custom CodeMirror WYSIWYG Decorators */
 .cm-heading { font-weight: bold; color: #f1f5f9; }
 

@@ -1,7 +1,7 @@
 {
   "name": "devoras-design",
   "private": true,
-  "version": "0.8.18",
+  "version": "0.8.19",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,6 +9,7 @@
     "tauri:dev": "pnpm tauri dev",
     "tauri:build": "pnpm tauri build",
     "test:image": "node --experimental-strip-types src/shared/lib/fs/__tests__/image_asset_harness.ts",
+    "test:symbol": "node --experimental-strip-types src/shared/lib/markdown/__tests__/custom_symbol_harness.ts",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "format": "prettier --write \"src/**/*.{ts,tsx,css,md}\"",
     "prepare": "cd .. && husky project/.husky"
