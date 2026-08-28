@@ -57,6 +57,11 @@ export function resolve(specifier, context, next) {
 }
 
 export async function load(url, context, next) {
+  // Vite 스타일 자산 임포트(`import './x.css'`)는 Node 가 해석하지 못한다.
+  // 컴포넌트를 임포트하는 하네스가 곧바로 여기서 죽으므로 빈 모듈로 치환한다.
+  if (/\.(css|scss|sass|less|svg|png|jpe?g|gif|webp|woff2?)(\?.*)?$/.test(url)) {
+    return { format: 'module', source: 'export default {};', shortCircuit: true };
+  }
   if (/\.tsx?$/.test(url) && url.startsWith('file:')) {
     const source = await readFile(fileURLToPath(url), 'utf8');
     const { outputText } = ts.transpileModule(source, {
