@@ -99,13 +99,32 @@ class ImeLatchPlugin implements PluginValue {
 // Base theme for classes emitted by the built-in decorators
 // ---------------------------------------------------------------------------
 
+/**
+ * ## ⚠️ `.cm-line` 에는 절대 `margin` 을 쓰지 말 것 (BUG-20260828-01)
+ *
+ * CodeMirror 6 는 라인 높이를 `DocView.measureVisibleLineHeights()` 에서
+ * `getBoundingClientRect().height` 로 재어 height map 에 쌓는다.
+ * 그 값은 **margin 을 포함하지 않는다.** 따라서 `.cm-line` 에 수직 margin 을
+ * 주면 실제 DOM 좌표와 height map 좌표가 margin 누적만큼 어긋나고,
+ * 그 오차는 아래쪽 라인으로 갈수록 누적된다.
+ *
+ * 수직 방향키는 이 두 좌표계를 섞어 쓴다 — `moveVertically()` 는
+ * `coordsAtPos()`(실제 DOM) 로 목표 y 를 구한 다음 `posAtCoords()` →
+ * `elementAtHeight()`(height map) 으로 그 y 를 다시 문서 위치로 바꾸므로,
+ * 누적 오차가 한 라인 높이에 육박하면 방향키 한 번에 두 줄씩 건너뛴다.
+ *
+ * 세로 간격이 필요하면 **반드시 `padding`** 을 쓴다(rect 에 포함되므로 안전).
+ * 가로 padding 4px 은 `BlockEditor.tsx` 의 `.cm-line` 테마가 주는 값이라
+ * shorthand 로 덮어쓸 때 반드시 같이 적어줘야 한다.
+ */
 const decorationBaseTheme = EditorView.baseTheme({
 
   '&.cm-editor .cm-h1-line': {
     fontSize: '35px',
     fontWeight: '700',
     color: '#f1f5f9',
-    margin: '0.75rem 0 0.5rem',
+    margin: '0',
+    padding: '0.75rem 4px 0.5rem',
     lineHeight: '1.3',
     textAlign: 'center',
   },
@@ -113,21 +132,24 @@ const decorationBaseTheme = EditorView.baseTheme({
     fontSize: '1.25rem',
     fontWeight: '600',
     color: '#e2e8f0',
-    margin: '0.625rem 0 0.4rem',
+    margin: '0',
+    padding: '0.625rem 4px 0.4rem',
     lineHeight: '1.35',
   },
   '&.cm-editor .cm-h3-line': {
     fontSize: '1.05rem',
     fontWeight: '600',
     color: '#cbd5e1',
-    margin: '0.5rem 0 0.35rem',
+    margin: '0',
+    padding: '0.5rem 4px 0.35rem',
     lineHeight: '1.4',
   },
   '&.cm-editor .cm-h4-line, &.cm-editor .cm-h5-line, &.cm-editor .cm-h6-line': {
     fontSize: '0.9rem',
     fontWeight: '600',
     color: '#94a3b8',
-    margin: '0.4rem 0 0.25rem',
+    margin: '0',
+    padding: '0.4rem 4px 0.25rem',
     lineHeight: '1.4',
   },
   '&.cm-editor .cm-heading-badge': {

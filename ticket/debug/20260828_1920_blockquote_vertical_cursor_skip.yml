@@ -2,13 +2,13 @@
 type: "FIX_TICKET"
 id: "BUG-20260828-01"
 # ━━━
-update: "2026-08-28 20:10"
+update: "2026-08-28 21:40"
 project_ref: "PRJ-DEVORAS-MVP"
-subject: "수직 방향키(ArrowUp/Down) 이동 시 줄 건너뜀·스킵 — 블록쿼트 한정 아님, 순수 평문에서도 재현됨"
-status: "Todo — 범위 재정의됨(제목·가설 전면 수정 필요), 근본 원인 미확정"
+subject: "수직 방향키(ArrowUp/Down) 이동 시 줄 건너뜀·스킵 — 원인: 헤딩 라인 데코레이션의 수직 margin 이 CodeMirror height map 을 어긋나게 함"
+status: "Done — 근본 원인 확정 및 수정 완료, T2 실측 검증 통과 (2026-08-28 21:40). 실기(T3) 1회 확인만 남음"
 severity: "P1"
-tier: "T3 (레이아웃/측정 개입 — T0·T1 로는 구조적 탐지 불가)"
-plan_ref: "project/DEBUG_PLAN.md §10.4, §10.6, §5.3 R10"
+tier: "T2 (레이아웃 개입 → T0/T1 금지. 스크롤은 무관하므로 §2 규칙 3 에 따라 T2 로 판정하고 T3 는 1회 확인)"
+plan_ref: "project/DEBUG_PLAN.md §10.4, §10.6, §10.7, §5.3 R10"
 reported_by: "사용자 실사용 보고 (2026-08-28)"
 # ━━━
 bug_report:
@@ -120,3 +120,115 @@ t3_verification_20260828_2010:
     - "CodeMirror 6 의 실제 cursorLineDown/cursorLineUp 구현(@codemirror/commands)이 goal column 을 어디에 캐시하는지, 어떤 트랜잭션 애노테이션으로 리셋되는지 소스 레벨로 확인할 것 — 블랙박스 추측(H1~H4)은 전부 틀렸다."
     - "실제 물리 키보드로 사람이 직접 재현해, 이번 T3 자동 주입(webview_keyboard press)이 만든 타이밍이 실사용과 다른 인공적 조건은 아닌지 교차 확인할 것. 이번 재현은 매우 일관적이었으나(거의 매 입력마다), 사용자 원 보고는 '간헐적'이라 완전히 같은 현상인지는 확실하지 않다."
     - "재현이 필요하면 project/qa_fixtures/ 에 blockquote_test.md, plain_only_test.md 패턴으로 테스트 문서를 다시 만들 것(이번 세션 것은 정리됨)."
+
+# ══════════════════════════════════════════════════════════════════════════
+# 2026-08-28 21:40 — 근본 원인 확정 · 수정 완료 · T2 실측 검증 통과
+# ══════════════════════════════════════════════════════════════════════════
+resolution_20260828_2140:
+  root_cause: >
+    ★ `.cm-line` 에 걸린 수직 `margin` 이 CodeMirror 의 height map 을 실제 DOM 과
+    어긋나게 만든 것이 원인이다. 데코레이터 로직·keymap·orchestrator 재계산은
+    전부 무관했다(§10.6 의 다음 조사 방향 두 건도 결과적으로 오답).
+
+    메커니즘:
+      1. CodeMirror 는 라인 높이를 `DocView.measureVisibleLineHeights()` 에서
+         `getBoundingClientRect().height` 로 재어 height map 에 쌓는다.
+         이 값에는 **margin 이 포함되지 않는다.**
+      2. `orchestrator.ts` 의 `decorationBaseTheme` 은 `.cm-h1-line` ~ `.cm-h6-line`
+         에 `margin: 0.75rem 0 0.5rem` 등 수직 margin 을 주고 있었다.
+         → 헤딩 라인 하나를 지날 때마다 (margin-top + margin-bottom) 만큼
+           "실제 DOM y" 가 "height map y" 보다 아래로 밀리고, 그 오차가 누적된다.
+      3. 수직 이동은 이 두 좌표계를 섞어 쓴다.
+         `moveVertically()` (view/dist §3702) 는
+           - `coordsAtPos()` → **실제 DOM** 좌표로 목표 y 를 계산한 뒤
+           - `posAtCoords()` → `elementAtHeight()` → **height map** 으로
+             그 y 를 다시 문서 위치로 되돌린다.
+         누적 오차가 한 라인 높이(22.39px)에 육박하면 방향키 한 번에 두 줄을 건넌다.
+
+  measured_evidence_t2:
+    setup: "pnpm dev + playwright MCP (Chromium, 뷰포트 1100x1400). drift = (실제 DOM top − height map top)."
+    before_fix_doc_A: >
+      H1 한 줄만 있는 순수 평문 문서에서 line1 drift=+12px(margin-top),
+      line2 이후 전 라인 drift=+20px(12+8) 로 고정. 라인 높이 22.39px 의 89%.
+      moveVertically 워크 결과: 1->2(1), 2->4(2), 4->6(2)
+      ── 인수인계 문서 §2 의 T3 실측 표와 **완전히 일치**.
+    before_fix_mixed: >
+      H1/H2/H3/H4 를 모두 포함한 문서에서 drift 가 헤딩마다 정확히
+      (margin-top+margin-bottom) 만큼 계단식으로 누적:
+      12 → 20 → 30 → 36.39 → 44.39 → 49.98 → 56.38 → 60.38 이후 평평.
+      즉 **drift 를 만드는 것은 헤딩 라인 margin 뿐**이고
+      블록쿼트·코드블록·리스트·수평선·이미지·수식은 기여분 0 이다.
+      (블록쿼트는 이미 padding 을 쓰고 있었다 → §10.6 의 "블록쿼트 무관" 결론과 일치)
+      ArrowUp 은 더 심해서 line42 → line1 로 문서 맨 위까지 튀었다
+      ── 사용자 원 보고의 "ArrowUp 이 더 빈번" 과 부합.
+    after_fix: >
+      전 4개 픽스처(plain / blockquote / headings / mixed) 에서
+      drift 전 라인 0.00, moveVertically 델타 전부 ±1.
+      실제 네이티브 키 입력(playwright keyboard.press)으로도
+      line2→3→4→5→6, 6→5→4 로 ±1 확인.
+    guard_check: >
+      수정 후 CSS 로 옛 margin 을 다시 주입하자 하네스가 즉시 FAIL 하며
+      `2->4 (2)`, `4->6 (2)` 를 그대로 재현 → 하네스가 회귀를 실제로 잡는다.
+
+  fix:
+    file: "project/src/shared/lib/editor/decorators/orchestrator.ts"
+    change: >
+      `decorationBaseTheme` 의 `.cm-h1-line` ~ `.cm-h6-line` 에서
+      `margin: <상>0<하>` 를 `margin: 0` + `padding: <상> 4px <하>` 로 교체.
+      padding 은 `getBoundingClientRect()` 에 포함되므로 height map 이 정확해진다.
+      가로 4px 은 `BlockEditor.tsx` 의 `.cm-line { padding: 0 4px }` 값을
+      shorthand 로 덮어쓰면서 잃지 않도록 명시적으로 되살린 것이다.
+      (특이도: baseTheme 의 `&.cm-editor .cm-hN-line`(0,3,0) > theme 의 `.cm-line`(0,2,0) 이라 우선한다.)
+    visual_impact: >
+      헤딩 글리프 위치는 픽셀 단위로 동일하다(margin 12/8 → padding 12/8, 배경·테두리 없음).
+      유일한 차이는 **헤딩 줄이 연속으로 붙어 있을 때**(예: H3 바로 아래 H4)
+      margin collapse 가 사라져 간격이 약 5.6px 늘어난다는 것.
+      H1~H3 는 각각 별도 EditorView 블록을 열므로 실질적으로는 H4~H6 연속 구간에서만 해당된다.
+      CodeMirror 가 `.cm-line` margin 을 지원하지 않는 이상 감수해야 하는 대가이며,
+      필요하면 padding 값을 조정해 흡수할 수 있다.
+
+  regression_guard:
+    harness: "project/src/widgets/BlockEditor/__tests__/vertical_motion_t2_harness.ts (+ vertical_motion_t2.html)"
+    run: "pnpm dev → http://localhost:1420/src/widgets/BlockEditor/__tests__/vertical_motion_t2.html → 콘솔에서 await qa.report()"
+    criteria: "모든 픽스처에서 drift === 0 그리고 라인 델타 === ±1"
+    caveat: >
+      playwright/MCP 로 자동화할 때 탭이 백그라운드면 innerWidth/innerHeight 가 0 이 되어
+      CodeMirror 가 라인 높이를 측정하지 못하고 heightOracle 이 기본값 14px 에 머문다.
+      그 상태의 측정값은 전부 무의미하므로 **반드시 뷰포트가 살아 있는 상태에서** 실행할 것.
+
+  dod_status:
+    - "[x] 블록쿼트 3줄 이상 구간 ArrowUp/ArrowDown 왕복 시 캐럿 라인 델타 항상 ±1 (blockquote 픽스처, 양방향 전 구간 통과)"
+    - "[x] 단독 '>' 빈 인용 줄 통과 시에도 스킵 0건 (blockquote 픽스처에 포함)"
+    - "[x] 리스트·체크박스·헤딩·코드블록 수직 이동 회귀 0건 (mixed 픽스처 drift 0)"
+    - "[ ] T3(실기 WKWebView) 1회 확인 — 아래 remaining 참조"
+
+  remaining:
+    - >
+      T3 실기 확인 1회. 원인이 CSS margin 과 getBoundingClientRect 의 관계라
+      엔진 독립적이므로 WebKit 에서 달라질 이유는 없지만, §2 규칙 3("T2 에서 조율하고
+      T3 에서 1회 확인")에 따라 확인이 남아 있다. tauri-plugin-mcp-bridge 는
+      의도적으로 회수된 상태이므로 재추가 없이 **사람이 직접 방향키를 눌러** 확인하는
+      편이 낫다. 인수인계 문서 §6-4 가 요구한 "사람이 직접 재현" 항목과 함께 처리 가능.
+    - >
+      의도했던 '간헐적' 특성 설명: 스킵은 **커서 위 헤딩 라인의 누적 margin 이
+      라인 높이에 얼마나 근접하냐**에 따라 결정된다. 헤딩이 없는 블록에서는
+      drift 가 0 이라 정상 동작하고, 헤딩 아래에서는 거의 항상 발생한다.
+      사용자가 "간헐적"으로 느낀 것과 자동화가 "거의 항상"으로 관측한 것의
+      간극은 이 문서 구조 의존성으로 설명된다.
+
+# ══════════════════════════════════════════════════════════════════════════
+# 조사 중 발견된 별건 (본 티켓 범위 밖 — 신규 티켓 필요)
+# ══════════════════════════════════════════════════════════════════════════
+spinoff_defects:
+  - id: "미부여 (신규)"
+    symptom: "`---`(수평선) 라인을 ArrowUp 으로 통과할 때 그 줄을 건너뛴다. ArrowDown 은 정상."
+    evidence: >
+      헤딩이 전혀 없어 drift 가 0 인 문서(alpha/beta/---/gamma/delta)에서도 재현:
+      down = 1->2->3->4->5 정상, up = 5->4->2 (line3 '---' 건너뜀).
+      즉 height map 불일치와는 다른 축이며 본 수정으로 생긴 것이 아니다.
+    likely_cause: >
+      `posAtCoords()` 의 라인 패딩 회피 루프(view/dist §3786)가
+      `coordsAt(block.from, 1)` 로 얻은 위젯 렌더 박스를 본다.
+      `.cm-hr-widget`(inline-block) 안의 `.cm-hr-line` 은 height 1px 라
+      rect.top 이 라인 박스 위쪽보다 한참 아래에 있어 "패딩에 착지했다"고 오판하고
+      그 블록을 통째로 건너뛴다.
