@@ -1,0 +1,36 @@
+# 🐛 FIX TICKET
+type: "FIX_TICKET"
+id: "BUG-20260828-04"
+# ━━━
+update: "2026-08-28 20:33"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "`---`(수평선) 라인을 ArrowUp 으로 통과할 때 그 줄을 건너뜀 (ArrowDown 은 정상)"
+status: "Todo — 범위가 좁고 고립되어 있어 의도적으로 보류 (사용자 판단)"
+severity: "P3"
+tier: "T2"
+plan_ref: "BUG-20260828-01 조사 중 파생 발견"
+# ━━━
+symptom: "수평선(`---`) 라인 바로 아래에서 ArrowUp 을 누르면 수평선 줄을 건너뛰고 그 위 줄로 간다. ArrowDown 은 정상적으로 수평선 줄에 멈춘다."
+
+evidence: >
+  헤딩이 전혀 없어 height map drift 가 0 인 문서에서도 재현된다:
+    문서: ['alpha one','beta two','---','gamma three','delta four']
+    down: 1->2->3->4->5  (정상)
+    up:   5->4->2        (line3 '---' 건너뜀)
+  즉 BUG-20260828-01(margin 에 의한 height map 불일치)과는 **다른 축**이며
+  그 수정으로 생긴 것도 아니다.
+
+likely_cause: >
+  `@codemirror/view` 의 `posAtCoords()` 에는 "라인의 상/하 패딩에 착지했으면
+  그 블록을 건너뛴다"는 보정 루프가 있다(dist §3786 부근).
+  위로 스캔할 때 `coordsAt(block.from, 1)` 로 얻은 렌더 박스의 top 을 보는데,
+  `.cm-hr-widget`(inline-block) 안의 `.cm-hr-line` 은 `height: 1px` 이라
+  그 박스가 라인 박스 훨씬 아래쪽에 위치한다. 그래서 "패딩에 착지했다"고 오판하고
+  수평선 블록을 통째로 건너뛴다.
+
+suggested_direction: >
+  `.cm-hr-widget` 이 라인 박스 높이를 실제로 채우도록 만드는 방향
+  (예: `display:block; height:1em` 컨테이너 안에서 1px 선을 세로 중앙 정렬).
+  수정 후 `vertical_motion_t2.html` 픽스처에 `---` 케이스를 추가해 회귀를 고정할 것.
+
+regression_harness: "src/widgets/BlockEditor/__tests__/vertical_motion_t2.html — qa.walk(false) 로 재현 가능"
