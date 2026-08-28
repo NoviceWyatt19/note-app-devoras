@@ -1,0 +1,122 @@
+# 🐛 FIX TICKET
+type: "FIX_TICKET"
+id: "BUG-20260828-01"
+# ━━━
+update: "2026-08-28 20:10"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "수직 방향키(ArrowUp/Down) 이동 시 줄 건너뜀·스킵 — 블록쿼트 한정 아님, 순수 평문에서도 재현됨"
+status: "Todo — 범위 재정의됨(제목·가설 전면 수정 필요), 근본 원인 미확정"
+severity: "P1"
+tier: "T3 (레이아웃/측정 개입 — T0·T1 로는 구조적 탐지 불가)"
+plan_ref: "project/DEBUG_PLAN.md §10.4, §10.6, §5.3 R10"
+reported_by: "사용자 실사용 보고 (2026-08-28)"
+# ━━━
+bug_report:
+  symptom: "블록쿼트 구간에서 위/아래 방향키로 커서를 옮길 때 줄을 통째로 건너뛰거나 한 줄 위로 튄다. ArrowUp 에서 더 자주, ArrowDown 은 상대적으로 덜 발생. 정확한 재현 조건 미확정(간헐적)."
+  history: "과거에는 평문·코드블록·리스트 전반에서 심하게 발생 → 2026-08-11 수정 파동(BUG-20260811-08/10)으로 대부분 해소 → 현재는 블록쿼트에서만 관찰됨."
+  scope_note: "BUG-20260827-02(키맵 우선순위)는 '블록 간' 이동 문제였고 이미 해결됨. 본 건은 '블록 내부 라인 간' 수직 이동으로 축이 다르다."
+# ━━━
+root_cause_hypotheses:
+  - id: "H3 (최우선)"
+    claim: "커서 위치 의존 데코레이션 — BlockquoteDecorator.ts:50 이 '커서가 있는 줄에만 > 마커를 노출'한다. 따라서 수직 이동 1회마다 출발 줄은 마커가 숨겨지고(-2자) 도착 줄은 드러나(+2자) 양쪽 줄의 가시 콘텐츠가 동시에 변한다. CodeMirror 의 goal column 은 이동 직전 좌표로 측정되는데, 그 좌표계가 같은 업데이트 사이클에서 무효화된다."
+    fits_asymmetry: "도착 줄이 위쪽에서 2자 늘어나면 이미 측정된 기준이 함께 밀리므로 ArrowUp 이 더 취약하다는 보고와 부합한다."
+  - id: "H1"
+    claim: "위젯 없는 라인 선두 치환 — BlockquoteDecorator.ts:6 의 Decoration.replace({}) 는 폭 0 치환이며 위치가 정확히 column 0~2, 즉 수직 이동이 캐럿을 놓는 자리와 겹친다. 2026-08-11 파동은 '위젯을 가진' 데코레이터만 교정했고 위젯 없는 치환은 대상이 아니었다."
+  - id: "H2"
+    claim: "bidiIsolate: false 미지정 — BUG-20260811-08 이 'Y축 측정 오류' 해결책으로 지정한 옵션이 블록쿼트에만 누락되어 있다. Heading/List/Checkbox 는 모두 명시하고 있다."
+  - id: "H4 (보조)"
+    claim: "'>' 단독 줄은 markerEnd == line.to 이므로 줄 전체가 치환되어 시각적 빈 줄이 된다(BlockquoteDecorator.ts:51). 빈 줄 통과 시 스킵이 발생하는 고전적 케이스."
+  - id: "공통"
+    claim: "orchestrator 에 EditorView.atomicRanges 등록이 없어 캐럿이 숨겨진 치환 구간 내부에 머무를 수 있다."
+# ━━━
+evidence:
+  decorator_comparison:
+    - "HeadingDecorator.ts:55 — replace + HeadingBadgeWidget + bidiIsolate:false"
+    - "ListDecorator.ts:54 — replace + BulletWidget + bidiIsolate:false"
+    - "CheckboxDecorator.ts:108 — replace + CheckboxWidget + bidiIsolate:false"
+    - "BlockquoteDecorator.ts:6 — replace({}) · 위젯 없음 · bidiIsolate 미지정  ← 유일한 예외"
+  prior_fixes:
+    - "ticket/hist/debug/20260811_1811_codemirror_line_skip_and_bidi.yml (BUG-20260811-08)"
+    - "ticket/hist/debug/20260811_1850_codemirror_widget_display_block.yml (BUG-20260811-10)"
+# ━━━
+architecture_guidelines:
+  - "Measurement Stability: 캐럿 이동 중에 가시 콘텐츠 길이가 변하는 데코레이션은 수직 이동을 깨뜨린다. 마커 노출 정책은 '커서 라인' 단위가 아니라 최소한 '블록쿼트 구간' 단위여야 한다."
+  - "Consistent Replace Options: 라인 선두를 치환하는 모든 데코레이터는 bidiIsolate:false 를 명시한다(2026-08-11 규약)."
+  - "Atomic Hidden Ranges: 숨긴 구간은 EditorView.atomicRanges 로 캐럿 진입을 막는다."
+  - "No Silent Regression: 수정 후 리스트·체크박스·헤딩·코드블록의 수직 이동에도 회귀가 없는지 함께 확인한다."
+# ━━━
+tasks:
+  - "[ ] T3 실기에서 재현 조건 확정 — 단독 '>' 줄 / 연속 인용 3줄 이상 / 인용 내부 줄바꿈 / 인용↔평문 경계 각각 시도"
+  - "[ ] H3 검증: 마커 노출 조건을 '커서 라인' → '커서가 속한 블록쿼트 구간 전체'로 바꿔 증상 소멸 여부 확인"
+  - "[ ] H2 검증: HIDE_DECO 에 bidiIsolate:false 추가만으로 변화가 있는지 단독 측정"
+  - "[ ] H1/H4 검증: 위젯 없는 치환을 폭 0 위젯(span, display:inline, ignoreEvent:false)으로 교체 시 변화 측정"
+  - "[ ] orchestrator 에 atomicRanges 등록 검토"
+  - "[ ] 회귀 확인: 리스트·체크박스·헤딩·코드블록 수직 이동"
+# ━━━
+harness:
+  path: "T3 실기 전용 — 자동 하네스로 대체 불가"
+  run_command: "pnpm tauri dev (webview_keyboard 로 ArrowUp/Down 주입 후 selection.main.head 라인 번호 델타 측정)"
+  rationale: "레이아웃 측정과 데코레이션 재계산이 원인 후보이므로 §2 규약상 T0/T1 금지. 캐럿 라인 델타가 항상 ±1 인지로 판정한다."
+# ━━━
+dod:
+  - "블록쿼트 3줄 이상 구간에서 ArrowUp/ArrowDown 각 20회 왕복 시 캐럿 라인 델타가 항상 ±1"
+  - "단독 '>' 빈 인용 줄 통과 시에도 스킵 0건"
+  - "리스트·체크박스·헤딩·코드블록 수직 이동 회귀 0건"
+# ━━━
+# ══════════════════════════════════════════════════════════════════════════
+# 2026-08-28 20:10 추가 — T3 실기 검증 결과: H1/H2/H3/H4 전부 기각
+# ══════════════════════════════════════════════════════════════════════════
+t3_verification_20260828_2010:
+  method: >
+    tauri-plugin-mcp-bridge 를 임시로 재추가해(사용자 승인, 검증 후 즉시 재회수 예정)
+    실제 WKWebView 에 연결. 사용자가 앱 창을 실제 OS 포커스로 전환한 뒤
+    webview_keyboard(press) 로 ArrowDown/ArrowUp 을 진짜 네이티브 키 이벤트로
+    주입하고, 매 입력 후 selection.main.head 의 라인 번호를 측정했다.
+    (주의: 프로그래매틱 view.dispatch 로 커서를 옮긴 뒤 곧바로 real key 이벤트가
+    아닌 합성 KeyboardEvent 를 dispatchEvent 로 흉내 낸 첫 시도는 이중 발화
+    아티팩트가 있어 폐기 — 반드시 webview_keyboard 의 실제 키 주입만 신뢰할 것.)
+
+  fixes_attempted_and_result:
+    - hypothesis: "H2 (bidiIsolate:false 추가)"
+      result: "FAILED — 단독 적용 후에도 line 5→7 스킵 그대로 재현 (블록쿼트 5줄 구간, 실키 입력)"
+    - hypothesis: "H1 (위젯 없는 replace → 폭 0 위젯으로 교체, H2 와 함께 적용)"
+      result: "FAILED — 동일하게 line 5→7 스킵 재현. 변화 없음"
+    - hypothesis: "H3 (마커 노출 정책을 '커서 라인' → '커서가 속한 구간 전체'로 재설계)"
+      result: >
+        FAILED — DOM 확인으로 구간 전체 마커가 실제로 노출되고 있음을 재검증했음에도
+        (즉 가시 콘텐츠 길이가 구간 내 이동 중 전혀 변하지 않는데도) line 5→7 스킵이
+        동일하게 재현됨. H3 의 "마커 토글로 인한 goal column 오염" 메커니즘 자체가
+        틀렸다는 결정적 반증.
+
+  decisive_finding: >
+    ★★★ 블록쿼트 콘텐츠가 전혀 없는 순수 평문 문서(plain_only_test.md, 데코레이터
+    매치 0건)에서 동일한 방식으로 재검증한 결과 동일한 스킵 패턴이 재현됨:
+      - "# Plain Only Test"(H1, line1) → ArrowDown → line2(빈 줄): 정상 (delta=1)
+      - line2 → ArrowDown → line4: 스킵 (delta=2, line3 "Plain line A" 를 건너뜀)
+      - line4 → ArrowDown → line6: 스킵 (delta=2)
+    별도로 "Plain line A" 줄에 커서를 프로그래매틱으로 재배치한 뒤 첫 real
+    ArrowDown 만 눌러도 곧바로 line3→line5 스킵이 재현됨 — "몇 번째 입력인지"와도
+    무관해 보임.
+    즉 BlockquoteDecorator.ts 의 코드는 이 결함과 무관하다. H1~H4 가설 전부
+    블록쿼트 전용 원인을 전제했으나 그 전제 자체가 성립하지 않는다.
+
+  what_this_means: >
+    이 결함은 블록쿼트 한정이 아니라 이 앱의 CodeMirror 수직 이동(cursorLineDown/Up)
+    경로 전반에 걸친 더 일반적인 문제로 보인다. 사용자가 블록쿼트에서 유독
+    체감했던 것은 원인이 거기 있어서가 아니라 (a) 블록쿼트 줄들이 시각적으로
+    구분되는 카드 형태라 스킵이 눈에 잘 띄고, (b) 사용자 보고의 "간헐적" 특성과
+    달리 이번 T3 재현은 상당히 일관되게(여러 번 연속으로) 나타났다는 점에서
+    실사용 패턴(빠른 연타, 다른 콘텐츠 혼합 등)과 관련된 타이밍/상태 요인이
+    별도로 있을 가능성도 배제 못 한다.
+
+  reverted_changes: >
+    위 세 가설의 코드 변경(H1/H2/H3)은 근본 원인을 고치지 못하고 검증되지 않은
+    UX 동작 변화(H3 의 "구간 전체 마커 노출")만 남기므로 전부 되돌렸다.
+    BlockquoteDecorator.ts 는 이 티켓 착수 이전 상태(HEAD) 그대로다.
+    tauri-plugin-mcp-bridge 도 검증 완료 후 즉시 재회수했다(codebase 에 잔존 없음).
+
+  next_steps_for_next_agent:
+    - "가설을 블록쿼트 데코레이터가 아니라 BlockEditor.tsx 의 keymap 조합(blockKeymap + defaultKeymap 순서, BUG-20260827-02 수정 이후 상태) 또는 markdownDecorationPlugin/orchestrator 의 전역 재계산 경로로 넓혀서 재조사할 것."
+    - "CodeMirror 6 의 실제 cursorLineDown/cursorLineUp 구현(@codemirror/commands)이 goal column 을 어디에 캐시하는지, 어떤 트랜잭션 애노테이션으로 리셋되는지 소스 레벨로 확인할 것 — 블랙박스 추측(H1~H4)은 전부 틀렸다."
+    - "실제 물리 키보드로 사람이 직접 재현해, 이번 T3 자동 주입(webview_keyboard press)이 만든 타이밍이 실사용과 다른 인공적 조건은 아닌지 교차 확인할 것. 이번 재현은 매우 일관적이었으나(거의 매 입력마다), 사용자 원 보고는 '간헐적'이라 완전히 같은 현상인지는 확실하지 않다."
+    - "재현이 필요하면 project/qa_fixtures/ 에 blockquote_test.md, plain_only_test.md 패턴으로 테스트 문서를 다시 만들 것(이번 세션 것은 정리됨)."
