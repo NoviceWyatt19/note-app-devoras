@@ -1,0 +1,76 @@
+# 🐛 FIX TICKET
+type: "FIX_TICKET"
+id: "BUG-20260828-03"
+# ━━━
+update: "2026-08-28 21:05"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "T1 검증 티어 전체가 실행 불가 — `--experimental-strip-types` 는 Node 22.6+ 전용인데 실행 환경은 Node 20"
+status: "Done — 무의존성 로더 훅으로 복구, 전 하네스 통과 확인"
+severity: "P1 (프로세스 결함 — 검증 부채가 반복 축적된 근본 원인)"
+tier: "T1"
+plan_ref: "DEBUG_PLAN §2 티어 모델 / §10.1 / 아카이브본 §11"
+# ━━━
+symptom: >
+  `package.json` 의 T1 스크립트가 전부 즉시 실패한다.
+
+    $ pnpm test:symbol
+    node: bad option: --experimental-strip-types
+    ELIFECYCLE  Command failed with exit code 9.
+
+  `test:image` 도 동일. K1~K3 하네스도 동일.
+
+root_cause: >
+  `--experimental-strip-types` 는 **Node 22.6 이상**에서만 존재하는 플래그인데
+  이 저장소의 실행 환경은 **Node v20.20.0** 이다.
+  즉 DEBUG_PLAN §2 가 "순수 로직은 T1 을 유지한다"고 규정한 티어가
+  **처음부터 한 줄도 실행되지 않는 상태**였다.
+
+why_this_matters: >
+  §10.1 은 이 문제를 "상대 임포트 확장자 누락 + `@/` 별칭 미해석"으로 진단하고
+  K1~K3 하네스 **한 건의 문제**로 좁혀 기록했다. 실제로는 **티어 전체가 죽어 있었고**,
+  그래서 "하네스를 커밋했다"는 사실과 "검증이 실행됐다"는 사실이 계속 분리되었다.
+  DEBUG_PLAN 이 세션마다 반복해서 기록한 검증 부채의 구조적 원인이 이것이다.
+
+fix: >
+  `scripts/ts-hook.mjs` + `scripts/register-ts.mjs` —
+  이미 devDependency 인 `typescript` 의 `transpileModule` 로 타입만 벗겨
+  Node 20 의 module customization hook 에 태운다. **새 의존성 없음.**
+  훅이 `@/` 별칭과 확장자 없는 상대 임포트도 해석하므로 §10.1 의 지적사항도 함께 해소된다.
+
+  실행:
+    pnpm test:t1        # 전체
+    pnpm test:blockkey  # K1~K3
+    pnpm test:symbol / test:image / test:ime
+
+verification:
+  - "test:blockkey — K1,K2,K3 → 3 pass / 0 fail"
+  - "test:image — 32 passed, 0 failed"
+  - "test:symbol — 통과"
+  - "test:ime — 5/5 통과"
+
+runtime_upgrade_20260828_2105:
+  action: >
+    사용자 지시로 런타임을 **Node 24.15.0 (LTS krypton)** 으로 상향했다.
+    `nvm alias default 24` — 이미 설치되어 있던 버전이라 추가 다운로드 없음.
+  pinned_in_repo:
+    - "`.nvmrc` (저장소 루트) → `24`. 저장소 어디서든 `nvm use` 로 맞는 런타임이 잡힌다."
+    - "`project/package.json` → `engines: { node: \">=22.6\", pnpm: \">=10\" }`"
+  why_pinned: >
+    이 결함의 본질은 "플래그를 잘못 썼다"가 아니라 **저장소에 필요한 Node 버전을 적어둔 곳이
+    한 군데도 없었다**는 것이다. 그래서 실행 환경이 요구 조건을 벗어난 사실이 어디서도 드러나지 않았고,
+    "하네스는 커밋되어 있는데 한 번도 돌지 않는" 상태가 무기한 유지될 수 있었다.
+    버전을 못 박는 것이 재발 방지의 본체다.
+  verified_on_node_24:
+    - "pnpm test:t1 — blockkey 3 pass / symbol 17 pass / image 32 pass / ime 5 pass, fail 0"
+    - "npx tsc --noEmit — 통과"
+    - "npx vite build — 성공 (3.43s)"
+  hook_retained_because: >
+    Node 22.6+ 는 타입 스트리핑을 기본 제공하지만 `@/` 별칭과 확장자 없는 상대 임포트는
+    **여전히 해석하지 못한다.** 하네스들은 둘 다 쓰므로 훅이 계속 필요하다.
+    덤으로 훅은 Node 20/24 양쪽에서 동작하므로, 런타임을 또 옮겨도 T1 티어가 죽지 않는다.
+
+follow_up: >
+  사용자의 `~/.zshrc` 는 nvm 을 source 만 하고 **버전을 활성화하지 않는다**
+  (`nvm use` 없음). 그래서 새 터미널에는 node 가 아예 없고, 매번 수동으로 `nvm use` 해야 한다.
+  `nvm use default --silent` 한 줄을 `~/.zshrc` 에 추가하면 해소되지만,
+  셸 설정은 저장소 밖이라 이번 작업 범위에서 건드리지 않았다.
