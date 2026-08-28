@@ -1,0 +1,38 @@
+# 🐛 FIX TICKET
+type: "FIX_TICKET"
+id: "BUG-20260828-06"
+# ━━━
+update: "2026-08-28 21:40"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "ImageWidget.toDOM 이 던지면 CodeMirror 뷰와 BlockEditor React 서브트리가 통째로 붕괴 (에러 경계 없음)"
+status: "Todo"
+severity: "P2"
+tier: "T2"
+plan_ref: "T3 하네스(tauri_t3_harness) 작성 중 발견"
+# ━━━
+bug_report:
+  symptom: >
+    `ImageWidget.toDOM()` 안에서 예외가 나면 CodeMirror 의 DocView 갱신이 중단되고,
+    이어서 `CodeMirrorBlock` React 컴포넌트가 언마운트되며 **편집 영역 전체가 빈 화면**이 된다.
+    블록 하나의 이미지 위젯 문제가 문서 전체를 못 쓰게 만든다.
+  observed: >
+    T2(Chromium)에서 `convertFileSrc` 가 없어 toDOM 이 TypeError 를 던졌고,
+    그 즉시 .block-node-wrapper 가 0개가 되며 에디터가 사라졌다.
+    React 가 "The above error occurred in the <CodeMirrorBlock> component ...
+    Consider adding an error boundary" 를 출력한다.
+# ━━━
+scope_note: >
+  관측된 트리거(convertFileSrc 부재)는 Tauri 밖에서만 발생하므로 **실사용 경로는 아니다.**
+  그러나 결함의 본질은 트리거가 아니라 **위젯 하나의 예외가 문서 전체를 붕괴시킨다**는 구조다.
+  깨진 이미지 경로, 자산 프로토콜 오류, 향후 추가될 위젯(KaTeX 등)의 렌더 실패가
+  전부 같은 결과를 낼 수 있다. orchestrator 는 `createDecorations` 의 예외만 격리하고
+  (`[Orchestrator] Decorator "..." threw`), **위젯의 toDOM 예외는 격리하지 않는다.**
+# ━━━
+suggested_direction:
+  - "ImageWidget.toDOM 내부를 try/catch 로 감싸고 실패 시 대체 표시(깨진 이미지 자리표시자)를 반환한다"
+  - "BlockEditor 의 블록 단위에 React 에러 경계를 두어, 한 블록의 붕괴가 문서 전체로 번지지 않게 한다"
+  - "동일 위험이 있는 다른 WidgetType 들(Latex/CodeBlock/Checkbox)도 함께 점검"
+# ━━━
+dod:
+  - "위젯 toDOM 이 던져도 해당 블록만 대체 표시로 남고 나머지 문서는 정상 렌더"
+  - "회귀: tauri_t3_harness 의 ensureEditorAlive() 가 모든 게이트 뒤에서 true"

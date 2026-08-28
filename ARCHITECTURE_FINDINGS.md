@@ -147,9 +147,21 @@ CodeMirror 는 라인 높이를 `getBoundingClientRect().height` 로 재어 heig
   훅은 계속 필요하다 — §9.1 의 지적사항을 실제로 푸는 것은 이쪽이다. `pnpm test:t1` 로 전체 실행.
   Node 20/24 양쪽에서 동작하므로 런타임을 또 옮겨도 티어가 죽지 않는다.
 - 적용 완료(T2): `project/src/widgets/BlockEditor/__tests__/vertical_motion_t2.html` 하네스 + "실앱을 Chromium 에서 구동한다"는 경로 확립.
-- **남음(T3)**: 붙였다 떼는 의식을 그만두고, **프로덕션 빌드에서 배제되는 상시 디버그 채널**을 만들 것.
-  T3 가 일회성인 한 T3 에서 나온 결론은 회귀로 고정되지 않는다 — §9.6 의 T3 세션 결과가
-  전부 롤백되어 아무것도 남지 않은 것이 그 증거다.
+- 적용 완료(T3): `project/src/widgets/BlockEditor/__tests__/tauri_t3_harness.ts` —
+  **설정 변경 없이** 개발자 콘솔 한 줄로 실행하는 T3 하네스. 저장소에 남으므로
+  T3 결론이 처음으로 **회귀로 고정된다.** 플러그인을 붙였다 떼는 의식이 사라졌다.
+
+  ```
+  pnpm tauri:dev
+  const t3 = await import('/src/widgets/BlockEditor/__tests__/tauri_t3_harness.ts'); await t3.run()
+  ```
+
+  한계는 그대로 적어 둔다 — 클릭은 합성 `MouseEvent` 이고, 사람이 직접 클릭한 교차
+  확인이 있으면 더 좋다. 그러나 게이트가 보는 것은 클릭이 유발하는 포커스·DOM 변화가
+  스크롤을 흔드는가이고, 그 경로는 합성 이벤트로도 동일하게 탄다.
+- **남음(T3 심화)**: 위 하네스도 **사람이 한 번 붙여넣어야** 한다. 완전 자동화가 필요하면
+  프로덕션 빌드에서 배제되는 상시 디버그 채널이 답이지만, 그건 검증이 아니라 기능이므로
+  별도 판단 사항이다.
 
 ---
 
@@ -171,6 +183,8 @@ CodeMirror 는 라인 높이를 `getBoundingClientRect().height` 로 재어 heig
 |---|---|
 | R10 수직 이동 델타 ±1 | `drift === 0` (적용 완료) |
 | R3 병합 후 캐럿 유지 | `store.focusOffset === view.selection.main.head` ← 이것만 있었으면 즉시 잡혔다 |
+| B1 dirty 표시 | `isDirty === (내용 !== 디스크 내용)` ← 저장 **이후**를 보는 케이스가 없어 결함이 숨어 있었다 |
+| V3/V4/V6 스크롤 0px | 컨테이너가 **실제로 넘치는가**(`scrollHeight > clientHeight`) ← 아니면 0px 가 공허하게 통과한다 |
 | V1~V4 scrollTop 0px | 프레임 간 `block.top` 변화량 = 0 |
 | G1 캐럿 안정성 | 뷰 인스턴스 동일성(리마운트 0회) |
 
