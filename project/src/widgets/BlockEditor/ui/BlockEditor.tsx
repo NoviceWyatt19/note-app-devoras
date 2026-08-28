@@ -250,15 +250,45 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
     };
   }, [paneId, block.id]);
 
+  // 캐럿 복원(아래 useLayoutEffect)은 이 이펙트보다 **먼저** 실행된다
+  // (React 는 모든 layout effect 를 passive effect 보다 앞서 돌린다).
+  // 즉 캐럿은 '아직 교체되지 않은 옛 문서' 위에 놓인 뒤, 여기서 문서가 통째로
+  // 갈리면서 다시 밀려난다. 그래서 selection 을 여기서 **명시적으로 다시 지정**해야 한다.
+  // 이 값을 layout effect 가 아니라 ref 로 읽는 이유는, 그것을 의존성에 넣으면
+  // 내용이 안 바뀐 포커스 이동에도 문서 교체 검사가 도는 낭비가 생기기 때문이다.
+  const focusIntentRef = useRef({ isFocused, focusOffset });
+  useEffect(() => {
+    focusIntentRef.current = { isFocused, focusOffset };
+  });
+
   useEffect(() => {
     const view = viewRef.current;
     if (!view) return;
     const currentDoc = view.state.doc.toString();
-    if (block.content !== currentDoc) {
-      view.dispatch({
-        changes: { from: 0, to: currentDoc.length, insert: block.content },
-        annotations: [Transaction.userEvent.of('external')],
-      });
+    if (block.content === currentDoc) return;
+
+    // ⚠️ `changes: { from: 0, to: len }` 는 **문서 전체 치환**이다.
+    //    CodeMirror 는 치환 구간 *안* 에 있던 커서를 삽입된 텍스트의 **끝**으로 보낸다.
+    //    따라서 selection 을 함께 지정하지 않으면 블록 병합(R3) 때마다 캐럿이
+    //    병합 지점이 아니라 블록 맨 끝으로 튄다. (BUG-20260828-02)
+    const nextLength = block.content.length;
+    const intent = focusIntentRef.current;
+    // 이 블록이 포커스 대상이면 스토어의 의도(focusOffset)가 정답이고,
+    // 아니면 이 뷰가 갖고 있던 위치를 그대로 유지하는 것이 정답이다.
+    const desired = intent.isFocused ? intent.focusOffset : view.state.selection.main.anchor;
+    const anchor = Math.min(Math.max(0, desired), nextLength);
+
+    view.dispatch({
+      changes: { from: 0, to: currentDoc.length, insert: block.content },
+      selection: { anchor, head: anchor },
+      annotations: [Transaction.userEvent.of('external')],
+    });
+
+    // 병합으로 형제 블록이 언마운트되면 DOM 포커스가 통째로 사라진다.
+    // 아래 캐럿 이펙트는 focusOffset 이 안 바뀌면 다시 돌지 않으므로 여기서 회수한다.
+    // IME 조합 중에는 절대 건드리지 않는다 (BUG-20260810-02).
+    if (intent.isFocused && !view.hasFocus && !view.composing) {
+      view.focus();
     }
   }, [block.content]);
 
