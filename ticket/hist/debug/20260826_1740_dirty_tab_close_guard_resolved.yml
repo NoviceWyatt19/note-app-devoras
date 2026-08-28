@@ -1,0 +1,81 @@
+# 🐛 FIX TICKET
+type: "FIX_TICKET"
+id: "BUG-20260826-04"
+# ━━━
+update: "2026-08-26 17:40"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "미저장(dirty) 탭이 Cmd+W · X 버튼 · 앱 종료 시 경고 없이 파괴되는 문제"
+status: "Done — B1 검증 완료 (2026-08-28)"
+severity: "P0"
+review_ref: "code_review.md §P0-5"
+verified_at: "v0.8.5"
+# ━━━
+bug_report:
+  symptom: "편집 중인(노란 점 표시) 탭을 Cmd+W 또는 탭의 X 버튼으로 닫으면 아무 경고 없이 즉시 사라지고 편집 내용이 소실된다. 앱을 그냥 종료해도 동일하다."
+  cause: "closeTab 은 tabs 배열에서 대상을 필터링해 제거할 뿐 isDirty/cache 를 확인하지 않는다. 0.8.4 에서 도입된 TabCache 도 탭이 제거되면 함께 폐기된다. 현재 dirty 경고가 존재하는 유일한 경로는 FileExplorer 의 파일 선택 시점뿐이다."
+  location:
+    - "project/src/entities/document/model/store.ts:313 (closeTab — 가드 없음)"
+    - "project/src/pages/WorkspacePage/WorkspacePage.tsx:58-64 (Cmd+W)"
+    - "project/src/pages/WorkspacePage/WorkspacePage.tsx:302 (탭 X 버튼)"
+    - "project/src/entities/document/model/store.ts:handleFileDeleted (closeTab 반복 호출)"
+# ━━━
+architecture_guidelines:
+  - "Store Stays Pure: 스토어 액션은 window.confirm 같은 부수효과를 갖지 않는다. 확인 절차는 UI 경계(WorkspacePage/PaneContainer)에서 처리한다."
+  - "Single Guard Helper: Cmd+W 와 X 버튼이 동일한 closeTabSafely 헬퍼를 공유하여 가드 누락을 구조적으로 차단한다."
+  - "External Deletion Exception: handleFileDeleted 는 파일이 이미 사라진 상황이므로 확인 없이 닫되, dirty 였다면 콘솔/토스트로 사실을 알린다."
+# ━━━
+tasks:
+  - "[ ] widgets 계층에 closeTabSafely(paneId, tabId) 헬퍼 추가 — tab.isDirty 시 window.confirm 후 closeTab 호출"
+  - "[ ] WorkspacePage Cmd+W 핸들러(58-64)를 헬퍼 호출로 교체"
+  - "[ ] PaneContainer 탭 X 버튼(302)을 헬퍼 호출로 교체"
+  - "[ ] App 레벨에 getCurrentWindow().onCloseRequested 등록 — dirty 탭이 1개 이상이면 확인 다이얼로그 후 종료"
+  - "[ ] handleFileDeleted 경로는 확인 없이 닫되 dirty 였던 탭 목록을 console.warn 으로 남김"
+# ━━━
+harness:
+  path: "project/src/entities/document/__tests__/tab_close_guard_harness.ts"
+  run_command: "node --experimental-strip-types src/entities/document/__tests__/tab_close_guard_harness.ts"
+  cases:
+    - "dirty=false 탭 닫기 → confirm 미호출, 탭 제거됨"
+    - "dirty=true 탭 닫기 + confirm=false → 탭과 cache 가 모두 보존됨"
+    - "dirty=true 탭 닫기 + confirm=true → 탭 제거됨"
+# ━━━
+dod:
+  - "하네스 3케이스 통과"
+  - "실제 앱에서 편집 후 Cmd+W → 확인 창 노출, 취소 시 편집 내용 유지"
+  - "dirty 탭이 있는 상태로 앱 종료 시도 → 확인 창 노출"
+
+# ══════════════════════════════════════════════════════════════════════════
+# 2026-08-28 21:40 — B1 검증 완료
+# ══════════════════════════════════════════════════════════════════════════
+b1_verification_20260828_2140:
+  harness: "project/src/entities/document/__tests__/tab_close_guard_harness.ts"
+  run: "pnpm test:closeguard"
+  result: "7 tests / 7 pass / 0 fail"
+  cases:
+    - "C1 clean 탭은 확인 창 없이 닫힌다 — PASS"
+    - "C2 dirty 탭은 확인 창을 띄운다 — PASS"
+    - "C3 dirty + 취소 → 탭·cache·편집 내용 보존 — PASS"
+    - "C4 dirty + 확인 → 탭 제거 — PASS"
+    - "C5 앱 종료 가드(hasDirtyTabs) — PASS"
+    - "C6 savedContent 가 스냅샷↔캐시 복원 왕복에서 유실되지 않는다 — PASS (세션 티켓 미검증 항목)"
+  method_note: >
+    confirmDiscardIfDirty 는 Tauri 의 ask 를 직접 import 한다. Node 에는 window 가 없어
+    **ask 에 도달하면 ReferenceError 가 난다.** 이를 관측 수단으로 그대로 썼다 —
+    던지지 않고 true 면 "확인 창을 띄우지 않았다", 던지면 "띄우려 했다"는 증거다.
+    목(mock) 없이 게이트 동작을 증명할 수 있다.
+  found_and_fixed:
+    - id: "openTab 스냅샷 유실 (BUG-20260826-02 의 잔여 구멍)"
+      detail: >
+        C6 이 최초 실행에서 실패했다. openTab 이 _snapshotActiveTab() 을 계산해 놓고
+        **커밋하지 않은 채** await 뒤에 get().panes 를 다시 읽어, 디스크 로드 경로에서
+        떠나는 탭의 미저장 편집이 통째로 버려졌다. BUG-20260826-02 는 캐시 복원 분기만
+        고치고 로드 분기를 놓쳤다. 스냅샷을 즉시 커밋하도록 수정 → C6 통과.
+  capabilities_question_resolved: >
+    세션 티켓이 "31a5283 이 capabilities/default.json 을 +4줄 수정 — B1 범위 밖" 이라고
+    남긴 항목을 확인했다. 4건 중 3건은 **B1 이 실제로 요구하는 권한**이다:
+      - dialog:allow-ask        → confirmClose.ts / App.tsx 의 ask() 가 사용
+      - core:window:allow-destroy → App.tsx:74 의 getCurrentWindow().destroy() 가 사용
+      - core:window:allow-close   → onCloseRequested 로 닫기를 가로채므로 필요
+    남은 1건 **dialog:allow-message 는 코드 전체에서 사용처가 없다.**
+    최소권한 원칙상 제거 대상이며 BUG-20260826-01(scope 축소) 작업에 함께 넣을 것을 권한다.
+    (제거는 Rust 재빌드가 필요해 이번 세션에서는 확인 불가 — 그래서 건드리지 않았다.)

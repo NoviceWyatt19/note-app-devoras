@@ -1,7 +1,7 @@
 {
   "name": "devoras-design",
   "private": true,
-  "version": "0.8.24",
+  "version": "0.8.25",
   "type": "module",
   "engines": {
     "node": ">=22.6",
@@ -12,8 +12,11 @@
     "build": "tsc && vite build",
     "tauri:dev": "pnpm tauri dev",
     "tauri:build": "pnpm tauri build",
-    "test:t1": "pnpm test:blockkey && pnpm test:symbol && pnpm test:image && pnpm test:ime",
+    "test:t1": "pnpm test:blockkey && pnpm test:path && pnpm test:dirty && pnpm test:closeguard && pnpm test:symbol && pnpm test:image && pnpm test:ime",
     "test:blockkey": "node --import ./scripts/register-ts.mjs src/entities/block/__tests__/block_key_stability_harness.ts",
+    "test:path": "node --import ./scripts/register-ts.mjs src/shared/lib/__tests__/path_harness.ts",
+    "test:dirty": "node --import ./scripts/register-ts.mjs src/entities/document/__tests__/dirty_baseline_harness.ts",
+    "test:closeguard": "node --import ./scripts/register-ts.mjs src/entities/document/__tests__/tab_close_guard_harness.ts",
     "test:image": "node --import ./scripts/register-ts.mjs src/shared/lib/fs/__tests__/image_asset_harness.ts",
     "test:symbol": "node --import ./scripts/register-ts.mjs src/shared/lib/markdown/__tests__/custom_symbol_harness.ts",
     "test:ime": "node --import ./scripts/register-ts.mjs src/widgets/BlockEditor/__tests__/ime_isolation_harness.ts",

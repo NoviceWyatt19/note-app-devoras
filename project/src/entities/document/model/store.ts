@@ -123,6 +123,12 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   
   openTab: async (item) => {
     const panesWithSnapshot = get()._snapshotActiveTab();
+    // 스냅샷을 **즉시 커밋**한다 (BUG-20260826-02 잔여 구멍).
+    // 아래 디스크 로드 경로는 await 뒤에 `get().panes` 를 다시 읽으므로, 여기서
+    // 커밋하지 않으면 떠나는 탭의 미저장 편집이 통째로 버려진다 —
+    // BUG-20260826-02 가 캐시 복원 분기만 고치고 로드 분기를 놓친 잔여 구멍이다.
+    // 먼저 커밋해 두면 로드가 실패하거나 openSeq 로 무효화되어도 버퍼는 살아남는다.
+    if (panesWithSnapshot !== get().panes) set({ panes: panesWithSnapshot });
     const { activePaneId } = get();
     const activePane = panesWithSnapshot.find((p) => p.id === activePaneId) || panesWithSnapshot[0];
 
@@ -658,12 +664,19 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
         console.warn('Failed to update spatial metadata (ignoring):', e);
       }
 
-      // dirty 상태 해제
+      // dirty 상태 해제 + **저장 기준선 갱신**
+      // savedContent 를 함께 옮기지 않으면 기준선이 '파일을 처음 열었을 때의 내용'에
+      // 영원히 머문다. 그러면 저장 후 표시가 디스크와 어긋난다 (BUG-20260826-07 DoD):
+      //   - 저장한 내용 그대로인데 dirty 로 보이고(거짓 양성),
+      //   - 저장 전 원문으로 되돌리면 clean 으로 보인다(거짓 음성 — 사용자가
+      //     저장된 줄 알고 디스크와 다른 내용을 들고 있게 되는 위험한 방향).
       const updatedPanes = get().panes.map((p) => {
         if (p.id !== targetPaneId) return p;
         return {
           ...p,
-          tabs: p.tabs.map((t) => (t.id === targetTabId ? { ...t, isDirty: false } : t)),
+          tabs: p.tabs.map((t) =>
+            t.id === targetTabId ? { ...t, isDirty: false, savedContent: latestContent } : t
+          ),
         };
       });
 

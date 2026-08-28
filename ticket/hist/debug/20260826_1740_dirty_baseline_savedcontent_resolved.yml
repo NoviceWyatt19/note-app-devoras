@@ -5,7 +5,7 @@ id: "BUG-20260826-07"
 update: "2026-08-26 17:40"
 project_ref: "PRJ-DEVORAS-MVP"
 subject: "isDirty 가 저장 기준선이 아닌 직전 메모리 값과의 델타로 계산되어 dirty 표시가 신뢰 불가한 문제"
-status: "Todo"
+status: "Done — B1 검증 완료 (2026-08-28)"
 severity: "P1"
 review_ref: "code_review.md §P1-2"
 verified_at: "v0.8.5"
@@ -41,3 +41,30 @@ harness:
 dod:
   - "하네스 3케이스 통과"
   - "탭 노란 점 표시가 실제 디스크 반영 여부와 항상 일치"
+
+# ══════════════════════════════════════════════════════════════════════════
+# 2026-08-28 21:40 — B1 검증 완료 (검증 중 결함 발견·수정)
+# ══════════════════════════════════════════════════════════════════════════
+b1_verification_20260828_2140:
+  harness: "project/src/entities/document/__tests__/dirty_baseline_harness.ts"
+  run: "pnpm test:dirty"
+  result: "6 tests / 6 pass / 0 fail (수정 전에는 2건 실패)"
+  cases:
+    - "D1 편집 후 같은 내용 재방출 시 dirty 유지 — PASS"
+    - "D2 원문 복귀 시 dirty 해제 — PASS"
+    - "D3 노드 좌표 변경이 dirty 를 만든다 — PASS"
+    - "D4 저장 후 기준선 갱신 → 표시가 디스크와 일치 — **최초 실패 → 수정 후 PASS**"
+    - "D5 저장 후 옛 원문 복귀 시 dirty — **최초 실패 → 수정 후 PASS**"
+  found_and_fixed:
+    - id: "saveFile 이 savedContent 를 갱신하지 않음"
+      detail: >
+        saveFile 은 isDirty 만 false 로 내리고 **기준선(savedContent)은 그대로 뒀다.**
+        그래서 기준선이 '파일을 처음 열었을 때의 내용'에 영원히 머물렀다. 결과:
+          - 거짓 양성: 방금 저장한 내용 그대로인데 노란 점이 켜져 있다
+          - 거짓 음성(위험): 저장 후 옛 원문으로 되돌리면 **clean 으로 보인다** —
+            디스크에는 다른 내용이 있는데 사용자는 저장된 줄 안다
+        저장 성공 시 savedContent 를 방금 쓴 내용으로 함께 갱신하도록 수정.
+      why_it_hid: >
+        이 티켓의 DoD 는 "노란 점이 실제 디스크 반영 여부와 항상 일치"인데,
+        기존 하네스 케이스 목록(D1~D3)은 **저장 이후를 전혀 보지 않았다.**
+        저장 전 시나리오만으로는 구조적으로 잡히지 않는 결함이었다.

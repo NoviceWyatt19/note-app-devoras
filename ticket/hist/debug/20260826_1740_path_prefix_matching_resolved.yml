@@ -5,7 +5,7 @@ id: "BUG-20260826-06"
 update: "2026-08-26 17:40"
 project_ref: "PRJ-DEVORAS-MVP"
 subject: "경로 접두사(startsWith) 매칭으로 이름이 비슷한 형제 파일의 탭이 오염/오폐쇄되는 문제"
-status: "Todo"
+status: "Done — B1 검증 완료 (2026-08-28)"
 severity: "P1"
 review_ref: "code_review.md §P1-1"
 verified_at: "v0.8.5"
@@ -41,3 +41,17 @@ harness:
 dod:
   - "하네스 4케이스 통과"
   - "실제 앱에서 유사 이름 형제 파일을 열어둔 채 폴더 이름 변경/삭제 시 무관한 탭이 영향받지 않음"
+
+# ══════════════════════════════════════════════════════════════════════════
+# 2026-08-28 21:40 — B1 검증 완료
+# ══════════════════════════════════════════════════════════════════════════
+b1_verification_20260828_2140:
+  harness: "project/src/shared/lib/__tests__/path_harness.ts"
+  run: "pnpm test:path"
+  result: "5 tests / 5 pass / 0 fail"
+  cases:
+    - "P1 형제 파일(/w/plan_v2.md, /w/planning/a.md)이 /w/plan 에 걸리지 않는다 — PASS"
+    - "P2 자기 자신과 하위 경로는 걸린다 — PASS"
+    - "P3 rebasePath 가 base 만 교체한다 — PASS"
+    - "P4 base 문자열이 경로에 반복 등장해도(/w/plan/plan.md) 접두사만 치환 — PASS"
+  note: "티켓이 요구한 4케이스를 모두 포함하며, P1 에 형제 디렉터리 케이스를 하나 더 넣었다."
