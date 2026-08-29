@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Devoras",
-  "version": "0.8.28",
+  "version": "0.8.29",
   "identifier": "com.devoras.desktop",
   "build": {
     "frontendDist": "../dist",
@@ -44,7 +44,13 @@
           "allow": [
             "**"
           ],
-          "deny": [],
+          "deny": [
+            "$HOME/.ssh/**",
+            "$HOME/.aws/**",
+            "$HOME/.gnupg/**",
+            "$HOME/.config/**",
+            "$HOME/.env*"
+          ],
           "requireLiteralLeadingDot": false
         }
       }
