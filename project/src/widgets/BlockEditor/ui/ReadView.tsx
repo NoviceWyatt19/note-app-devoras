@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Marked } from 'marked';
+import DOMPurify, { type Config as DOMPurifyConfig } from 'dompurify';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { Bold, Italic, Strikethrough, Highlighter, GripVertical } from 'lucide-react';
 import { useBlockStore, EditorBlock, flattenTree } from '@/entities/block/model/store';
@@ -59,8 +60,8 @@ markedParser.use({
       const language = (rawLang && hljs.getLanguage(rawLang)) ? rawLang : 'plaintext';
       const codeText = text || '';
       const highlighted = hljs.highlight(codeText, { language }).value;
-      const safeText = codeText.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      
+      const safeText = escapeHtml(codeText);
+
       return `
         <div class="code-block-wrapper relative group my-4 mx-4 rounded-xl overflow-hidden border border-darkBorder/40">
           <div class="flex items-center justify-between px-4 py-1.5 bg-[#141520] border-b border-darkBorder/40 relative">
@@ -121,9 +122,37 @@ export function resolveAssetPaths(html: string, workspacePath: string | null): s
   );
 }
 
+/** BUG-20260826-01 L1: DOMPurify 프로필 — KaTeX 는 MathML/SVG 를 사용하므로 함께 허용해야
+ *  수식이 과잉 제거되지 않는다. `data-src`/`data-code` 는 이 파일의 커스텀 렌더러가 심는
+ *  비표준 속성이라 별도 허용이 필요하다. */
+const SANITIZE_CONFIG: DOMPurifyConfig = {
+  USE_PROFILES: { html: true, mathMl: true, svg: true },
+  ADD_ATTR: ['data-src', 'data-code'],
+};
+
+/** renderBlockToHtml 은 블록마다 매 렌더에서 재파싱+새니타이즈되므로 비용이 크다.
+ *  content+workspacePath 조합이 같으면 결과도 같으므로 캐시한다(BUG-20260826-01 L1). */
+const RENDER_CACHE_LIMIT = 500;
+const renderCache = new Map<string, string>();
+
 export function renderBlockToHtml(content: string, workspacePath: string | null): string {
+  const cacheKey = `${workspacePath ?? ''} ${content}`;
+  const cached = renderCache.get(cacheKey);
+  if (cached !== undefined) return cached;
+
   const html = markedParser.parse(preprocessMd(content)) as string;
-  return resolveAssetPaths(html, workspacePath);
+  // DOMPurify 는 sanitize 를 먼저 거친다: 기본 URI 허용 목록에 `asset:` 스킴이 없어서
+  // resolveAssetPaths 를 먼저 적용하면 그 src 값이 통째로 제거된다.
+  const sanitized = DOMPurify.sanitize(html, SANITIZE_CONFIG);
+  const resolved = resolveAssetPaths(sanitized, workspacePath);
+
+  if (renderCache.size >= RENDER_CACHE_LIMIT) {
+    const oldestKey = renderCache.keys().next().value;
+    if (oldestKey !== undefined) renderCache.delete(oldestKey);
+  }
+  renderCache.set(cacheKey, resolved);
+
+  return resolved;
 }
 
 // ---------------------------------------------------------------------------

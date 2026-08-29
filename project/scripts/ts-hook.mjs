@@ -47,8 +47,18 @@ export function resolve(specifier, context, next) {
     const hit = probe(path.join(SRC, specifier.slice(2)));
     if (hit) return { url: pathToFileURL(hit).href, format: 'module', shortCircuit: true };
   }
-  // 2) 확장자 없는 상대 임포트 (`../model/store`)
-  if (specifier.startsWith('.') && context.parentURL?.startsWith('file:')) {
+  // 2) 확장자 없는 상대 임포트 (`../model/store`) — 우리 소스 트리 안에서만.
+  //    node_modules 내부까지 이 분기를 타면, probe() 가 이미 존재하는 파일(예: `.cjs`)을
+  //    그대로 찾아내고도 format 을 무조건 'module' 로 강제하게 된다. 패키지가 실제로는
+  //    CJS 로 작성한 파일을 ESM 이라 우기는 셈이라, 그 파일 자신의 export 구문과 어긋나면
+  //    "does not provide an export named 'default'" 로 깨진다(BUG-20260826-01 T1 하네스가
+  //    ReadView.tsx → highlight.js 를 임포트하며 처음 노출됨). node_modules 는 패키지가
+  //    이미 스스로 옳게 선언한 형식이 있으므로 기본 Node 해석에 맡긴다.
+  if (
+    specifier.startsWith('.') &&
+    context.parentURL?.startsWith('file:') &&
+    !context.parentURL.includes('/node_modules/')
+  ) {
     const base = path.dirname(fileURLToPath(context.parentURL));
     const hit = probe(path.resolve(base, specifier));
     if (hit) return { url: pathToFileURL(hit).href, format: 'module', shortCircuit: true };

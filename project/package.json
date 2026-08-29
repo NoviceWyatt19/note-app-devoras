@@ -1,7 +1,7 @@
 {
   "name": "devoras-design",
   "private": true,
-  "version": "0.8.27",
+  "version": "0.8.28",
   "type": "module",
   "engines": {
     "node": ">=22.6",
@@ -12,7 +12,7 @@
     "build": "tsc && vite build",
     "tauri:dev": "pnpm tauri dev",
     "tauri:build": "pnpm tauri build",
-    "test:t1": "pnpm test:blockkey && pnpm test:path && pnpm test:dirty && pnpm test:closeguard && pnpm test:symbol && pnpm test:image && pnpm test:ime",
+    "test:t1": "pnpm test:blockkey && pnpm test:path && pnpm test:dirty && pnpm test:closeguard && pnpm test:symbol && pnpm test:image && pnpm test:ime && pnpm test:sanitizer",
     "test:blockkey": "node --import ./scripts/register-ts.mjs src/entities/block/__tests__/block_key_stability_harness.ts",
     "test:path": "node --import ./scripts/register-ts.mjs src/shared/lib/__tests__/path_harness.ts",
     "test:dirty": "node --import ./scripts/register-ts.mjs src/entities/document/__tests__/dirty_baseline_harness.ts",
@@ -20,6 +20,7 @@
     "test:image": "node --import ./scripts/register-ts.mjs src/shared/lib/fs/__tests__/image_asset_harness.ts",
     "test:symbol": "node --import ./scripts/register-ts.mjs src/shared/lib/markdown/__tests__/custom_symbol_harness.ts",
     "test:ime": "node --import ./scripts/register-ts.mjs src/widgets/BlockEditor/__tests__/ime_isolation_harness.ts",
+    "test:sanitizer": "node --import ./scripts/register-ts.mjs src/widgets/BlockEditor/__tests__/sanitizer_harness.ts",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "format": "prettier --write \"src/**/*.{ts,tsx,css,md}\"",
     "prepare": "cd .. && husky project/.husky"
@@ -36,6 +37,7 @@
     "@tauri-apps/plugin-dialog": "^2.7.1",
     "@tauri-apps/plugin-fs": "^2.5.1",
     "@xyflow/react": "^12.11.2",
+    "dompurify": "^3.4.14",
     "highlight.js": "^11.12.0",
     "katex": "^0.18.1",
     "lucide-react": "^1.24.0",
@@ -47,6 +49,8 @@
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.11.4",
+    "@types/dompurify": "^3.2.0",
+    "@types/jsdom": "^21.1.7",
     "@types/node": "^20.19.43",
     "@types/react": "^18.3.31",
     "@types/react-dom": "^18.3.7",
@@ -59,6 +63,7 @@
     "eslint-plugin-react-hooks": "^4.6.2",
     "eslint-plugin-react-refresh": "^0.4.26",
     "husky": "^8.0.3",
+    "jsdom": "^24.1.3",
     "lint-staged": "^15.5.2",
     "postcss": "^8.5.3",
     "prettier": "^3.4.2",
