@@ -32,6 +32,12 @@ export interface FileSystemRepository {
    * @returns         마크다운에 삽입할 상대 경로 (`{subDir}/{fileName}` 또는 `{fileName}`)
    */
   saveImageAsset(basePath: string, data: Uint8Array, fileName: string, subDir: string): Promise<string>;
+  /**
+   * Rust 쪽 워크스페이스 루트 상태를 갱신한다(BUG-20260826-01 L3).
+   * `devoras_image_save` 는 이 상태를 신뢰 경계로 삼아 워크스페이스 밖 쓰기를 거부하므로,
+   * 워크스페이스를 열거나 전환할 때마다 호출해야 한다.
+   */
+  setWorkspaceRoot(path: string): Promise<void>;
 }
 
 // ----------------------------------------------------
@@ -210,6 +216,10 @@ export class MockFileSystem implements FileSystemRepository {
     console.info(`[Mock] Image save skipped for: ${relativePath}`);
     return relativePath;
   }
+
+  async setWorkspaceRoot(_path: string): Promise<void> {
+    // Browser mock: Rust 상태가 없으므로 no-op.
+  }
 }
 
 // ----------------------------------------------------
@@ -350,20 +360,30 @@ export class TauriFileSystem implements FileSystemRepository {
       // ── Rust 네이티브 커맨드로 직접 파일 저장 ──────────────────────────
       // Tauri plugin-fs는 WebView 샌드박스 scope 제한으로 인해 사용자가
       // 선택한 임의 경로에 파일을 쓸 수 없는 문제(forbidden path)가 있음.
-      // save_image_file Rust 커맨드(std::fs)는 OS 레벨 접근이라 제한 없음.
+      // devoras_image_save Rust 커맨드(std::fs)는 OS 레벨 접근이라 plugin-fs scope 제한은
+      // 받지 않지만, 워크스페이스 밖 쓰기는 Rust 쪽에서 ensure_inside 로 별도 검증한다.
       const targetDir = subDir ? `${basePath}/${subDir}` : basePath;
       const filePath = `${targetDir}/${fileName}`;
 
-      console.log('[TauriFS] save_image_file invoking:', filePath);
-      await invoke('save_image_file', {
+      console.log('[TauriFS] devoras_image_save invoking:', filePath);
+      await invoke('devoras_image_save', {
         path: filePath,
         data: Array.from(data),   // Uint8Array → number[] (Rust Vec<u8>)
       });
-      console.log('[TauriFS] save_image_file OK:', filePath);
+      console.log('[TauriFS] devoras_image_save OK:', filePath);
 
       return subDir ? `${subDir}/${fileName}` : fileName;
     } catch (e) {
       console.error('Tauri saveImageAsset error:', e);
+      throw e;
+    }
+  }
+
+  async setWorkspaceRoot(path: string): Promise<void> {
+    try {
+      await invoke('devoras_set_workspace_root', { path });
+    } catch (e) {
+      console.error('Tauri setWorkspaceRoot error:', e);
       throw e;
     }
   }

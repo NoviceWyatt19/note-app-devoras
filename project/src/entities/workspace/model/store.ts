@@ -32,6 +32,11 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       const selectedPath = await fileSystemRepository.openDirectory();
       if (selectedPath && selectedPath !== get().workspacePath) {
         set({ isLoading: true, files: [], workspacePath: selectedPath });
+        // BUG-20260826-01 L3: devoras_image_save 가 신뢰하는 Rust 쪽 워크스페이스
+        // 루트도 함께 갱신한다. 실패해도 워크스페이스 탐색 자체는 계속 진행한다.
+        fileSystemRepository.setWorkspaceRoot(selectedPath).catch((e) =>
+          console.error('Failed to sync workspace root to Rust state:', e),
+        );
         useDocumentStore.getState().resetDocumentState();
         await get().scanWorkspace();
       }
@@ -48,6 +53,9 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       // 실패시 catch로 넘어가도록 fileSystemRepository.readDirectory를 체크할 수 있음.
       await fileSystemRepository.readDirectory(path); // 폴더가 존재하는지 확인
       set({ isLoading: true, files: [], workspacePath: path });
+      fileSystemRepository.setWorkspaceRoot(path).catch((e) =>
+        console.error('Failed to sync workspace root to Rust state:', e),
+      );
       useDocumentStore.getState().resetDocumentState();
       await get().scanWorkspace();
     } catch (e) {
