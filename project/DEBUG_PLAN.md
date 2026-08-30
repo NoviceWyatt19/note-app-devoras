@@ -45,7 +45,7 @@ Step 7  B4 구조 개편 (7-A → 7-B? → 7-C)
 | 2 | ✅ **Step 5** 조정자 일원화 + diff 동기화 | `pnpm test:ime` 5/5 유지 + `test:diff` D1~D8 신설 통과 — 실기 R1~R6 은 사람 손 | `13a7f7e` |
 | 3 | ✅ **Step 6** 프로파일 → 판정 | 판정: 아키텍처 무죄, 배치는 답 아님, 데코레이터 계층이 범인(§4-2) — Step 7 그대로 진행 | 커밋 대기 |
 | 4 | ✅ **Step 7-A** 분할 패널 문서 해석 | T1(`test:paneownership` P1~P5) 통과 — 실기 R5 는 사람 손 | 커밋 대기 |
-| 5 | **Step 7-C** 탭 스코프 스토어 | R2·R6 + `ownerTabId` 소멸 | `refactor(x.x.x): 탭 스코프 스토어 (REF-01 2단계)` |
+| 5 | ⏳ **Step 7-C** 탭 스코프 스토어(REF-20260831-01) — C-1·C-2 완료, C-3~C-5 진행 중 | C-1: 동작 변화 0(회귀 전량 통과) · C-2: `test:paneownership` 5/5 + `test:ime` 5/5 — 실기 R1·R2·R3·R5·R6 은 사람 손(VERIFY_BY_HUMAN.md §8) | C-1 `d8f5545` · C-2 `bd3fabf` |
 
 > **7-B 는 조건부다.** 7-C 를 곧바로 진행하면 REF-02 는 **구조적으로 소멸**한다. 7-C 착수가 확정이면 건너뛴다.
 
@@ -306,6 +306,14 @@ resetBlocks: () => set({ blocks: [], activeBlockId: null, focusOffset: 0, ownerT
 > **부수 효과**: 이 계약이 확정되면 그것이 곧 [`architecture_stages.md`](architecture_stages.md) **Stage 2 Thin Client** IPC 경계(`getBlockTree(tabId)`, `updateBlock(tabId, blockId, content)`)의 초안이 된다. **스레드/프로세스 분리는 여기서부터 싸진다.**
 
 **[DoD]** R2(탭 3개 전환 왕복 교차 오염 0) · R6(워크스페이스 전환 잔존 0) · `ownerTabId` 가 소스 트리에서 소멸 · `serialize()`/`hydrate()` 계약 문서화.
+
+**[진행 — REF-20260831-01, 티켓 `ticket/refactor/20260831_0641_tab_scoped_store.yml`]** 되돌리기 비싼 단계(C-4, 전역 싱글턴 제거)를 맨 뒤로 몰고 C-1~C-3 을 독립적으로 되돌릴 수 있게 쪼갠 5단계 스테이징. 단계 1건 = 커밋 1건, 각 단계마다 `test:paneownership` + T1 전량 재확인.
+
+- ✅ **C-1 — 스토어 팩토리 + Provider 신설(동작 변화 0)** (`d8f5545`, 0.8.45): `createTabStore(tabId)`(2-패스 매칭 재사용) · `TabDocumentProvider` · `tab_store_isolation_harness.ts`(`test:tabstore`) 신설. 소비자 미연결, 전역 스토어가 계속 권위 유지 — 회귀 테스트 전량 그대로 통과로 확인.
+- ✅ **C-2 — BlockEditor 를 Context 소비자로 전환** (`bd3fabf`, 0.8.46): `useEffectiveTabStore` 어댑터(두 소스 훅을 항상 함께 구독, `usingTabStore` 로 분기, `getFreshBlocks()` 로 즉시-최신 읽기 보존) 신설, `BlockEditor` 의 전역 구독 지점을 전부 이 어댑터로 교체. Provider 를 아직 어디에도 마운트하지 않아 100% 전역 폴백 경로로만 동작 — `tsc --noEmit`·`pnpm build`·`test:t1` 전량·`test:paneownership` 5/5·`test:ime` 5/5 통과. 실기 R1·R2·R3·R5·R6 은 VERIFY_BY_HUMAN.md §8 로 이월.
+- ⏳ **C-3 — 나머지 소비자 전환**: `ReadView`·`MindView`·`ErdDesignerMainView` 를 Provider 소비자로 전환. `TabDocumentProvider` 를 `PaneContainer` 에 실제로 마운트하는 지점이기도 하다(모든 소비자가 준비된 뒤에 한 번에 마운트해 split-brain 방지).
+- ⏳ **C-4 — 전역 싱글턴 제거 + `ownerTabId` 소멸** ⚠️ 되돌리기 지점: C-1~C-3 전부 green 확인 후 착수.
+- ⏳ **C-5 — `serialize()`/`hydrate()` 계약 확정 및 문서화**: `advanced_rendering_optimization.md` Phase 2 TTL 언마운터가 참조.
 
 ---
 
