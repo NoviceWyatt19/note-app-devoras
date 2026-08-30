@@ -1,0 +1,138 @@
+# ♻️ REFACTOR TICKET
+type: "REFACTOR_TICKET"
+id: "REF-20260831-01"
+# ━━━
+update: "2026-08-31 06:41"
+project_ref: "PRJ-DEVORAS-MVP"
+parent_ref: "REF-20260826-01 (2단계 — 1단계는 Step 7-A 로 종결)"
+subject: "전역 blockStore 싱글턴을 탭 스코프 Context 스토어로 이관 (Step 7-C / P0-3 Stage B)"
+status: "Todo — 착수 승인됨 (사용자 지시, 2026-08-31)"
+severity: "P0"
+plan_ref: "DEBUG_STEP_PLAN.md §2 Step 7 · project/DEBUG_PLAN.md §5-C"
+executor: "project-b8"
+planner: "project-48"
+baseline_commit: "29733f3 (트리 클린, pnpm test:t1 58/58)"
+# ━━━
+goal: >
+  rawContent / blocks / nodes / isDirty / viewMode 를 전역 단일 필드에서
+  PaneContainer 가 생성하는 탭 단위 Context 스토어(createTabStore(tabId))로 옮긴다.
+  ownerTabId 스캐폴딩은 이 작업으로 소멸한다 — 소유권을 런타임 가드로 검사하는 대신
+  구조적으로 한 탭의 상태에 다른 탭이 접근할 수 없게 만드는 것이 목적이다.
+# ━━━
+current_state:
+  done_7a: "분할 패널 문서 해석 불일치 해소 (262a280). BlockEditor 가 tab prop 으로 자기 문서를 받고, 비활성 패널은 tab.cache 스냅샷을 readOnly 로 그린다."
+  skipped_7b: "REF-20260826-02(resetBlocks)는 건너뛰기로 확정 — 본 작업이 전역 싱글턴 자체를 없애므로 곧 죽는 코드가 된다. DEBUG_PLAN §5-B 에 기록됨."
+  design_premise_confirmed: >
+    Step 6 판정으로 「블록당 CodeMirror 인스턴스」 설계는 무죄로 확정됐다(순수 CM 선형·38배 저렴,
+    비용은 데코레이터 계층). 따라서 본 작업의 설계 전제는 바뀌지 않으며 DEBUG_STEP_PLAN §0.1 은
+    재개봉하지 않는다. 아키텍처 교체를 염두에 둔 우회 설계를 하지 말 것.
+# ━━━
+critical_context_from_7a:
+  note: >
+    7-A 가 밝혀낸 사실 중 본 작업에 가장 큰 영향을 주는 것. 반드시 먼저 읽을 것.
+  ownership_transfer_points: >
+    소유권(activePaneId / 활성 탭)이 이동하는 지점은 5곳이다. 그중 3곳은 첫 번째가
+    드러난 뒤 찾아나서서야 발견됐다. 전역 스토어를 탭 스코프로 바꾸면 이 5개 전환의
+    의미가 전부 달라진다.
+  points:
+    - "setActivePane — 소유권 이전 전 _snapshotActiveTab() 선행"
+    - "splitPane — 새 패널 생성 시 활성 패널 이동"
+    - "closePane — 스냅샷 누락 + 중복 탭 병합 시 최신 사본 폐기 (2건 모두 7-A 에서 수정)"
+    - "closeTab — 패널 GC 경로. 활성 패널의 마지막 탭이 닫히며 다른 패널로 소유권 이전"
+    - "openTab — 동일 파일 중복 오픈 가드"
+  mandate: "pane_ownership_harness.ts(test:paneownership)를 마지막이 아니라 각 단계마다 돌릴 것."
+# ━━━
+staging:
+  rationale: >
+    본 작업은 계획서가 '되돌리기 비싸다'고 명시한 유일한 항목이다. 따라서 되돌릴 수 없는
+    단계(전역 싱글턴 제거)를 맨 뒤로 몰고, 그 앞의 모든 단계를 독립적으로 되돌릴 수 있게 쪼갠다.
+    각 단계는 개별 커밋으로 하고, 단계 사이에 T1 전량과 R1~R6 을 통과시킨 뒤 다음으로 넘어간다.
+  stages:
+    - id: "C-1 — 스토어 팩토리와 Provider 신설 (동작 변화 0)"
+      detail: >
+        createTabStore(tabId) 팩토리와 TabDocumentProvider(React Context)를 만든다.
+        아직 어떤 소비자도 연결하지 않는다. 전역 스토어가 계속 권위를 갖는다.
+      gate: "빌드·타입 통과. 런타임 동작 변화가 0건인 것을 확인(회귀 테스트 전량 그대로 통과)."
+      reversible: true
+    - id: "C-2 — BlockEditor 를 Context 소비자로 전환"
+      detail: >
+        BlockEditor 가 Context 에서 상태를 읽도록 바꾼다. Provider 가 없으면 전역으로
+        폴백하게 두어 이 단계에서도 되돌릴 수 있게 한다.
+      gate: "test:paneownership 전량 + R1·R2·R3·R5·R6. 특히 R3(한글 연속 입력)."
+      reversible: true
+    - id: "C-3 — 나머지 소비자 전환"
+      detail: "ReadView · MindView · ErdDesignerMainView 를 Provider 소비자로 전환."
+      gate: "각 뷰 전환 후 해당 뷰의 표시 회귀 0건. MindView 는 헤딩 링크가 살아 있는지 확인(A7 과 같은 축)."
+      reversible: true
+    - id: "C-4 — 전역 싱글턴 제거 + ownerTabId 소멸 ⚠️ 되돌리기 지점"
+      detail: >
+        useBlockStore 전역 싱글턴과 ownerTabId 가드를 제거한다. 폴백 경로도 함께 제거한다.
+        **C-1~C-3 이 전부 green 인 뒤에만 착수한다.**
+      gate: "T1 전량 + R1~R6 + 소스 트리에서 ownerTabId 검색 결과 0건."
+      reversible: false
+    - id: "C-5 — serialize()/hydrate() 계약 확정 및 문서화"
+      detail: >
+        탭 스토어의 직렬화 계약을 확정하고 문서에 남긴다.
+        advanced_rendering_optimization.md Phase 2(TTL 언마운터)가 이 계약을 그대로 쓴다.
+      gate: "계약이 문서화되고, Phase 2 가 참조할 수 있는 형태인지 확인."
+      reversible: true
+# ━━━
+constraints:
+  - id: "스냅샷 인터페이스를 두 번 설계하지 말 것"
+    detail: >
+      advanced_rendering_optimization.md Phase 1(상태 스냅샷)과 **동일 지점**이다. 분리해서
+      진행하면 인터페이스를 두 번 설계하게 된다. serialize()/hydrate() 를 Phase 2 TTL
+      언마운터의 계약으로 확정할 것. 이 계약이 확정되면 그것이 곧 architecture_stages.md
+      Stage 2 Thin Client 의 IPC 경계(getBlockTree(tabId), updateBlock(tabId, blockId, content)) 초안이 된다.
+  - id: "IME 이중 가드를 잃지 말 것"
+    detail: >
+      Step 5 의 조정자가 isImeComposingRef + view.composing 이중 가드와 external 트랜잭션
+      배제를 들고 있다. 상태 소스를 Context 로 바꾸는 과정에서 이 판정이 누락되면
+      dd52e32·13a7f7e 가 막 닫은 한글 입력 붕괴가 되살아난다. test:ime 를 단계마다 돌릴 것.
+  - id: "직렬화의 위치 의존성"
+    detail: >
+      블록의 직렬화 형태는 문서 내 위치에 따라 다르다 — 마지막 블록만 후행 개행을 갖지 않는다
+      (join 순서 아티팩트, Step 4 에서 발견). serialize() 가 콘텐츠 해시나 동등 비교를 쓰면
+      같은 함정을 밟는다. 정규화 없이 비교하지 말 것.
+  - id: "커밋 규칙"
+    detail: >
+      단계 1건 = 커밋 1건. 코드 커밋은 패치 버전업(package.json · Cargo.toml · tauri.conf.json
+      + Cargo.lock 동시). 문서만 바꾼 커밋은 버전을 올리지 않는다(.agents/AGENTS.md 버전업 예외).
+  - id: "공유 워킹 트리"
+    detail: "여러 세션이 같은 트리를 쓴다. git add -A 대신 경로를 명시해 스테이징하고, 커밋 직전 git status 로 확인할 것."
+# ━━━
+harness:
+  existing:
+    - path: "project/src/entities/document/__tests__/pane_ownership_harness.ts"
+      run_command: "pnpm test:paneownership"
+      note: "7-A 가 만든 것. 소유권 이전 5개 지점을 전부 덮는다. **각 단계마다 돌릴 것.**"
+    - run_command: "pnpm test:t1"
+      note: "기준선 58/58. 단계마다 전량 통과 유지."
+  to_add:
+    - path: "project/src/entities/document/__tests__/tab_store_isolation_harness.ts"
+      cases:
+        - "탭 A 의 스토어에 쓴 값이 탭 B 의 스토어에 보이지 않는다 (구조적 격리)"
+        - "탭 언마운트 시 해당 스토어가 소멸한다 (Lifecycle-Bound State — 메모리 회수)"
+        - "워크스페이스 전환 후 이전 워크스페이스 문서의 블록 트리가 남지 않는다 (REF-02 가 구조적으로 소멸했는지 증명)"
+        - "serialize() → hydrate() 왕복이 blocks/isDirty/viewMode 를 손실 없이 복원한다"
+# ━━━
+dod:
+  - "[ ] C-1~C-5 각 단계가 개별 커밋으로 착지"
+  - "[ ] rawContent/blocks/nodes/isDirty/viewMode 가 탭 스코프 Context 로 이관"
+  - "[ ] ownerTabId 가 소스 트리에서 소멸 (grep 0건)"
+  - "[ ] 전역 useBlockStore 싱글턴 제거"
+  - "[ ] test:paneownership 전량 통과 (소유권 이전 5개 지점)"
+  - "[ ] test:t1 58/58 이상 유지 + 신규 tab_store_isolation 하네스 통과"
+  - "[ ] R1~R6 전량 통과 — 특히 R2(탭 3개 전환 교차 오염 0), R3(한글 연속 입력), R6(워크스페이스 전환 잔존 0)"
+  - "[ ] serialize()/hydrate() 계약 문서화 (Phase 2 가 참조 가능한 형태)"
+  - "[ ] MindView 헤딩 링크 회귀 0건"
+# ━━━
+do_not:
+  - "C-1~C-3 을 건너뛰고 C-4(싱글턴 제거)부터 하지 말 것 — 되돌릴 수 없는 단계를 앞에 두면 실패 시 전량 롤백이 된다."
+  - "아키텍처 교체(문서당 런타임 1개)를 염두에 둔 우회 설계를 하지 말 것 — Step 6 이 현행 설계를 무죄로 판정했다."
+  - "데코레이터 계층 성능(A6-후속)을 이 작업에 끌어들이지 말 것 — 원인 미특정 상태이며 DEBUG_STEP_PLAN §3-A 의 조사가 선행이다."
+  - "ownerTabId 에 의존하는 새 코드를 늘리지 말 것 — C-4 에서 죽는다."
+# ━━━
+open_questions:
+  - "동일 파일을 두 패널에 열었을 때 탭 스토어를 공유할 것인가 분리할 것인가. 7-A 는 Stage A 회피책으로 '중복 오픈 시 기존 패널로 포커스 이동'을 택했다. C 단계에서 이 회피를 유지할지, 스토어 공유로 정면 해결할지 판단 필요."
+  - "탭 스토어의 생명주기를 탭 언마운트에 묶으면 Phase 2 TTL 언마운터와 정책이 충돌할 수 있다. hydrate() 가 있으므로 소멸-복원이 가능하지만, 어느 계층이 생명주기를 소유하는지 C-5 에서 명시할 것."
