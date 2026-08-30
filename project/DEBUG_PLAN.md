@@ -1,202 +1,252 @@
-# DEBUG_PLAN.md — Step 1~3 배치 (보안 경계 마감 · 입력 안정성 · 불변식)
+# DEBUG_PLAN.md — Step 4~7 배치 (구조 결함 해소)
 
-> **대상**: `project/` (Devoras `v0.8.32`) · 브랜치 `fix/vertical-motion-and-verification-tier`
-> **상위 인덱스**: [`DEBUG_STEP_PLAN.md`](../DEBUG_STEP_PLAN.md) §2 Step 1 · Step 2 · Step 3
-> **입력 문서**: [`code_review.md`](../code_review.md) · [`ARCHITECTURE_FINDINGS.md`](../ARCHITECTURE_FINDINGS.md) · [`implementation_plan.md`](../implementation_plan.md)
-> **직전 배치**: B2 보안 L1·L4-deny·L3·L2 — 착지(v0.8.28~0.8.31), [`claude-history/debug/DEBUG_PLAN_20260830_141903.md`](../claude-history/debug/DEBUG_PLAN_20260830_141903.md)
-> **성격**: 상호 **독립·병렬 가능한 3개 Step 의 실행 사양.** 신규 조사가 아니라 이미 원인까지 특정된 항목의 착지.
+> **대상**: `project/` (Devoras `v0.8.38`)
+> **상위 인덱스**: [`DEBUG_STEP_PLAN.md`](../DEBUG_STEP_PLAN.md) §2 Step 4 · Step 5 · Step 6 · Step 7
+> **입력 문서**: [`ARCHITECTURE_FINDINGS.md`](../ARCHITECTURE_FINDINGS.md) (A1·A2·A6·A7) · [`code_review.md`](../code_review.md) (P0-3·P1-3) · [`advanced_rendering_optimization.md`](../advanced_rendering_optimization.md) · [`architecture_stages.md`](architecture_stages.md)
+> **직전 배치**: Step 1~3 — 종결, [`claude-history/debug/DEBUG_PLAN_20260830_185251.md`](../claude-history/debug/DEBUG_PLAN_20260830_185251.md)
+> **성격**: 앞 배치와 달리 **엄격한 직렬 의존**이다. Step 4→5→6→7 순서를 지키지 않으면 뒤 단계가 앞 단계의 회귀를 감지할 수 없다.
 
 ---
 
 ## 0. 한 줄 요약
 
-- **Step 1** — B2 의 마지막 조각. `assetProtocol.scope.allow: ["**"]` 가 살아 있는 한 deny 목록은 경계가 아니라 완화책이다. 여기에 사람 손이 필요한 실기 검증 4건이 묶여 있다.
-- **Step 2** — 키 입력 1회당 `onUpdate` 가 2회 발화하고, Backspace 병합이 H5/H6 마크를 남기며 포커스를 잃는다.
-- **Step 3** — 게이트가 **최종 증상만** 본다. 중간 불변식을 심어 다음 회귀를 한 번의 측정으로 잡는다.
+Step 1~3 이 **증상**을 껐다면, 이 배치는 **증상을 계속 만들어내는 구조** 넷을 끈다.
 
-셋은 서로 파일이 겹치지 않는다. **병렬 착수 가능하나 커밋은 분리한다.**
+- **Step 4 (A7)** — 렌더 `key` 가 내용에서 파생된다. 제목을 고치면 정체성이 바뀌고 `EditorView` 가 파괴된다. **남은 결함 중 유일하게 데이터(undo)를 잃는다.**
+- **Step 5 (A1/A2)** — 스토어와 `EditorView` 가 둘 다 권위를 주장하고, 조정을 두 이펙트의 **실행 순서**에 맡긴다. 최근 버그 3건이 전부 이 계열이었다.
+- **Step 6 (A6)** — 마운트 비용이 예산의 **20~58배**이고 **초선형**이다. 프로파일 결과가 아키텍처 재검토의 공식 결정 게이트다.
+- **Step 7 (B4)** — 전역 `blockStore` 를 탭 스코프로 이관한다. `ownerTabId` 스캐폴딩이 여기서 소멸한다.
 
 ---
 
 ## 1. 실행 순서 & 게이트
 
 ```
-Step 1  B2 잔여 (tauri.conf.json · capabilities)  ─┐
-Step 2  B3 입력 (BlockEditor.tsx · block/store.ts) ├─ 독립 · 병렬 가능
-Step 3  A5 불변식 (개발 빌드 전용 단언)            ─┘
+Step 4  A7 헤딩 정체성 분리
+        ↓  (렌더 key 안정 = 5의 회귀를 관측 가능하게 만드는 전제)
+Step 5  A1/A2 조정자 일원화 + diff 동기화
+        ↓  (전체 치환 제거 = 6의 프로파일에서 노이즈 제거)
+Step 6  A6 프로파일 → 가상화/스택 판정 게이트
+        ↓  (판정 결과가 7의 범위를 결정)
+Step 7  B4 구조 개편 (7-A → 7-B? → 7-C)
 ```
+
+**직렬인 이유**를 명시한다 — 앞 배치처럼 병렬로 착수하면 안 된다.
+
+| 경계 | 앞 단계가 뒤 단계에 주는 것 |
+|---|---|
+| 4 → 5 | 렌더 key 가 안정돼야 5의 리팩터링이 만든 회귀와 "key 때문에 리마운트됐다"를 **구분**할 수 있다 |
+| 5 → 6 | 전체 문서 치환이 남아 있으면 6의 프로파일이 **측정 대상을 오염**시킨다(재측정 강제가 스래싱과 섞인다) |
+| 6 → 7 | 6의 판정이 "스택 교체"로 나오면 7-C 의 설계 전제가 통째로 바뀐다 |
 
 | 순서 | 작업 | 게이트 | 커밋 |
 |---|---|---|---|
-| 1 | ✅ **Step 2-A** `domEventHandlers.input` 제거 | `pnpm test:ime` 5/5 수정 전후 동일 | `dd52e32` fix(0.8.33) |
-| 2 | ✅ **Step 2-B** 병합 regex `#{1,6}` + 위치 기반 포커스 재조회 | H1~H6 병합 잔여 0 확인(스크립트 검증) | `2ec8a85` fix(0.8.34) |
-| 3 | ✅ **Step 3** R3 불변식 (2-B 와 같은 커밋) | DEV 가드 확인(빌드 후 grep 0건) | `2ec8a85` 에 동봉 |
-| 4 | 🔶 **Step 1-A** `allow: ["**"]` 축소 (PoC 결과에 따름) | S4(3단 분해판)·R7 재실측 — 진행 중, 아래 §2-A 실행 메모 참고 | 커밋 대기(동시 작업 세션과 Cargo.lock 충돌 회피 중) |
-| 5 | ⛔ **Step 1-B** 실기 검증 4건 | 아래 §2-B 표 전부 ✅ | 사람 손 + 별도 세션(project-b9) 의 MCP 브리지로 진행 중 |
+| 1 | **Step 4** 헤딩 정체성 위치 기반 전환 | G1 불변식(뷰 인스턴스 동일성) + MindView 링크 회귀 0 | `fix(x.x.x): 헤딩 정체성 분리 (A7)` |
+| 2 | **Step 5** 조정자 일원화 + diff 동기화 | R3 불변식 미발화 + R1~R6 | `refactor(x.x.x): 뷰↔스토어 조정자 일원화 (A1/A2)` |
+| 3 | **Step 6** 프로파일 → 판정 | 아래 §4 결정 게이트 표 판정 기록 | `chore(x.x.x): 마운트 비용 프로파일 결과 (A6)` |
+| 4 | **Step 7-A** 분할 패널 문서 해석 | 탭 바 제목과 본문 일치 + R5 | `fix(x.x.x): 분할 패널 표시 불일치 (P0-3 Stage A-2)` |
+| 5 | **Step 7-C** 탭 스코프 스토어 | R2·R6 + `ownerTabId` 소멸 | `refactor(x.x.x): 탭 스코프 스토어 (REF-01 2단계)` |
 
-**Step 3 을 Step 2-B 와 같은 커밋에 넣는 이유**: 2-B 의 DoD 가 정확히 R3 불변식이기 때문이다. 단언을 먼저 심고 고치면 수정의 정당성이 계측으로 남는다.
+> **7-B 는 조건부다.** 7-C 를 곧바로 진행하면 REF-02 는 **구조적으로 소멸**한다. 7-C 착수가 확정이면 건너뛴다.
 
 ---
 
-## 2. Step 1 — B2 잔여: 보안 경계 마감
+## 2. Step 4 — A7 헤딩 정체성 분리
 
-> 배치 B2 의 마지막 조각. **구현은 끝났고 범위 축소 1건 + 실기 검증 4건**이 남았다.
+> **우선순위 근거**: 남아 있는 구조 결함 중 **유일하게 데이터 손실(undo 히스토리)을 만든다.**
 
-### 2-A. L4-scope — `allow: ["**"]` 제거 (미착수)
+**[파일 & 라인]** `project/src/entities/block/model/store.ts:66` · `project/src/shared/lib/headingId.ts:12` · `project/src/entities/document/lib/parser.ts:53` · `project/src/widgets/BlockEditor/ui/BlockEditor.tsx`(렌더 `key={rootBlock.id}`)
 
-**[파일 & 라인]** `project/src-tauri/tauri.conf.json` (`app.security.assetProtocol.scope`) · `project/src-tauri/capabilities/default.json`
+**[근본 원인]** 헤딩 블록의 키가 헤딩 라벨에서 파생된다. T1 로 확인된 사실:
 
-**[현재 상태]**
-
-```json
-"scope": {
-  "allow": ["**"],
-  "deny": ["$HOME/.ssh/**", "$HOME/.aws/**", "$HOME/.gnupg/**", "$HOME/.config/**", "$HOME/.env*"]
-}
+```
+'## 원래제목'  →  id x9937oh
+'## 바뀐제목'  →  id wi2lrio      ← 제목만 고쳤는데 정체성이 바뀐다
 ```
 
-**[근본 원인]** deny 는 **열거된 것만** 막는다. `allow` 가 `"**"` 인 한 열거되지 않은 경로(`~/Documents/**` 등)는 그대로 읽힌다. **deny 는 완화책이지 경계가 아니다.**
+렌더가 `key={rootBlock.id}` 이므로 id 가 바뀌면 React 가 언마운트→재마운트하고 정리 함수가 `view.destroy()` 를 호출한다. G0 은 생성 이펙트의 **의존성 배열**에서 `block.id` 를 뺐지만(`BlockEditor.tsx:239`), **React key 를 통한 파괴 경로는 그대로 열려 있다.**
 
-**[조치 방안]**
+**[완화 요인 — 그래서 지금 당장 터지지는 않는다]** 키 재파생은 헤딩 **개수**가 변할 때만 일어난다(`handleBlockUpdate` 가 `oldHeadingCount !== newHeadingCount` 로 가드). **위험 창**은 "제목을 고친 뒤 어딘가에서 헤딩을 추가/삭제하거나 블록을 병합/분할하는 순간"이며, 그때 그 블록의 undo 히스토리가 조용히 사라진다.
 
-1. `allow` 를 **워크스페이스 루트 기준**으로 좁힌다. L3 에서 도입한 Rust `WorkspaceRoot` 상태가 이미 있으므로 **런타임 scope 갱신 경로를 함께 검토**한다.
-   - PoC: `asset_protocol_scope().allow_directory()` / `fs_scope().allow_directory()` 로 워크스페이스 선택 시 동적 허용이 성립하는지.
-   - 성립하면 `"**"` 자체를 제거. 불성립이면 deny 목록 + L3 에 의존하고 **강도 하락을 문서에 명시**한다.
-2. `capabilities/default.json` 의 **`fs:allow-home-read-recursive` / `fs:allow-home-write-recursive` 2건**도 이 단계 대상이다.
-   - L4-deny 커밋(v0.8.29)이 제거한 8건은 desktop/document/download 6건 + `dialog:allow-message` + `shell:allow-open` 이었고 **home 재귀는 남아 있다.**
-3. `requireLiteralLeadingDot: false` **유지** — 아래 §5-1.
+**[조치 방안]** 헤딩도 **위치 기반 정체성**으로 옮기고 라벨은 **표시용 속성**으로만 둔다. MindNode 링크가 헤딩 라벨 id 에 의존하므로(주석의 "Legacy support for MindNode linking"), **링크용 키와 렌더 정체성 키를 분리**한다.
 
-**[PoC 결과 — 2026-08-30, Tauri 2.11.5 / tauri-plugin-fs 2.5.1 소스 레벨 확인]**
-
-`tauri::scope::fs::Scope` (asset protocol 과 `tauri_plugin_fs::FsExt::fs_scope()` 가 **같은 타입**을 공유) 를 직접 읽었다:
-
-- `allow_directory()` / `forbid_directory()` 는 **성립한다** — 워크스페이스 오픈 시 동적 허용이 실제로 동작.
-- 단 `allowed_patterns`/`forbidden_patterns` 는 **append-only** — 제거 API 가 없다. `forbid_directory()` 는 있지만 "이후 access 는 **항상** 거부"(주석 원문)이므로, 한 번 forbid 하면 나중에 같은 경로를 다시 열어도 forbidden 이 우선해 영구히 막힌다.
-- 따라서 "이전 워크스페이스를 막고 새 워크스페이스만 연다"는 전략은 불가능하다. 실질적으로 가능한 것은 **"막지 않고 계속 추가만"** — 세션 동안 연 모든 워크스페이스 루트의 합집합이 허용 상태로 남는다. 이는 여전히 `"**"` 대비 압도적으로 좁고, deny 목록은 이 허용보다 항상 우선한다(코드 확인: `is_allowed` 가 forbidden 을 먼저 검사).
-- **판정: 성립.** `"**"` 제거 + `devoras_set_workspace_root` 안에서 `asset_protocol_scope().allow_directory(&root, true)` / `fs_scope().allow_directory(&root, true)` 동적 허용으로 전환. "워크스페이스 전환 시 이전 루트가 계속 허용된다"는 잔여 리스크는 **append-only API 의 구조적 한계**로 이번 배치에서 해소 불가 — §5 에 위험으로 명시.
-- **부수 발견**: `openWorkspace`/`openWorkspaceByPath`(`project/src/entities/workspace/model/store.ts`) 가 `setWorkspaceRoot` 를 fire-and-forget 하거나 `readDirectory` 보다 뒤에 호출하고 있어, scope 축소 이후 첫 워크스페이스 오픈이 레이스로 실패할 수 있었다. `await` 로 순서를 강제하도록 **함께 수정**했다(R1/R6 회귀 방지, `"**"` 축소의 필수 동반 조건).
-- **S4 판정 기준 보정**(project-b1 지적): `allow: []` 로 바뀌면 "asset://…/.ssh/id_rsa → 403" 단일 검사는 **공허하게 통과**한다(deny 목록이 없어도 애초에 아무것도 allow 되지 않으므로 403). 아래 §2-B 표를 3단으로 분해해 실제로 scope 가 좁혀졌음을 증명하도록 갱신했다.
+> **원칙: 렌더 key 는 절대 내용에서 파생하지 않는다.**
 
 **[Edge Cases & Guards]**
 
-- **워크스페이스 전환 시 scope 재설정 타이밍.** 이전 워크스페이스 경로가 살아 있으면 축소의 의미가 없다.
-- **`.devoras/images` 최초 생성 경로**(L3 의 `ensure_inside` 조상 탐색 일반화가 다루는 케이스)가 scope 축소로 다시 깨지지 않는지.
+- `parser.ts:53` 과 `block/store.ts:66` 이 **같은 `buildHeadingId` 를 공유**하므로(code_review 「잘 유지되고 있는 부분」의 `headingId.ts` 단일화) **양쪽 호출부를 함께** 옮겨야 한다. 한쪽만 옮기면 두 벌의 정체성 체계가 생긴다 — B2 의 `escapeHtml`/`safeText` 이중 경로와 같은 실패 형태다.
+- **MindView 의 기존 링크 호환성 확인 필수.** 라벨 파생 id 를 지우는 것이 아니라 **역할을 좁히는** 것이다.
+- Step 2-B 의 "재생성 후 위치로 재조회" 패치는 A7 의 **부분 완화**였다. 근본 해소가 여기이므로, 그 패치가 불필요해지는지 함께 판단한다(불필요해도 방어적으로 남기는 쪽을 권장).
 
-**[DoD]** **PoC 1시간 선행** 후 판단. **이미지 렌더링 회귀 0건이 절대 조건.**
-
-### 2-B. T3 실기 검증 잔여
-
-| # | 항목 | 상태 | 막힌 이유 |
-|---|---|---|---|
-| S4-1 | 워크스페이스 내부 자산 → 200 (`allow_directory` 발동 증명) | ✅ **실측 완료(2026-08-30)** | project-b9, `pnpm tauri dev` 실기(CLI 워처가 Step 1-A 저장 감지해 자동 재빌드) |
-| S4-2 | 워크스페이스 **외부**·deny 목록 **밖** 경로(`~/Documents/probe`) → 403 (scope 가 실제로 좁혀졌다는 유일한 증거) | ✅ **실측 완료** | 〃 |
-| S4-3 | `~/.ssh/known_hosts` → 403 (deny 가 append-only allow 보다 우선) | ✅ **실측 완료** | 〃 |
-| R7 | `.devoras/images` Write/Read 양쪽 렌더 (`tauri_t3_harness.ts` 기존 자동 게이트) | ❌ 미실행 | 사람 손 또는 다음 실기 세션 |
-| S5 | 번들 앱에서 이미지·코드블록 육안 확인 | ❌ | OS 권한(Accessibility·Screen Recording) — 사람 손 필요 |
-| S5 | `pnpm tauri build` 후 HMR 무관 정상 동작 | ❌ | 〃 |
-| S2 | 콘솔 CSP 위반 로그 0건 | ✅ **실측 완료** | project-b9, 동일 세션 — 위반 로그 0건 확인. **주의**: devCsp 기준(플러그인 기반 브리지는 프로덕션 CSP 를 바꾸지 않음) — 프로덕션 CSP 자체 확인은 아래로 이월 |
-| S2 | 네트워크 요청 0건 | ⚠️ **불확정** | Performance API 로 확인 시도했으나 커스텀 프로토콜(`asset://`)이 Resource Timing 에 안 잡혀 확정 증거 없음. 사람 손 또는 다른 계측 필요 |
-
-**S4 는 원래 단일 검사(403 실측)였으나 §2-A PoC 로 공허 통과 문제가 드러나 3단으로 분해했고, project-b9 가 실제 Step 1-A 코드(작업 트리, `allow: []` + `devoras_set_workspace_root` 동적 허용)를 대상으로 200/403/403 을 실측해 scope 축소가 실질적으로 동작함을 확인했다.** 자산 asset URL 스킴 실측값: `asset://localhost/<encoded-path>`. 남은 항목(R7, S5 2건, S2 네트워크 0건, 프로덕션 CSP)은 여전히 사람 손(번들 빌드 + 육안) 또는 별도 계측이 필요.
-
-**[DoD]** 위 8건 실측(5/8 완료) + `pnpm test:sanitizer` 14/14 + `cargo test` 6/6 유지.
+**[DoD]** 제목 변경 → 헤딩 추가/삭제 시나리오에서 편집 중이던 블록의 `EditorView` **인스턴스 동일성 유지**(아래 §6 G1 불변식으로 측정) · undo 히스토리 보존 · MindView 링크 회귀 0건.
 
 ---
 
-## 3. Step 2 — B3 입력 안정성 (실질 2건)
+## 3. Step 5 — A1/A2: 뷰↔스토어 조정자 일원화 + diff 동기화
 
-> **원 정의**: [`DEBUG_PLAN_20260827_025711.md`](../claude-history/debug/DEBUG_PLAN_20260827_025711.md) §2 — 티켓 `BUG-08 → BUG-11, BUG-09, BUG-10` · 선행 `B1` · 게이트 `IME 하네스 회귀 0건`
-> **선행 조건 충족**: B1 종결. 원래의 순서 제약 `BUG-08 → BUG-11`(키 충돌 해소 선행)은 **BUG-08 이 G0 로 이미 해소**되어 만족된 상태다.
+**[근본 원인 A1 — 이중 권위]** `useBlockStore`(`block.content`, `focusOffset`, `activeBlockId`)와 각 `EditorView`(`state.doc`, `state.selection`)가 **둘 다 권위를 주장**하고, 조정을 `BlockEditor.tsx` 안의 **서로 다른 두 이펙트**의 실행 순서에 맡긴다.
 
-### 3-0. 코드 대조 결과 — 4건 중 2건은 이미 소멸
+- 캐럿 복원 = `useLayoutEffect`
+- 내용 동기화 = passive `useEffect`
 
-| 티켓 | 계획 내용 | 2026-08-30 실태 |
-|---|---|---|
-| BUG-20260826-08 비헤딩 블록 키 충돌 | 위치 기반 키 | ✅ **해소** — G0 가 `${parentId}-textblock-${index}` 로 전환 (`project/src/entities/block/model/store.ts:60-65`) |
-| BUG-20260826-10 활성 뷰 포인터 null | 소유권 가드 | ✅ **구조적 소멸** — 전역 싱글턴이 `project/src/shared/lib/editorViewRegistry.ts` 로 교체. `unregisterEditorView` 가 `caretHolder.get(paneId) === blockId` 일 때만 정리하므로 무관한 블록 파괴가 포인터를 비우지 않는다 |
-| **BUG-20260826-09** 입력당 `onUpdate` 2회 | `domEventHandlers.input` 제거 | ❌ **잔존** |
-| **BUG-20260826-11** 병합 regex + 포커스 복원 | `#{1,6}` + 재생성 후 재조회 | ❌ **잔존** |
+React 는 layout effect 를 passive 보다 **먼저** 돌리므로 **캐럿이 옛 문서 위에 놓인 뒤 문서가 갈린다.**
 
-### 3-A. BUG-20260826-09 — 키 입력 1회당 `onUpdate` 2회 호출 *(= code_review P1-5)*
+이것이 개별 버그가 아니라 **계열**이라는 근거 — 최근 3건이 전부 "무엇을 하는가"가 아니라 **"어떤 순서로 선언·등록했는가"** 에 정확성이 걸려 있었다. 그 순서는 코드 어디에도 명시돼 있지 않고 **주석으로만 방어**된다(실제로 `BlockEditor.tsx:241-243`, `:253-255` 에 경고 주석이 있는데도 세 번째가 났다).
 
-**[파일 & 라인]** `project/src/widgets/BlockEditor/ui/BlockEditor.tsx:199-208`(`domEventHandlers.input`) · `:209-227`(`updateListener`)
+**[근본 원인 A2 — 평상시 전체 치환]**
 
-**[근본 원인]** 일반 타이핑에 대해 **둘 다 발화**하며 각각 `callbacksRef.current.onUpdate` 를 호출한다. `setDirty`·`findOldContent`·`countHeadings`·`updateBlockContent` 가 **문자당 두 번** 실행되고 150ms 디바운스도 두 번 재설정된다.
+```typescript
+changes: { from: 0, to: currentDoc.length, insert: block.content }
+```
 
-**[조치 방안]** `domEventHandlers.input` 핸들러를 **삭제**한다. `updateListener` 가 상위 호환이다 —
+문서 전체 치환이 **예외 경로가 아니라 평상시 동기화 경로**다. 커서를 삽입 텍스트 끝으로 이동시키고, undo 입도를 뭉개고, 데코레이션 위치를 무효화하고, 전체 재측정을 강제한다.
 
-| | `input` 핸들러 | `updateListener` |
-|---|---|---|
-| IME 가드 | `inputEvent.isComposing` 만 | `isImeComposingRef.current` + `update.view.composing` **이중** |
-| 외부 트랜잭션 필터 | 없음 | `tr.annotation(Transaction.userEvent) === 'external'` 배제 |
-| 문서 변경 판정 | 없음 | `update.docChanged` |
+**[조치 방안]**
 
-**[Edge Cases & Guards]** 이 수정은 **한글 입력 경로를 직접 건드린다. R3(한글 연속 입력)이 이번 배치의 핵심 위험 지점이다.** `pnpm test:ime` 를 수정 **전후로 각각** 돌려 비교할 것.
+1. 블록 하나의 **"원하는 상태"**(content + selection + focus)를 **한 객체**로 만들고, 실제 `EditorView` 상태와의 차이를 **한 곳에서 한 번에** 적용한다. **이펙트 두 개 → 조정자 하나.**
+2. 전체 치환 대신 **최소 차이(diff) 기반 변경**. 블록 내용은 대개 한두 글자만 다르므로 공통 접두/접미를 잘라낸 최소 범위 치환으로 충분하다. 이렇게 하면 커서·undo·데코레이션이 **자동으로** 보존되어 **A1 의 조정 부담 자체가 줄어든다.**
 
-**[DoD]** 타이핑 1회당 `onUpdate` **정확히 1회**(계측) · `pnpm test:ime` 회귀 0건 · R3 수동 확인.
+**[선행 — 이미 충족됨]** Step 3 의 `store.focusOffset === view.selection.main.head` 단언이 **먼저** 들어가 있어야 이 리팩터링의 회귀를 즉시 잡을 수 있다. 해당 불변식은 `2ec8a85` 에서 착지했다.
 
-### 3-B. BUG-20260826-11 — 병합 regex 및 포커스 복원 *(= code_review P1-7)*
+**[Edge Cases & Guards]**
 
-**[파일 & 라인]** `project/src/entities/block/model/store.ts:215` · `:230-233`
+- **IME 조합 중에는 diff 를 적용하지 않는다.** 조합 중 문서 치환은 Step 2-A 가 막 해소한 한글 입력 붕괴를 되살린다. `isImeComposingRef` + `view.composing` 이중 가드를 조정자 진입부에 그대로 가져갈 것.
+- 외부 트랜잭션(`Transaction.userEvent === 'external'`) 배제 규칙을 조정자로 이관한다 — `updateListener` 가 이미 하고 있는 판정을 잃지 말 것.
+- 리팩터링 도중 **주석으로만 방어되던 순서 제약을 코드로 승격**한다. 조정자가 단일 진입점이 되면 순서는 주석이 아니라 함수 본문의 문장 순서가 된다.
 
-**[근본 원인 — 두 갈래]**
+**[DoD]** R3 불변식 미발화 · 타이핑 중 undo 입도 유지(문자 단위로 뭉개지지 않음) · §6.2 R1~R6 전부 통과 · `pnpm test:ime` 회귀 0건.
 
-1. `parseHeadingLine` 은 `#{1,6}` 을 인식하는데 `cleanedCurrentText` 는 `replace(/^#{1,4}\s*/, '')` 다. **H5/H6 블록을 병합하면 `##### ` 리터럴이 본문에 남는다.**
-2. 더 심각한 쪽은 **순서**다. `setBlocksFromContent(fullText)` 로 트리를 **재생성한 뒤** `set({ activeBlockId: previousBlock.id })` 를 실행한다. 재생성에서 새 `id` 가 부여되면 그 ID 는 더 이상 존재하지 않고, **Backspace 병합 직후 포커스가 사라진다.**
+---
+
+## 4. Step 6 — A6: 마운트 비용 프로파일 → 판정 게이트
+
+**[측정 실패 — T2(Chromium) 실측. WKWebView 는 더 느릴 가능성이 높으므로 하한으로 읽을 것]**
+
+| N (블록) | 스토어 로직 | 마운트 완료 | 블록당 |
+|---|---|---|---|
+| 25 | 0.4 ms | 1,015 ms | 40.6 ms |
+| 50 | 0.5 ms | 2,271 ms | 45.4 ms |
+| 100 | 1.6 ms | 5,677 ms | 56.8 ms |
+| **200** | **1.6 ms** | **7,024 ~ 17,423 ms** | **35 ~ 87 ms** |
+
+예산은 **N=200 에서 300ms 이하** → **20~58배 초과**. 메모리는 블록당 42~98KB 로 예산(150KB) 내이므로 **문제는 오직 시간**이다.
+
+**[두 가지 사실이 계획을 바꾼다]**
+
+1. **스토어/파싱 최적화는 의미가 없다.** N=200 에서 스토어 로직 1.6ms — 비용의 거의 100%가 `EditorView` 생성이다.
+2. **비용이 초선형이다**(성장 지수 ≈ 1.37). 각 인스턴스 생성이 이미 마운트된 문서 전체에 비례하는 일을 하고 있다는 뜻 — **레이아웃 스래싱** 형태다. (원인 귀속은 **추정**이며 프로파일이 필요하다.)
+
+**[조치 순서 — 가상화로 직행하지 않는다]**
+
+1. **먼저 레이아웃 스래싱을 프로파일한다.** 가상화보다 훨씬 싼 수단(마운트 배치 처리, `content-visibility: auto`, 생성 중 측정 지연)으로 상당 부분이 회수될 수 있다. **선형으로만 되돌려도 N=200 이 8초 → 1초대다.**
+2. 그 다음에 가상화(E7)를 판정한다. 착수한다면 **높이 캐시 필수** — 높이 캐시 없는 가상화는 BUG-20260828-01(수직 이동 줄 스킵)과 **같은 계열의 결함을 재생산**한다. 윈도 크기는 뷰포트 **±2 화면 높이**, **캐럿 근처에서 마운트/언마운트가 절대 일어나지 않아야 한다.**
+3. [`architecture_stages.md`](architecture_stages.md) Stage 3 의 캔버스 뷰포트 컬링과 **동일한 윈도잉 개념을 공유**하도록 설계해 중복 구현을 피한다.
+
+**[결정 게이트 — `DEBUG_STEP_PLAN.md` §0.1 과 연결]**
+
+| 프로파일 결과 | 판정 |
+|---|---|
+| 초선형 성분이 레이아웃 스래싱이고 **선형 회복 가능** | **현행 구조 유지.** 필요 시 가상화(높이 캐시 동반) |
+| **선형 회복 불가** (비용이 `EditorView` 생성에 내재) | 「문서당 런타임 1개 + 블록 노드」 구조로의 전환을 **정식 안건화.** 이때 §0.1 의 결정을 재개봉한다 |
+
+**[DoD]** 프로파일 결과와 위 표의 **판정을 문서에 기록**한다. 판정 없이 Step 7 로 넘어가지 않는다 — 이 게이트가 이 배치의 존재 이유다.
+
+---
+
+## 5. Step 7 — B4 구조 개편
+
+> **원 정의**: [`DEBUG_PLAN_20260827_025711.md`](../claude-history/debug/DEBUG_PLAN_20260827_025711.md) §2 — `REF-01(1단계) → REF-02 → REF-01(2단계)` · 선행 `B1, B3`(둘 다 종결)
+
+### 5-A. P0-3 Stage A-2 — 분할 패널 표시 불일치
+
+**[파일 & 라인]** `project/src/pages/WorkspacePage/WorkspacePage.tsx:359` · `project/src/widgets/BlockEditor/ui/BlockEditor.tsx:393`
+
+**[현재 상태 — code_review 기술보다 진전됨]** `WorkspacePage.tsx:359` 는 이미 `<BlockEditor key={activeTab.id} paneId={pane.id} />` 로 **`paneId` 를 주입한다**(Option B 의 레지스트리 키잉 목적). 그러나 `BlockEditor.tsx:393` 은 여전히 `useDocumentStore(s => s.getCurrentFile())` = **활성 패널의 탭**으로 자기 문서를 유추한다. 즉 **배관은 깔렸고 문서 해석만 남았다.**
+
+**[남은 증상]** 두 번째 패널이 자기 `activeTabId` 와 무관하게 활성 패널의 문서를 그린다(탭 바 제목과 본문 불일치). 비활성 패널에 타이핑하면 `ownerTabId` 가드에 걸려 입력이 **조용히 무시**된다(오염 대신 무반응).
+
+**[조치 방안]** `PaneContainer` 가 `<BlockEditor tab={activeTab} isActivePane={pane.id === activePaneId} />` 를 주입하고, **비활성 패널은 `readOnly` 렌더**(내용은 `tab.cache?.rawContent ?? ''`). **전역 `blockStore` 를 편집하는 인스턴스를 상시 1개로 제한하는 것이 목적이다.**
+
+**[Edge Cases & Guards]**
+
+- 패널 포커스 전환(`setActivePane`) 시 **이전 활성 패널을 먼저 `_snapshotActiveTab()`** 한 뒤 소유권 이전.
+- 동일 파일을 두 패널에 열면 캐시가 갈라지므로 Stage A 에서는 **중복 오픈 시 기존 패널로 포커스 이동**으로 회피.
+
+### 5-B. REF-02 / P1-3 — 경계 전환 시 `blockStore` 잔존 *(조건부)*
+
+**[파일 & 라인]** `project/src/entities/workspace/model/store.ts:40, 59` · `project/src/entities/document/model/store.ts:311`
+
+**[현재 상태]** `openWorkspace` / `openWorkspaceByPath` 는 `resetDocumentState()` 만 호출한다. **`resetBlocks` 는 소스 트리에 존재하지 않는다.** `useBlockStore.blocks` 는 이전 워크스페이스 문서의 전체 트리를 유지하며, (a) 앱 생명주기 동안 회수되지 않는 메모리이고 (b) 다음 문서 로드 시 `existingByKey` ID 매칭의 입력이 되어 **문서 간 블록 identity 가 누수**된다. `viewMode` 도 리셋 대상에서 빠져 있다.
 
 **[조치 방안]**
 
 ```typescript
-const cleanedCurrentText = currentBlock.content.replace(/^#{1,6}\s*/, '');
-// ...
-get().setBlocksFromContent(fullText, get().ownerTabId ?? undefined);
-const rebuilt = flattenTree(get().blocks);           // 재생성 후 "위치"로 해석
-set({ activeBlockId: rebuilt[index - 1]?.id ?? null, focusOffset });
+resetBlocks: () => set({ blocks: [], activeBlockId: null, focusOffset: 0, ownerTabId: null })
 ```
 
-**[Step 4(A7) 와의 관계]** 비헤딩 블록은 G0 로 안정됐지만 **헤딩 블록의 id 는 아직 라벨에서 파생된다**(`project/src/entities/block/model/store.ts:66` `buildHeadingId(parsed.label, …)` — A7). 따라서 헤딩을 병합하면 재생성 시 id 가 바뀔 수 있고, 위 "위치로 재조회" 패치는 **A7 의 부분 완화**이기도 하다. **근본 해소는 Step 4** — 본 배치의 범위가 아니다.
+를 `blockStore` 에 추가하고 `resetDocumentState` 에서 함께 호출(`viewMode: 'write'` 포함).
 
-**[DoD]** H1~H6 각각 병합 시 **헤딩 마크 잔여 0건** · 병합 직후 캐럿이 병합 지점에 존재 · §4 의 R3 불변식 단언이 발화하지 않을 것.
+> ⚠️ **건너뛰기 판단**: 5-C(탭 스코프 스토어)를 곧바로 진행할 계획이면 **REF-02 는 구조적으로 소멸**하므로 건너뛰어도 무방하다. 5-C 착수가 불확실할 때만 5-B 를 먼저 넣는다.
+
+### 5-C. REF-01 2단계 / P0-3 Stage B — 탭 스코프 스토어
+
+`rawContent / blocks / nodes / isDirty / viewMode` 를 `PaneContainer` 내부에서 생성하는 **React Context 기반 탭 스코프 스토어**(`createTabStore(tabId)`)로 이관한다. **`ownerTabId` 스캐폴딩은 여기서 소멸한다.**
+
+> ⚠️ **반드시 함께 처리할 것**: [`advanced_rendering_optimization.md`](../advanced_rendering_optimization.md) **Phase 1(상태 스냅샷)** 과 **동일 지점**이다. 분리해서 진행하면 스냅샷 인터페이스를 **두 번 설계**하게 된다. `serialize()` / `hydrate()` 를 **Phase 2 TTL 언마운터의 계약으로 확정**할 것.
+>
+> **부수 효과**: 이 계약이 확정되면 그것이 곧 [`architecture_stages.md`](architecture_stages.md) **Stage 2 Thin Client** IPC 경계(`getBlockTree(tabId)`, `updateBlock(tabId, blockId, content)`)의 초안이 된다. **스레드/프로세스 분리는 여기서부터 싸진다.**
+
+**[DoD]** R2(탭 3개 전환 왕복 교차 오염 0) · R6(워크스페이스 전환 잔존 0) · `ownerTabId` 가 소스 트리에서 소멸 · `serialize()`/`hydrate()` 계약 문서화.
 
 ---
 
-## 4. Step 3 — A5 중간 불변식 심기 (비용 거의 0, 회수 큼)
+## 6. 위험 및 주의
 
-> **근거**: [`ARCHITECTURE_FINDINGS.md`](../ARCHITECTURE_FINDINGS.md) A5 — 게이트가 **최종 증상만** 관측한다. §9.6 은 T3 실기 한 세션을 통째로 쓰고도 원인에 도달하지 못했고, **같은 버그가 `drift` 라는 중간량을 재자 한 번의 측정으로 풀렸다.**
+1. **Step 5 는 한글 입력 경로를 정면으로 건드린다.** Step 2-A 가 막 해소한 영역이다. 조정자에 IME 이중 가드를 옮기지 않으면 조합이 깨진다. `pnpm test:ime` 를 리팩터링 전후로 비교할 것.
+2. **Step 4 는 `buildHeadingId` 호출부 2곳을 함께 옮긴다.** 한쪽만 옮기면 정체성 체계가 두 벌이 되고, 이는 B2 의 `escapeHtml`/`safeText` 이중 경로와 같은 실패 형태다.
+3. **Step 6 의 판정을 생략하지 말 것.** "일단 가상화부터"는 이 배치가 명시적으로 금지하는 경로다. 프로파일 없이 착수하면 원인 귀속이 추정인 채로 큰 구조를 바꾸게 된다.
+4. **Step 7-C 는 되돌리기 비싸다.** Step 6 판정이 "스택 교체 안건화"로 나오면 7-C 설계 전제가 바뀌므로 **판정 이후에 착수**한다.
+5. **`ownerTabId` 는 일회용 스캐폴딩이다.** 5-C 전까지 새 코드가 여기 의존하는 것을 늘리지 말 것.
+6. **워크스페이스 scope 는 append-only 다.** 직전 배치 Step 1-A 의 잔여 리스크 — 세션 중 연 모든 워크스페이스 루트가 허용 상태로 남는다(Tauri `Scope` 에 제거 API 없음). 7 에서 워크스페이스 경계를 건드릴 때 이 사실을 전제로 둘 것.
 
-개발 빌드 전용 런타임 단언을 게이트마다 하나씩 붙인다.
+---
 
-| 최종 증상 게이트 | 붙일 중간 불변식 | 상태 |
+## 7. 이월 항목 (직전 배치에서 미종결)
+
+> Step 1~3 배치는 코드 작업을 전부 끝냈으나 **사람 손이 필요한 실기 검증이 남았다.** 상세와 수행 절차는 [`VERIFY_BY_HUMAN.md`](VERIFY_BY_HUMAN.md) 에 있다. 본 배치와 **독립적으로** 진행 가능하다.
+
+| # | 항목 | 상태 |
 |---|---|---|
-| R10 수직 이동 델타 ±1 | `drift === 0` | ✅ 적용 완료 |
-| **R3 병합 후 캐럿 유지** | **`store.focusOffset === view.selection.main.head`** | ❌ **이번 대상.** 이것만 있었으면 BUG-20260828-02 는 즉시 드러났다 |
-| B1 dirty 표시 | `isDirty === (내용 !== 디스크 내용)` | ❌ 저장 **이후**를 보는 케이스가 없어 결함이 숨어 있었다 |
-| V3/V4/V6 스크롤 0px | `scrollHeight > clientHeight` (컨테이너가 실제로 넘치는가) | ❌ 아니면 0px 가 공허하게 통과한다 |
-| V1~V4 scrollTop 0px | 프레임 간 `block.top` 변화량 = 0 | ❌ |
-| G1 캐럿 안정성 | 뷰 인스턴스 동일성(리마운트 0회) | ❌ |
+| 1 | S5 번들 앱 이미지·코드블록 육안 확인 | ⚠️ 사용자 실기 보고 있었으나 **재현 안 됨** — 재발 시 재보고 |
+| 2 | S5 `pnpm tauri build` 후 HMR 무관 정상 동작 | ❌ 사람 손 |
+| 3 | S2 네트워크 요청 0건 | ⚠️ 불확정 — `asset://` 가 Resource Timing 에 안 잡힘. OS 레벨 계측 필요 |
+| 4 | S2 **프로덕션** `csp` 자체 재확인 | ❌ 자동 검증은 `devCsp`(더 느슨) 기준이었음 |
+| 5 | 워크스페이스 밖 드래그·드롭 이미지 — 기능 + 핫픽스 재검증 | ⚠️ 진행 중 |
+| 6 | R7 `.devoras/images` 렌더 자동 게이트 재실행 | ❌ 미실행 |
 
-**[우선순위]** **R3 를 먼저 심는다** — Step 3-B 의 DoD 이자 이번 배치에서 즉시 회수되는 유일한 항목이다. 나머지는 해당 게이트를 다음에 건드릴 때 함께 심는다.
-
-**[Edge Cases & Guards]**
-
-- **프로덕션 빌드에서 배제될 것** — `import.meta.env.DEV` 가드.
-- **단언 실패는 throw 가 아니라 `console.error` + 스택**으로 남겨 **편집을 중단시키지 않을 것.**
+> **완료 시**: `VERIFY_BY_HUMAN.md` 의 결과를 반영하고 해당 문서를 삭제한다.
 
 ---
 
-## 5. 위험 및 주의
+## 8. 보류 / 미편입 티켓
 
-1. **`requireLiteralLeadingDot: false` 를 되돌리지 말 것.** `.devoras/` 이미지 렌더링의 전제조건이며, **Step 1 의 scope 축소에서 가장 흔한 회귀 경로**다. dot 파일 차단은 deny 목록으로 한다.
-2. **`tauri.conf.json` 은 컴파일 타임에 바이너리로 인라인된다.** 설정만 바꾸고 dev 로 확인하면 반영되지 않은 것을 통과로 오인한다. **반드시 재빌드 후 검증.**
-3. **Step 2-A 는 한글 IME 경로다.** `pnpm test:ime` 전후 비교 없이 커밋하지 말 것.
-4. **`ownerTabId` 는 일회용 스캐폴딩이다.** Step 7 의 탭 스코프 스토어 완성 시 소멸시킨다. 3-B 의 `get().ownerTabId` 사용은 그때까지의 잠정 형태다.
-5. **커밋을 합치지 말 것.** Step 1 과 Step 2 는 회귀 시 원인 분리가 가능해야 한다.
+> 위 Step 에 들어가지 않았으나 열려 있는 항목. **착수 전 재평가한다.**
+
+| ID | 내용 | 상태 | 비고 |
+|---|---|---|---|
+| BUG-20260828-04 | `---` 라인 ArrowUp 스킵 | ◻ 보류(고립) | A3 수정 후에도 남은 잔여. 재현 조건이 좁다 |
+| BUG-20260828-05 | 한글 IME — 앱 실행/포커스 전환 직후 첫 조합 간헐 실패 | ◻ Todo | **Step 5 와 같은 코드 경로**(입력 이벤트). 5 착수 시 함께 재현 시도할 것 |
+| BUG-20260828-06 | 위젯 `toDOM` 예외가 CodeMirror 뷰·React 서브트리를 붕괴시킴 | ◻ Todo | 데코레이터 중재 인프라(§S.4)와 인접 |
+| P1-9 | `.cm-line *` 전역 리셋이 Write Mode 위젯 타이포그래피 무력화 | ◻ B5(독립 배치) | 사용자에게 즉시 보이는 표시 결함. **언제든 착수 가능.** 실행 사양서: [`IMPL_PLAN_20260826_2349_widget_typography.md`](../claude-history/impl/IMPL_PLAN_20260826_2349_widget_typography.md) |
+| Open Q #5 | 데코레이터 중재 인프라(`priority`/`claims`)를 언제 넣을까 | ⏳ 미결정 | `protectedRegions.ts` 의 N² 부채가 그때까지 유지된다. 상세: [`implementation_plan.md`](../implementation_plan.md) 「스파이크」 §S.4 |
+| P2-4~P2-8 | 코드 품질 (`codeContent` O(N²), `generateId` 충돌, 미종료 펜스, Rust panic 등) | ◻ 미착수 | 영향도 낮음 |
+| A4 (T3 심화) | 상시 디버그 채널 | ◻ 미착수 | 없으면 T3 결론이 계속 휘발된다. 검증이 아니라 **기능**이므로 별도 판단 사항 |
 
 ---
 
-## 6. 검증 티어와 공통 회귀
+## 9. 검증 티어와 공통 게이트
 
-### 6.1 티어
+### 9.1 티어
 
 | 티어 | 수단 | 실행 |
 |---|---|---|
@@ -204,7 +254,7 @@ set({ activeBlockId: rebuilt[index - 1]?.id ?? null, focusOffset });
 | **T2** 레이아웃 | `MockFileSystem` 덕에 앱이 Chromium 에서 그대로 구동 | `pnpm dev` + playwright |
 | **T3** 실기 | 설정 변경 없이 콘솔 한 줄 | `pnpm tauri:dev` → `tauri_t3_harness.ts` |
 
-> **런타임 고정**: Node 24 LTS(`.nvmrc`, `engines`). 새 환경은 `nvm use` 로 시작한다. T1 은 이전까지 **한 번도 실행 가능한 적이 없었다**(Node 20 에 없는 플래그).
+> **런타임 고정**: Node 24 LTS(`.nvmrc`, `engines`). 새 환경은 `nvm use` 로 시작한다.
 
 ```bash
 pnpm test:t1
@@ -226,66 +276,85 @@ pnpm tauri:dev
 const t3 = await import('/src/widgets/BlockEditor/__tests__/tauri_t3_harness.ts'); await t3.run()
 ```
 
-### 6.2 배치 종료 시 공통 회귀
+### 9.2 중간 불변식 (A5) — 이 배치에서 심을 것
+
+> Step 3 에서 R3·R10 이 착지했다. **나머지는 해당 게이트를 건드리는 Step 에서 함께 심는다.**
+
+| 게이트 | 중간 불변식 | 심을 시점 |
+|---|---|---|
+| R10 수직 이동 델타 ±1 | `drift === 0` | ✅ 적용 완료 |
+| R3 병합 후 캐럿 유지 | `store.focusOffset === view.selection.main.head` | ✅ 적용 완료(`2ec8a85`) |
+| **G1 캐럿 안정성** | **뷰 인스턴스 동일성(리마운트 0회)** | **Step 4 — DoD 측정 수단이다** |
+| B1 dirty 표시 | `isDirty === (내용 !== 디스크 내용)` | Step 7-C(탭 스코프 이관 시) |
+| V3/V4/V6 스크롤 0px | `scrollHeight > clientHeight` | Step 6(프로파일 중) |
+| V1~V4 scrollTop 0px | 프레임 간 `block.top` 변화량 = 0 | Step 6 |
+
+**[공통 규칙]** `import.meta.env.DEV` 가드로 프로덕션 배제 · 실패는 throw 가 아니라 `console.error` + 스택.
+
+### 9.3 배치 종료 시 공통 회귀
 
 | # | 항목 | 기준 |
 |---|---|---|
 | R1 | 문서 열기 → 편집 → `Cmd+S` | 디스크 반영 및 dirty 해제 |
-| R2 | 탭 3개 전환 왕복 | 각 탭 내용 유지, 교차 오염 0건 |
-| **R3** | **한글 연속 입력** | **조합 끊김 · 텍스트 증식 0건** (Step 2-A 의 핵심 위험) |
-| **R4** | **`.devoras/images` 이미지** | **Read/Write 양쪽 렌더링** (0.8.5 회귀 방지 — Step 1 의 핵심 위험) |
-| R5 | 좌우 분할 후 패널 닫기 | 탭 병합 정상, 최소 1패널 유지 |
-| R6 | 워크스페이스 전환 | 이전 문서 내용 잔존 0건 |
+| **R2** | **탭 3개 전환 왕복** | **각 탭 내용 유지, 교차 오염 0건** (Step 7 의 핵심) |
+| **R3** | **한글 연속 입력** | **조합 끊김 · 텍스트 증식 0건** (Step 5 의 핵심 위험) |
+| R4 | `.devoras/images` 이미지 | Read/Write 양쪽 렌더링 |
+| **R5** | **좌우 분할 후 패널 닫기** | **탭 병합 정상, 최소 1패널 유지** (Step 7-A 의 핵심) |
+| **R6** | **워크스페이스 전환** | **이전 문서 내용 잔존 0건** (Step 7-B/C 의 핵심) |
 
-### 6.3 커밋 규칙
+### 9.4 커밋 규칙
 
 `.agents/AGENTS.md` 를 따른다. 코드 변경 커밋은 **커밋 전 패치 버전업**(`project/package.json` · `project/src-tauri/Cargo.toml` · `project/src-tauri/tauri.conf.json` + `Cargo.lock` 동시 갱신). **문서만 변경한 커밋은 버전을 올리지 않는다.** **티켓 1건 = 커밋 1건**을 원칙으로 하고 커밋 메시지에 티켓 ID 를 포함한다.
 
 ```
-fix(0.8.33): 입력당 onUpdate 이중 호출 제거 (BUG-20260826-09)
+fix(0.8.39): 헤딩 정체성 분리 (A7)
 ```
+
+> **동시 작업 주의**: 이 저장소는 여러 세션이 같은 워킹 트리를 공유한다. `git add -A` 대신 **경로를 명시해 스테이징**하고, `Cargo.lock`·`lib.rs` 처럼 충돌하기 쉬운 파일은 커밋 직전에 `git status` 로 확인할 것.
 
 ---
 
-## 7. DoD (배치 종료 조건)
+## 10. DoD (배치 종료 조건)
 
-**Step 1**
+**Step 4 (A7)**
 
-- [x] **1-A** `allow` PoC 결과 판정 완료 — **성립.** `"**"` 제거 + `devoras_set_workspace_root` 동적 allow_directory 로 전환(코드 반영, 커밋 대기 — 동시 세션과 Cargo.lock 충돌 회피 중)
-- [x] **1-A** `fs:allow-home-{read,write}-recursive` 2건 처리 — `capabilities/default.json` 에서 제거
-- [x] **1-A** `requireLiteralLeadingDot: false` 유지 확인
-- [ ] **1-B** S4-1/S4-2/S4-3 3단 실측 (§2-B) — project-b9 진행 중
-- [ ] **1-B** R7 `.devoras/images` 렌더 자동 게이트 재실행 (`tauri_t3_harness.ts`)
-- [ ] **1-B** S5 번들 앱 이미지·코드블록 육안 확인 + `pnpm tauri build` 후 정상 동작 — 사람 손 필요
-- [ ] **1-B** S2 콘솔 CSP 위반 로그 확인 + 네트워크 요청 0건 (프로덕션 CSP 기준) — 사람 손 필요
-- [ ] `pnpm test:sanitizer` 14/14 · `cargo test` 6/6 유지 (Step 1 커밋 시점 기준으로 재확인 필요)
+- [ ] 헤딩 렌더 key 가 내용에서 파생되지 않음
+- [ ] `parser.ts:53` · `block/store.ts:66` 양쪽 호출부 이관 완료
+- [ ] 제목 변경 → 헤딩 추가/삭제 시 `EditorView` 인스턴스 동일성 유지(G1 불변식 계측)
+- [ ] undo 히스토리 보존 확인
+- [ ] MindView 링크 회귀 0건
 
-**Step 2**
+**Step 5 (A1/A2)**
 
-- [x] **2-A** 타이핑 1회당 `onUpdate` 정확히 1회 (코드상 `domEventHandlers.input` 제거로 구조적 보장 — `updateListener` 만 남음)
-- [x] **2-A** `pnpm test:ime` 수정 전후 비교, 회귀 0건 (5/5 = 5/5)
-- [x] **2-B** H1~H6 각각 병합 시 헤딩 마크 잔여 0건 (스크립트 검증 완료)
-- [x] **2-B** 병합 직후 캐럿이 병합 지점에 존재 (activeBlockId 위치 기반 재조회로 검증)
+- [ ] 두 이펙트 → 조정자 1개로 통합
+- [ ] 전체 문서 치환 제거, 최소 diff 치환으로 전환
+- [ ] IME 이중 가드 · `external` 트랜잭션 배제 규칙 조정자로 이관
+- [ ] R3 불변식 미발화 · `pnpm test:ime` 회귀 0건
+- [ ] 타이핑 중 undo 입도 유지
 
-**Step 3**
+**Step 6 (A6)**
 
-- [x] R3 불변식(`store.focusOffset === view.selection.main.head`) 적용
-- [x] `import.meta.env.DEV` 가드 확인 — 프로덕션 번들 grep 0건으로 확인
-- [x] 단언 실패가 `console.error` 로만 남고 편집을 중단하지 않음
+- [ ] 레이아웃 스래싱 프로파일 완료 (가상화 착수 **이전**)
+- [ ] §4 결정 게이트 표의 **판정을 문서에 기록**
+- [ ] 판정이 "선형 회복 가능"이면 회수 수단 적용 후 N=200 재측정
+
+**Step 7 (B4)**
+
+- [ ] **7-A** 비활성 패널이 자기 탭 문서를 그림 (탭 바 제목과 본문 일치)
+- [ ] **7-A** 비활성 패널 `readOnly` · 패널 전환 시 `_snapshotActiveTab()` 선행
+- [ ] **7-B** 5-C 착수 확정 시 **건너뜀**을 문서에 기록 / 미확정이면 `resetBlocks` 추가
+- [ ] **7-C** 탭 스코프 스토어 이관 · `ownerTabId` 소스 트리에서 소멸
+- [ ] **7-C** `serialize()` / `hydrate()` 계약 문서화 (Phase 2 TTL 언마운터와 공유)
 
 **공통**
 
-- [ ] §6.2 R1~R6 전부 통과
+- [ ] §9.3 R1~R6 전부 통과
+- [ ] `pnpm test:t1` 8 하네스 · `cargo test` 유지
 
 ---
 
-## 8. 다음 단계 (본 배치 범위 밖)
+## 11. 다음 갱신 시점
 
-| Step | 내용 | 착수 조건 |
-|---|---|---|
-| **Step 4** | A7 헤딩 정체성 분리 — 남은 구조 결함 중 **유일하게 데이터(undo) 손실** | Step 2-B 착지 후 |
-| **Step 5** | A1/A2 뷰↔스토어 조정자 일원화 + diff 동기화 | Step 4 후 |
-| **Step 6** | A6 마운트 비용 프로파일 → **가상화/스택 재검토 판정 게이트** | Step 5 후 |
-| **Step 7** | B4 구조 개편 (P0-3 Stage A-2 → Stage B 탭 스코프 스토어) | Step 6 판정 후 |
+Step 4 또는 Step 5 종료 시 [`DEBUG_STEP_PLAN.md`](../DEBUG_STEP_PLAN.md) 의 해당 Step 을 §1 완료 요약으로 내린다. 본 배치가 종결되면 이 문서는 `claude-history/debug/DEBUG_PLAN_[datetime].md` 로 아카이브한다.
 
-> 본 배치 종료 시 [`DEBUG_STEP_PLAN.md`](../DEBUG_STEP_PLAN.md) 의 해당 Step 을 §1 완료 요약으로 내리고, 본 문서는 `claude-history/debug/DEBUG_PLAN_[datetime].md` 로 아카이브한 뒤 다음 Step 사양으로 교체한다.
+> **Step 6 의 판정이 "스택 교체 안건화"로 나오는 경우**, 다음 문서는 DEBUG_PLAN 이 아니라 **아키텍처 전환 안건서**가 된다. `DEBUG_STEP_PLAN.md` §0.1 의 결정을 그때 재개봉한다.
