@@ -115,4 +115,35 @@ test('Heading Identity Stability (G1 / A7)', async (t) => {
     assert.strictEqual(after.find((b) => b.content.startsWith('## B'))!.id, idB, 'B 도 마찬가지');
     assert.strictEqual(after.find((b) => b.content.startsWith('## C'))!.id, idC, 'C 도 마찬가지');
   });
+
+  await t.test('K8: 부모 헤딩 제목만 바꿔도 자식 헤딩들의 id 가 보존된다(중첩 케이스)', () => {
+    const store = useBlockStore.getState();
+    store.setBlocksFromContent(
+      '## A\n본문\n\n### A1\n본문1\n\n### A2\n본문2',
+      'test-tab-g1e',
+    );
+    const before = flattenTree(useBlockStore.getState().blocks);
+    const idParent = before.find((b) => b.content.startsWith('## A\n'))!.id;
+    const idA1 = before.find((b) => b.content.startsWith('### A1'))!.id;
+    const idA2 = before.find((b) => b.content.startsWith('### A2'))!.id;
+
+    // 부모만 리네임 — 자식 라벨/본문은 그대로.
+    store.setBlocksFromContent(
+      '## A-renamed\n본문\n\n### A1\n본문1\n\n### A2\n본문2',
+      'test-tab-g1e',
+    );
+
+    const after = flattenTree(useBlockStore.getState().blocks);
+    assert.strictEqual(after.find((b) => b.content.startsWith('## A-renamed'))!.id, idParent, '부모 id 보존');
+    assert.strictEqual(
+      after.find((b) => b.content.startsWith('### A1'))!.id,
+      idA1,
+      '부모 리네임에도 자식 A1 id 가 보존돼야 한다(중첩 A7 — pass 2 부모키 번역이 없으면 깨진다)',
+    );
+    assert.strictEqual(
+      after.find((b) => b.content.startsWith('### A2'))!.id,
+      idA2,
+      '자식 A2 도 마찬가지',
+    );
+  });
 });

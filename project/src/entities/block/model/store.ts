@@ -185,23 +185,41 @@ export const useBlockStore = create<BlockState>((set, get) => ({
     // 대응시키면 — 보통 이 그룹엔 편집된 블록 하나만 남으므로 — 그 옛 id 를 물려받는다.
     // 재정렬은 이미 pass 1 에서 라벨로 잡히므로 여기까지 오지 않는다: pass 2 는
     // "내용이 실제로 바뀐" 경우에만 동작한다.
-    const leftoverOldByGroup = new Map<string, EditorBlock[]>();
+    const leftoverOldByGroup = new Map<string, { block: EditorBlock; oldKey: string }[]>();
     currentBlocks.forEach((b, i) => {
       if (usedIds.has(b.id)) return;
       const info = oldInfo[i];
       const groupKey = `${info.parentKey ?? 'root'}::${info.effectiveLevel}`;
+      const entry = { block: b, oldKey: info.key };
       const bucket = leftoverOldByGroup.get(groupKey);
-      if (bucket) bucket.push(b);
-      else leftoverOldByGroup.set(groupKey, [b]);
+      if (bucket) bucket.push(entry);
+      else leftoverOldByGroup.set(groupKey, [entry]);
     });
+
+    // A7(중첩 케이스, project-1f 발견): 부모 헤딩이 라벨 변경으로 pass 2 에서만
+    // 매칭됐다면, 그 자식들은 pass 1(조상경로에 옛 라벨이 남아 있어 미스)·pass 2
+    // (부모 그룹키가 새 라벨이라 미스) 양쪽에서 다 놓쳐 undo 히스토리를 잃는다.
+    // deriveKeysWithParentStack 이 문서 순서로 훑으므로 부모는 항상 자식보다
+    // 먼저 처리된다 — 부모가 pass 2 로 매칭되는 순간 "새 부모키 -> 옛 부모키"
+    // 번역을 기록해 두면, 뒤따르는 자식이 그룹키를 조회하기 전에 이미 준비돼 있다.
+    const parentKeyTranslation = new Map<string, string>();
 
     const flatChunks: EditorBlock[] = newBlockContents.map((blockText, i) => {
       let id = pass1Ids[i];
       if (id === null) {
         const info = newInfo[i];
-        const groupKey = `${info.parentKey ?? 'root'}::${info.effectiveLevel}`;
+        const normalizedParent = info.parentKey ?? 'root';
+        const translatedParent = parentKeyTranslation.get(normalizedParent) ?? normalizedParent;
+        const groupKey = `${translatedParent}::${info.effectiveLevel}`;
         const candidate = leftoverOldByGroup.get(groupKey)?.shift();
-        id = candidate ? candidate.id : generateId();
+        if (candidate) {
+          id = candidate.block.id;
+          if (info.key !== candidate.oldKey) {
+            parentKeyTranslation.set(info.key, candidate.oldKey);
+          }
+        } else {
+          id = generateId();
+        }
       }
 
       // 레벨 계산
