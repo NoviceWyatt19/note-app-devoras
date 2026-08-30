@@ -1,11 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { useDocumentStore } from '@/entities/document/model/store';
+import { useDocumentStore, TabItem } from '@/entities/document/model/store';
+import { useEffectiveTabStore } from '@/entities/document/model/useEffectiveTabStore';
 import { parseErdDocument, createEmptyErdDocument } from '@/entities/erd/model/erd';
 import ErdDesigner from './ErdDesigner';
 
-export const ErdDesignerMainView: React.FC = () => {
-  const { rawContent, updateContent } = useDocumentStore();
-  const activeTabId = useDocumentStore(state => state.getActiveTab()?.id);
+/**
+ * D-3(REF-20260831-01) — BlockEditor 의 7-A 형태(tab prop)를 그대로 따른다.
+ * 이 전환은 분할 패널에서 서로 다른 ERD 탭을 열었을 때의 교차 오염(7-A 가
+ * 마크다운 패널만 다뤘기 때문에 남아 있던 구멍)도 함께 고친다.
+ */
+export const ErdDesignerMainView: React.FC<{ tab?: TabItem }> = ({ tab }) => {
+  const { rawContent, setRawContent } = useEffectiveTabStore(tab?.id);
   const [document, setDocument] = useState<any>(null);
 
   useEffect(() => {
@@ -34,12 +39,14 @@ export const ErdDesignerMainView: React.FC = () => {
         needsUpdate = true;
       }
     }
-    
+
     setDocument(finalDoc);
     if (needsUpdate) {
-      updateContent(JSON.stringify(finalDoc, null, 2));
+      const normalized = JSON.stringify(finalDoc, null, 2);
+      setRawContent(normalized);
+      if (tab?.id) useDocumentStore.getState().updateContentForTab(tab.id, normalized);
     }
-  }, [rawContent, updateContent]);
+  }, [rawContent, setRawContent, tab?.id]);
 
   if (!document) {
     return <div className="p-4 text-sm text-red-400">ERD 문서를 로드하는 중...</div>;
@@ -49,10 +56,12 @@ export const ErdDesignerMainView: React.FC = () => {
     <div className="w-full h-full bg-darkBg">
       <ErdDesigner
         document={document}
-        filePath={activeTabId}
+        filePath={tab?.id}
         onChange={(newDoc: any) => {
-          // JSON 포맷으로 직렬화하여 updateContent 호출
-          updateContent(JSON.stringify(newDoc, null, 2));
+          // JSON 포맷으로 직렬화하여 저장
+          const serialized = JSON.stringify(newDoc, null, 2);
+          setRawContent(serialized);
+          if (tab?.id) useDocumentStore.getState().updateContentForTab(tab.id, serialized);
         }}
         onExportSvg={() => {}}
         onExportPng={async () => {}}

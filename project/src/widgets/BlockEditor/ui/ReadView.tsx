@@ -3,8 +3,9 @@ import { Marked } from 'marked';
 import DOMPurify, { type Config as DOMPurifyConfig } from 'dompurify';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { Bold, Italic, Strikethrough, Highlighter, GripVertical } from 'lucide-react';
-import { useBlockStore, EditorBlock, flattenTree } from '@/entities/block/model/store';
-import { useDocumentStore } from '@/entities/document/model/store';
+import { EditorBlock, flattenTree } from '@/entities/block/model/store';
+import { useDocumentStore, TabItem } from '@/entities/document/model/store';
+import { useEffectiveTabStore } from '@/entities/document/model/useEffectiveTabStore';
 import { useWorkspaceStore } from '@/entities/workspace/model/store';
 import { useSettingsStore } from '@/entities/settings/model/store';
 import { parseCodeFenceInfo } from '@/shared/lib/markdown/codeFenceInfo';
@@ -192,10 +193,16 @@ interface FloatingBarState {
 // ReadView Component
 // ---------------------------------------------------------------------------
 
-export const ReadView: React.FC = () => {
-  const { blocks, reorderBlocks, focusBlock, updateBlockContent } =
-    useBlockStore();
-  const { setViewMode, updateContent, saveFile } = useDocumentStore();
+export const ReadView: React.FC<{ tab?: TabItem }> = ({ tab }) => {
+  const {
+    blocks,
+    reorderBlocks,
+    focusBlock,
+    updateBlockContent,
+    setViewMode,
+    getMergedContent,
+    getFreshBlocks,
+  } = useEffectiveTabStore(tab?.id);
   const { workspacePath } = useWorkspaceStore();
 
   // ── Drag state ─────────────────────────────────────────────────────────────
@@ -291,7 +298,7 @@ export const ReadView: React.FC = () => {
     (prefix: string, suffix: string) => {
       if (!floatingBar) return;
 
-      const currentBlocks = useBlockStore.getState().blocks;
+      const currentBlocks = getFreshBlocks();
       const block = flattenTree(currentBlocks).find((b) => b.id === floatingBar.blockId);
       if (!block) { setFloatingBar(null); return; }
 
@@ -310,16 +317,15 @@ export const ReadView: React.FC = () => {
       updateBlockContent(block.id, newContent);
 
       // Sync updated content to the document store (no auto disk save)
-      const merged = useBlockStore.getState().getMergedContent();
-      const ownerTabId = useBlockStore.getState().ownerTabId;
-      if (ownerTabId) {
-        useDocumentStore.getState().updateContentForTab(ownerTabId, merged);
+      const merged = getMergedContent();
+      if (tab?.id) {
+        useDocumentStore.getState().updateContentForTab(tab.id, merged);
       }
 
       setFloatingBar(null);
       window.getSelection()?.removeAllRanges();
     },
-    [floatingBar, updateBlockContent, updateContent, saveFile],
+    [floatingBar, updateBlockContent, getMergedContent, tab?.id],
   );
 
   // ── Double-click: jump back to write mode at the clicked block ─────────────
@@ -336,20 +342,20 @@ export const ReadView: React.FC = () => {
 
   const handleDragStart = (e: React.DragEvent, id: string) => {
     e.dataTransfer.effectAllowed = 'move';
-    const flatBlocks = flattenTree(useBlockStore.getState().blocks);
+    const flatBlocks = flattenTree(getFreshBlocks());
     setDraggedIdx(flatBlocks.findIndex(b => b.id === id));
   };
 
   const handleDragOver = (e: React.DragEvent, id: string) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-    const flatBlocks = flattenTree(useBlockStore.getState().blocks);
+    const flatBlocks = flattenTree(getFreshBlocks());
     const targetIdx = flatBlocks.findIndex(b => b.id === id);
     if (dropTargetIdx !== targetIdx) setDropTargetIdx(targetIdx);
   };
 
   const handleDrop = async (id: string) => {
-    const flatBlocks = flattenTree(useBlockStore.getState().blocks);
+    const flatBlocks = flattenTree(getFreshBlocks());
     const toIdx = flatBlocks.findIndex(b => b.id === id);
     if (draggedIdx === null || draggedIdx === toIdx || toIdx === -1) {
       setDraggedIdx(null);
@@ -358,10 +364,9 @@ export const ReadView: React.FC = () => {
     }
 
     reorderBlocks(draggedIdx, toIdx);
-    const merged = useBlockStore.getState().getMergedContent();
-    const ownerTabId = useBlockStore.getState().ownerTabId;
-    if (ownerTabId) {
-      useDocumentStore.getState().updateContentForTab(ownerTabId, merged);
+    const merged = getMergedContent();
+    if (tab?.id) {
+      useDocumentStore.getState().updateContentForTab(tab.id, merged);
     }
 
     setDraggedIdx(null);

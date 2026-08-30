@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Marked } from 'marked';
 import { useDocumentStore } from '@/entities/document/model/store';
+import { useActiveTabStoreView } from '@/entities/document/model/useActiveTabStore';
 import { MindNode } from '@/entities/document/lib/parser';
 import { extractSectionContent } from '@/entities/document/lib/extractSection';
 import { EyeOff, X, Pin, PinOff } from 'lucide-react';
@@ -186,9 +187,22 @@ interface MindViewProps {
 // ---------------------------------------------------------------------------
 
 export const MindView: React.FC<MindViewProps> = ({ onClose, isStandalone }) => {
-  const { nodes, rawContent, updateNodeCoordinate, getCurrentFile } = useDocumentStore();
+  // D-2(REF-20260831-01): 이 컴포넌트는 두 자리(팝업·전역 마인드맵 탭) 모두
+  // "지금 활성 탭이 무엇이든 그것"을 동적으로 따라간다 — mindmap-global 탭은
+  // 자기 소유 콘텐츠가 없는 고정 id 싱글턴이라(store.ts openTab 참고, rawContent
+  // 를 건드리지 않는다), tab prop 으로 스코프할 대상 자체가 없다. 두 자리 다
+  // activePaneId → activeTabId → 탭 스토어를 레지스트리로 동적 해석한다.
+  const { nodes, rawContent, updateNodeCoordinate } = useActiveTabStoreView();
+  const getCurrentFile = useDocumentStore((s) => s.getCurrentFile);
+  const activeTabType = useDocumentStore((s) => s.getActiveTab()?.type);
 
-  const currentFile = getCurrentFile(); 
+  const currentFile = getCurrentFile();
+  // D-2 guard: 팝업(isStandalone=false)은 활성 탭이 마크다운일 때만 그 내용을
+  // 마인드맵으로 그린다 — erd/mindmap-global 이 활성일 때 "그 문서의 마인드맵"을
+  // 그리는 건 의미가 없다(ERD 는 JSON, mindmap-global 은 자기 콘텐츠가 없다).
+  // 전역 마인드맵 탭 자신(isStandalone=true)은 활성 탭이 정의상 항상
+  // mindmap-global 이므로 이 가드를 적용하면 안 된다 — 그러면 절대 안 그려진다.
+  const showEmptyForNonMarkdownActiveTab = !isStandalone && activeTabType !== 'markdown';
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [pan, setPan] = useState({ x: 50, y: 50 });
   const [zoom, setZoom] = useState(1);
@@ -351,7 +365,11 @@ export const MindView: React.FC<MindViewProps> = ({ onClose, isStandalone }) => 
   const handlePinnedPanelClose = () => setPinnedNode(null);
 
   // ── Empty state ────────────────────────────────────────────────────────────
-  if (!currentFile) {
+  // currentFile 은 활성 탭이 mindmap-global 일 때 이미 항상 null 이라(getCurrentFile
+  // 이 markdown/erd 에만 fileEntry 를 내준다) 팝업의 mindmap-global 케이스는 이걸로
+  // 막힌다. 남는 구멍은 ERD 탭 — currentFile 은 erd 에도 fileEntry 를 주므로 이
+  // 체크만으론 "ERD 의 JSON 을 마인드맵 nodes 로 그리려는 시도"를 막지 못한다.
+  if (!currentFile || showEmptyForNonMarkdownActiveTab) {
     return (
       <div className="h-full flex flex-col items-center justify-center text-center p-6 select-none bg-[#111216]/20">
         <EyeOff className="w-12 h-12 text-mutedText/20 mb-3" />

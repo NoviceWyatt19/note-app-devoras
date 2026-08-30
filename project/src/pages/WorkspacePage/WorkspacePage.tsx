@@ -4,6 +4,8 @@ import { BlockEditor } from '@/widgets/BlockEditor';
 import { MindView } from '@/widgets/MindView';
 import { ErdDesignerMainView } from '@/widgets/ErdDesigner/ui/ErdDesignerMainView';
 import { useDocumentStore, SplitPane } from '@/entities/document/model/store';
+import { TabDocumentProvider } from '@/entities/document/model/TabDocumentProvider';
+import { useActiveTabStoreView } from '@/entities/document/model/useActiveTabStore';
 import { useWorkspaceStore } from '@/entities/workspace/model/store';
 import {
   LayoutPanelTop,
@@ -33,10 +35,13 @@ export const WorkspacePage: React.FC = () => {
     openTab,
     saveFile,
     closePane,
-    isDirty,
     getCurrentFile,
     layoutDirection,
   } = useDocumentStore();
+  // D-5(REF-20260831-01): 저장 버튼의 dirty 표시는 "활성 탭의" isDirty 여야
+  // 한다 — 전역 useDocumentStore.isDirty 는 C-4 에서 사라진다. PaneContainer
+  // 바깥(Context 밖)이므로 D-2 와 같은 레지스트리 기반 동적 해석을 쓴다.
+  const { isDirty } = useActiveTabStoreView();
 
   const { openWorkspace } = useWorkspaceStore();
   const currentFile = getCurrentFile();
@@ -351,12 +356,26 @@ const PaneContainer: React.FC<{
           <div className="h-full flex items-center justify-center text-xs text-mutedText/40 select-none">
             열린 문서가 없습니다.
           </div>
-        ) : activeTab.type === 'mindmap-global' ? (
-          <MindView isStandalone={true} />
-        ) : activeTab.type === 'erd' ? (
-          <ErdDesignerMainView />
         ) : (
-          <BlockEditor key={activeTab.id} paneId={pane.id} tab={activeTab} isActivePane={isActivePane} />
+          // C-3(REF-20260831-01): 이 탭이 활성인 동안의 rawContent/blocks/nodes/
+          // isDirty/viewMode 를 담는 유일한 Provider — 세 분기(mindmap-global·
+          // erd·markdown)가 전부 같은 탭 스토어 인스턴스를 공유한다. initialContent
+          // 는 activeTabId 전환이 커밋되는 바로 그 렌더에서 이미 최신값이다
+          // (setActiveTab/_activateTabContent 가 panes 전환과 rawContent 를 같은
+          // set() 호출로 원자적으로 반영하므로 — 캐시 적중이든 디스크 로드 완료
+          // 후든 동일).
+          <TabDocumentProvider
+            tabId={activeTab.id}
+            initialContent={useDocumentStore.getState().rawContent}
+          >
+            {activeTab.type === 'mindmap-global' ? (
+              <MindView isStandalone={true} />
+            ) : activeTab.type === 'erd' ? (
+              <ErdDesignerMainView tab={activeTab} />
+            ) : (
+              <BlockEditor key={activeTab.id} paneId={pane.id} tab={activeTab} isActivePane={isActivePane} />
+            )}
+          </TabDocumentProvider>
         )}
       </div>
     </div>

@@ -33,6 +33,13 @@ export interface TabStoreState extends TabStoreSnapshot {
   setContent: (content: string) => void;
   /** blocks 는 그대로 두고 rawContent 만 현재 blocks 와 일치하도록 갱신한다(디바운스 동기화용, 재파싱 없음). */
   syncRawContentFromBlocks: () => void;
+  /**
+   * ERD 탭 전용 — rawContent 는 마크다운이 아니라 JSON 이므로 setContent 의
+   * resolveBlocksFromContent/parseMarkdown 을 태우면 안 된다(의미 없는 blocks/
+   * nodes 생성). blocks/nodes 를 건드리지 않고 rawContent 만 교체하고 dirty 로
+   * 표시한다.
+   */
+  setRawContent: (content: string) => void;
   getMergedContent: () => string;
   updateBlockContent: (id: string, content: string) => void;
   mergeBlockWithPrevious: (id: string) => void;
@@ -66,6 +73,8 @@ export function createTabStore(tabId: string, initialContent = ''): TabStoreApi 
       const nodes = parseMarkdown(content);
       set({ rawContent: content, blocks, nodes });
     },
+
+    setRawContent: (content) => set({ rawContent: content, isDirty: true }),
 
     // 타이핑 도중에는 updateBlockContent 가 매 키 입력마다 blocks 를 이미
     // 갱신해 둔다. syncContent(디바운스) 는 그 blocks 를 문자열로 합쳐

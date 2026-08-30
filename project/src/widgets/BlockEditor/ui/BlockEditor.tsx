@@ -660,13 +660,13 @@ export const BlockEditor: React.FC<{ paneId?: string; tab?: TabItem; isActivePan
     >
       <div className="sticky top-0 z-10 bg-darkBg/95 backdrop-blur-sm w-full">
         <div className=" mx-auto" style={maxWidthStyle}>
-          <FormatToolbar />
+          <FormatToolbar tab={tab} />
         </div>
       </div>
 
       {viewMode === 'read' ? (
         <div className="w-full flex-1">
-          <ReadView />
+          <ReadView tab={tab} />
         </div>
       ) : (
         <div className="w-full min-w-0 px-4 sm:px-6 lg:px-8 py-6 pb-24 flex-1 flex flex-col">

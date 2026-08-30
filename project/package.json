@@ -1,7 +1,7 @@
 {
   "name": "devoras-design",
   "private": true,
-  "version": "0.8.46",
+  "version": "0.8.47",
   "type": "module",
   "engines": {
     "node": ">=22.6",
@@ -12,10 +12,11 @@
     "build": "tsc && vite build",
     "tauri:dev": "pnpm tauri dev",
     "tauri:build": "pnpm tauri build",
-    "test:t1": "pnpm test:blockkey && pnpm test:path && pnpm test:dirty && pnpm test:closeguard && pnpm test:paneownership && pnpm test:tabstore && pnpm test:symbol && pnpm test:image && pnpm test:ime && pnpm test:sanitizer && pnpm test:diff",
+    "test:t1": "pnpm test:blockkey && pnpm test:path && pnpm test:dirty && pnpm test:closeguard && pnpm test:paneownership && pnpm test:tabstore && pnpm test:activetab && pnpm test:symbol && pnpm test:image && pnpm test:ime && pnpm test:sanitizer && pnpm test:diff",
     "test:blockkey": "node --import ./scripts/register-ts.mjs src/entities/block/__tests__/block_key_stability_harness.ts",
     "test:paneownership": "node --import ./scripts/register-ts.mjs src/entities/document/__tests__/pane_ownership_harness.ts",
     "test:tabstore": "node --import ./scripts/register-ts.mjs src/entities/document/__tests__/tab_store_isolation_harness.ts",
+    "test:activetab": "node --import ./scripts/register-ts.mjs src/entities/document/__tests__/active_tab_resolution_harness.ts",
     "test:diff": "node --import ./scripts/register-ts.mjs src/shared/lib/editor/__tests__/minimal_diff_harness.ts",
     "test:path": "node --import ./scripts/register-ts.mjs src/shared/lib/__tests__/path_harness.ts",
     "test:dirty": "node --import ./scripts/register-ts.mjs src/entities/document/__tests__/dirty_baseline_harness.ts",

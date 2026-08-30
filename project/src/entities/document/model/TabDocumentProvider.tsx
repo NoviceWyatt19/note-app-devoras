@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useRef } from 'react';
+import React, { createContext, useContext, useRef, useLayoutEffect } from 'react';
 import { createTabStore, TabStoreApi, TabStoreState } from './tabStore';
+import { registerTabStore, unregisterTabStore } from './tabStoreRegistry';
 
 /**
  * REF-20260831-01 (Step 7-C) — 탭 스코프 스토어를 트리에 공급하는 Context.
@@ -28,6 +29,15 @@ export const TabDocumentProvider: React.FC<{
   }
 
   const store = storeRef.current;
+
+  // D-2/D-5: Context 밖(MindView 팝업, WorkspacePage 툴바)에서도 tabId 로
+  // 이 스토어를 조회할 수 있어야 한다 — 레지스트리에 등록. tabId·store 가
+  // 바뀔 때(다른 탭으로 전환) cleanup 이 먼저 돌아 이전 등록을 지우므로
+  // 등록이 항상 "현재 탭 하나"만 가리킨다(구독 누수 없음).
+  useLayoutEffect(() => {
+    registerTabStore(tabId, store);
+    return () => unregisterTabStore(tabId, store);
+  }, [tabId, store]);
 
   return <TabStoreContext.Provider value={store}>{children}</TabStoreContext.Provider>;
 };

@@ -1,7 +1,8 @@
 import React from 'react';
 import { Bold, Italic, Strikethrough, Link2, Code2, Table, Eye, Edit3, Minus, Plus } from 'lucide-react';
 import { getActiveEditorView } from '@/shared/lib/editorViewRegistry';
-import { useDocumentStore } from '@/entities/document/model/store';
+import { TabItem } from '@/entities/document/model/store';
+import { useEffectiveTabStore } from '@/entities/document/model/useEffectiveTabStore';
 import { useSettingsStore } from '@/entities/settings/model/store';
 // ---------------------------------------------------------------------------
 
@@ -104,11 +105,8 @@ const tools: ToolDef[] = [
 // FormatToolbar Component
 // ---------------------------------------------------------------------------
 
-export const FormatToolbar: React.FC = () => {
-  const {
-    viewMode,
-    toggleViewMode,
-  } = useDocumentStore();
+export const FormatToolbar: React.FC<{ tab?: TabItem }> = ({ tab }) => {
+  const { viewMode, toggleViewMode } = useEffectiveTabStore(tab?.id);
   const { settings, updateEditor } = useSettingsStore();
 
   return (

@@ -2,6 +2,7 @@ import { useOptionalTabStoreApi } from './TabDocumentProvider';
 import { createTabStore } from './tabStore';
 import { useBlockStore, EditorBlock } from '@/entities/block/model/store';
 import { useDocumentStore } from './store';
+import { MindNode } from '@/entities/document/lib/parser';
 
 /**
  * REF-20260831-01 (Step 7-C, C-2) — 전환기 어댑터.
@@ -21,12 +22,15 @@ const DUMMY_TAB_STORE = createTabStore('__effective-tab-store-dummy__');
 export interface EffectiveTabStore {
   rawContent: string;
   blocks: EditorBlock[];
+  nodes: MindNode[];
   isDirty: boolean;
   viewMode: 'write' | 'read';
   activeBlockId: string | null;
   focusOffset: number;
   /** 디스크/외부에서 읽은 원문으로 blocks 를 재계산한다(구조적 변경 경로). */
   setContent: (content: string) => void;
+  /** ERD 탭 전용 — 마크다운 재파싱 없이 rawContent 만 교체한다. */
+  setRawContent: (content: string) => void;
   /**
    * 타이핑 중 디바운스 동기화용 — blocks 는 건드리지 않고 rawContent 만
    * 현재 blocks 와 일치하도록 맞춘다(재파싱 없음). 전역 경로에는 애초에
@@ -38,8 +42,12 @@ export interface EffectiveTabStore {
   getMergedContent: () => string;
   updateBlockContent: (id: string, content: string) => void;
   mergeBlockWithPrevious: (id: string) => void;
+  reorderBlocks: (fromIndex: number, toIndex: number) => void;
   focusBlock: (id: string, offset?: number) => void;
   setDirty: (isDirty: boolean) => void;
+  setViewMode: (mode: 'write' | 'read') => void;
+  toggleViewMode: () => void;
+  updateNodeCoordinate: (nodeId: string, x: number, y: number) => void;
   /**
    * `blocks` 필드는 이 훅이 호출된 렌더 시점의 스냅샷이다 — 같은 틱 안에서
    * 연속 호출되는 로직(예: setContent 직후 바로 그 결과를 읽어야 하는 커서
@@ -63,6 +71,7 @@ export function useEffectiveTabStore(ownerTabId: string | undefined): EffectiveT
   // ── 탭 스코프 경로(항상 구독 — Hooks 규칙) ──
   const tabRawContent = activeApi((s) => s.rawContent);
   const tabBlocks = activeApi((s) => s.blocks);
+  const tabNodes = activeApi((s) => s.nodes);
   const tabIsDirty = activeApi((s) => s.isDirty);
   const tabViewMode = activeApi((s) => s.viewMode);
   const tabActiveBlockId = activeApi((s) => s.activeBlockId);
@@ -71,6 +80,7 @@ export function useEffectiveTabStore(ownerTabId: string | undefined): EffectiveT
   // ── 전역 경로(항상 구독 — Hooks 규칙, tabApi 가 있으면 이 값들은 버려진다) ──
   const globalRawContent = useDocumentStore((s) => s.rawContent);
   const globalBlocks = useBlockStore((s) => s.blocks);
+  const globalNodes = useDocumentStore((s) => s.nodes);
   const globalIsDirty = useDocumentStore((s) => s.isDirty);
   const globalViewMode = useDocumentStore((s) => s.viewMode);
   const globalActiveBlockId = useBlockStore((s) => s.activeBlockId);
@@ -82,17 +92,23 @@ export function useEffectiveTabStore(ownerTabId: string | undefined): EffectiveT
     return {
       rawContent: tabRawContent,
       blocks: tabBlocks,
+      nodes: tabNodes,
       isDirty: tabIsDirty,
       viewMode: tabViewMode,
       activeBlockId: tabActiveBlockId,
       focusOffset: tabFocusOffset,
       setContent: (content) => tabApi.getState().setContent(content),
+      setRawContent: (content) => tabApi.getState().setRawContent(content),
       syncRawContentFromBlocks: () => tabApi.getState().syncRawContentFromBlocks(),
       getMergedContent: () => tabApi.getState().getMergedContent(),
       updateBlockContent: (id, content) => tabApi.getState().updateBlockContent(id, content),
       mergeBlockWithPrevious: (id) => tabApi.getState().mergeBlockWithPrevious(id),
+      reorderBlocks: (fromIndex, toIndex) => tabApi.getState().reorderBlocks(fromIndex, toIndex),
       focusBlock: (id, offset) => tabApi.getState().focusBlock(id, offset),
       setDirty: (v) => tabApi.getState().setDirty(v),
+      setViewMode: (mode) => tabApi.getState().setViewMode(mode),
+      toggleViewMode: () => tabApi.getState().toggleViewMode(),
+      updateNodeCoordinate: (nodeId, x, y) => tabApi.getState().updateNodeCoordinate(nodeId, x, y),
       getFreshBlocks: () => tabApi.getState().blocks,
       usingTabStore: true,
     };
@@ -101,17 +117,23 @@ export function useEffectiveTabStore(ownerTabId: string | undefined): EffectiveT
   return {
     rawContent: globalRawContent,
     blocks: globalBlocks,
+    nodes: globalNodes,
     isDirty: globalIsDirty,
     viewMode: globalViewMode,
     activeBlockId: globalActiveBlockId,
     focusOffset: globalFocusOffset,
     setContent: (content) => useBlockStore.getState().setBlocksFromContent(content, ownerTabId),
+    setRawContent: (content) => useDocumentStore.getState().updateContent(content),
     syncRawContentFromBlocks: () => {}, // no-op — 전역 경로는 updateContentForTab 이 이 역할을 대신한다
     getMergedContent: () => useBlockStore.getState().getMergedContent(),
     updateBlockContent: (id, content) => useBlockStore.getState().updateBlockContent(id, content),
     mergeBlockWithPrevious: (id) => useBlockStore.getState().mergeBlockWithPrevious(id),
+    reorderBlocks: (fromIndex, toIndex) => useBlockStore.getState().reorderBlocks(fromIndex, toIndex),
     focusBlock: (id, offset) => useBlockStore.getState().focusBlock(id, offset),
     setDirty: (v) => useDocumentStore.getState().setDirty(v),
+    setViewMode: (mode) => useDocumentStore.getState().setViewMode(mode),
+    toggleViewMode: () => useDocumentStore.getState().toggleViewMode(),
+    updateNodeCoordinate: (nodeId, x, y) => useDocumentStore.getState().updateNodeCoordinate(nodeId, x, y),
     getFreshBlocks: () => useBlockStore.getState().blocks,
     usingTabStore: false,
   };
