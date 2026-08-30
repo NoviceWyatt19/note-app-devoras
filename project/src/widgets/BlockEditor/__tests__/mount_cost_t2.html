@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <title>T2 harness — mount cost discriminator (A6, DEBUG_PLAN Step 6)</title>
+    <style>
+      html, body { margin: 0; background: #0d0e12; color: #e2e8f0; }
+      #root { padding: 24px; max-width: 900px; }
+      #hint { padding: 12px 24px; font: 12px ui-monospace, monospace; color: #94a3b8; }
+    </style>
+  </head>
+  <body>
+    <div id="hint">
+      DevTools 콘솔에서 <code>await qa.runDiscriminator()</code> 실행.
+      <br />개별 N 확인: <code>await qa.measureAt(200)</code>
+    </div>
+    <div id="root"></div>
+    <script type="module" src="./mount_cost_t2_harness.ts"></script>
+  </body>
+</html>
