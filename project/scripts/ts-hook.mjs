@@ -84,7 +84,11 @@ export async function load(url, context, next) {
       },
       fileName: fileURLToPath(url),
     });
-    return { format: 'module', source: outputText, shortCircuit: true };
+    // `import.meta.env`(Vite 전용, DEV/PROD/MODE) 는 순수 Node 에 없다. register-ts.mjs
+    // 가 채워 둔 전역으로 치환한다 — `import.meta` 자체는 건드리지 않는다(다른 프로퍼티,
+    // 예: import.meta.url 은 Node 가 이미 네이티브로 지원하므로 그대로 둬야 한다).
+    const patched = outputText.replace(/import\.meta\.env\b/g, 'globalThis.__DEVORAS_TEST_ENV__');
+    return { format: 'module', source: patched, shortCircuit: true };
   }
   return next(url, context);
 }
