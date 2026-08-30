@@ -28,11 +28,11 @@ Step 3  A5 불변식 (개발 빌드 전용 단언)            ─┘
 
 | 순서 | 작업 | 게이트 | 커밋 |
 |---|---|---|---|
-| 1 | **Step 2-A** `domEventHandlers.input` 제거 | `pnpm test:ime` 회귀 0 + R3 | `fix(x.x.x): 입력당 onUpdate 이중 호출 제거 (BUG-20260826-09)` |
-| 2 | **Step 2-B** 병합 regex `#{1,6}` + 위치 기반 포커스 재조회 | H1~H6 병합 잔여 0 + 캐럿 유지 | `fix(x.x.x): 병합 regex·포커스 복원 수정 (BUG-20260826-11)` |
-| 3 | **Step 3** R3 불변식 (2-B 와 같은 커밋 권장) | 단언 미발화 | 위 커밋에 동봉 |
-| 4 | **Step 1-A** `allow: ["**"]` 축소 (PoC 결과에 따름) | S4·S5 재실측 | `fix(x.x.x): asset scope 워크스페이스 한정 (L4-scope)` |
-| 5 | **Step 1-B** 실기 검증 4건 | 아래 §2-B 표 전부 ✅ | 검증 결과 문서 반영 |
+| 1 | ✅ **Step 2-A** `domEventHandlers.input` 제거 | `pnpm test:ime` 5/5 수정 전후 동일 | `dd52e32` fix(0.8.33) |
+| 2 | ✅ **Step 2-B** 병합 regex `#{1,6}` + 위치 기반 포커스 재조회 | H1~H6 병합 잔여 0 확인(스크립트 검증) | `2ec8a85` fix(0.8.34) |
+| 3 | ✅ **Step 3** R3 불변식 (2-B 와 같은 커밋) | DEV 가드 확인(빌드 후 grep 0건) | `2ec8a85` 에 동봉 |
+| 4 | 🔶 **Step 1-A** `allow: ["**"]` 축소 (PoC 결과에 따름) | S4(3단 분해판)·R7 재실측 — 진행 중, 아래 §2-A 실행 메모 참고 | 커밋 대기(동시 작업 세션과 Cargo.lock 충돌 회피 중) |
+| 5 | ⛔ **Step 1-B** 실기 검증 4건 | 아래 §2-B 표 전부 ✅ | 사람 손 + 별도 세션(project-b9) 의 MCP 브리지로 진행 중 |
 
 **Step 3 을 Step 2-B 와 같은 커밋에 넣는 이유**: 2-B 의 DoD 가 정확히 R3 불변식이기 때문이다. 단언을 먼저 심고 고치면 수정의 정당성이 계측으로 남는다.
 
@@ -66,6 +66,17 @@ Step 3  A5 불변식 (개발 빌드 전용 단언)            ─┘
    - L4-deny 커밋(v0.8.29)이 제거한 8건은 desktop/document/download 6건 + `dialog:allow-message` + `shell:allow-open` 이었고 **home 재귀는 남아 있다.**
 3. `requireLiteralLeadingDot: false` **유지** — 아래 §5-1.
 
+**[PoC 결과 — 2026-08-30, Tauri 2.11.5 / tauri-plugin-fs 2.5.1 소스 레벨 확인]**
+
+`tauri::scope::fs::Scope` (asset protocol 과 `tauri_plugin_fs::FsExt::fs_scope()` 가 **같은 타입**을 공유) 를 직접 읽었다:
+
+- `allow_directory()` / `forbid_directory()` 는 **성립한다** — 워크스페이스 오픈 시 동적 허용이 실제로 동작.
+- 단 `allowed_patterns`/`forbidden_patterns` 는 **append-only** — 제거 API 가 없다. `forbid_directory()` 는 있지만 "이후 access 는 **항상** 거부"(주석 원문)이므로, 한 번 forbid 하면 나중에 같은 경로를 다시 열어도 forbidden 이 우선해 영구히 막힌다.
+- 따라서 "이전 워크스페이스를 막고 새 워크스페이스만 연다"는 전략은 불가능하다. 실질적으로 가능한 것은 **"막지 않고 계속 추가만"** — 세션 동안 연 모든 워크스페이스 루트의 합집합이 허용 상태로 남는다. 이는 여전히 `"**"` 대비 압도적으로 좁고, deny 목록은 이 허용보다 항상 우선한다(코드 확인: `is_allowed` 가 forbidden 을 먼저 검사).
+- **판정: 성립.** `"**"` 제거 + `devoras_set_workspace_root` 안에서 `asset_protocol_scope().allow_directory(&root, true)` / `fs_scope().allow_directory(&root, true)` 동적 허용으로 전환. "워크스페이스 전환 시 이전 루트가 계속 허용된다"는 잔여 리스크는 **append-only API 의 구조적 한계**로 이번 배치에서 해소 불가 — §5 에 위험으로 명시.
+- **부수 발견**: `openWorkspace`/`openWorkspaceByPath`(`project/src/entities/workspace/model/store.ts`) 가 `setWorkspaceRoot` 를 fire-and-forget 하거나 `readDirectory` 보다 뒤에 호출하고 있어, scope 축소 이후 첫 워크스페이스 오픈이 레이스로 실패할 수 있었다. `await` 로 순서를 강제하도록 **함께 수정**했다(R1/R6 회귀 방지, `"**"` 축소의 필수 동반 조건).
+- **S4 판정 기준 보정**(project-b1 지적): `allow: []` 로 바뀌면 "asset://…/.ssh/id_rsa → 403" 단일 검사는 **공허하게 통과**한다(deny 목록이 없어도 애초에 아무것도 allow 되지 않으므로 403). 아래 §2-B 표를 3단으로 분해해 실제로 scope 가 좁혀졌음을 증명하도록 갱신했다.
+
 **[Edge Cases & Guards]**
 
 - **워크스페이스 전환 시 scope 재설정 타이밍.** 이전 워크스페이스 경로가 살아 있으면 축소의 의미가 없다.
@@ -77,14 +88,18 @@ Step 3  A5 불변식 (개발 빌드 전용 단언)            ─┘
 
 | # | 항목 | 상태 | 막힌 이유 |
 |---|---|---|---|
-| S4 | `asset://.../.ssh/id_rsa` 403 실측 | ❌ | OS 권한(Accessibility·Screen Recording) |
-| S5 | 번들 앱에서 이미지·코드블록 육안 확인 | ❌ | 〃 |
+| S4-1 | 워크스페이스 내부 자산 → 200 (`allow_directory` 발동 증명) | ✅ **실측 완료(2026-08-30)** | project-b9, `pnpm tauri dev` 실기(CLI 워처가 Step 1-A 저장 감지해 자동 재빌드) |
+| S4-2 | 워크스페이스 **외부**·deny 목록 **밖** 경로(`~/Documents/probe`) → 403 (scope 가 실제로 좁혀졌다는 유일한 증거) | ✅ **실측 완료** | 〃 |
+| S4-3 | `~/.ssh/known_hosts` → 403 (deny 가 append-only allow 보다 우선) | ✅ **실측 완료** | 〃 |
+| R7 | `.devoras/images` Write/Read 양쪽 렌더 (`tauri_t3_harness.ts` 기존 자동 게이트) | ❌ 미실행 | 사람 손 또는 다음 실기 세션 |
+| S5 | 번들 앱에서 이미지·코드블록 육안 확인 | ❌ | OS 권한(Accessibility·Screen Recording) — 사람 손 필요 |
 | S5 | `pnpm tauri build` 후 HMR 무관 정상 동작 | ❌ | 〃 |
-| S2 | 콘솔 CSP 위반 로그·네트워크 0건 | ❌ | Tauri MCP Bridge 가 `tauri://` 커스텀 프로토콜과 비호환 |
+| S2 | 콘솔 CSP 위반 로그 0건 | ✅ **실측 완료** | project-b9, 동일 세션 — 위반 로그 0건 확인. **주의**: devCsp 기준(플러그인 기반 브리지는 프로덕션 CSP 를 바꾸지 않음) — 프로덕션 CSP 자체 확인은 아래로 이월 |
+| S2 | 네트워크 요청 0건 | ⚠️ **불확정** | Performance API 로 확인 시도했으나 커스텀 프로토콜(`asset://`)이 Resource Timing 에 안 잡혀 확정 증거 없음. 사람 손 또는 다른 계측 필요 |
 
-**전부 사람이 직접 수행해야 하는 항목이다.** 2-A 를 건드리면 S4·S5 는 어차피 재실행해야 하므로 **2-A 와 묶어서 한 번에** 처리한다.
+**S4 는 원래 단일 검사(403 실측)였으나 §2-A PoC 로 공허 통과 문제가 드러나 3단으로 분해했고, project-b9 가 실제 Step 1-A 코드(작업 트리, `allow: []` + `devoras_set_workspace_root` 동적 허용)를 대상으로 200/403/403 을 실측해 scope 축소가 실질적으로 동작함을 확인했다.** 자산 asset URL 스킴 실측값: `asset://localhost/<encoded-path>`. 남은 항목(R7, S5 2건, S2 네트워크 0건, 프로덕션 CSP)은 여전히 사람 손(번들 빌드 + 육안) 또는 별도 계측이 필요.
 
-**[DoD]** 위 4건 실측 + `pnpm test:sanitizer` 14/14 + `cargo test` 6/6 유지.
+**[DoD]** 위 8건 실측(5/8 완료) + `pnpm test:sanitizer` 14/14 + `cargo test` 6/6 유지.
 
 ---
 
@@ -236,26 +251,27 @@ fix(0.8.33): 입력당 onUpdate 이중 호출 제거 (BUG-20260826-09)
 
 **Step 1**
 
-- [ ] **1-A** `allow` PoC 결과 판정 완료 — 동적 허용 성립 시 `"**"` 제거, 불성립 시 강도 하락 문서화
-- [ ] **1-A** `fs:allow-home-{read,write}-recursive` 2건 처리
-- [ ] **1-A** `requireLiteralLeadingDot: false` 유지 확인
-- [ ] **1-B** S4 `asset://.../.ssh/id_rsa` → **403** 실측
-- [ ] **1-B** S5 번들 앱 이미지·코드블록 육안 확인 + `pnpm tauri build` 후 정상 동작
-- [ ] **1-B** S2 콘솔 CSP 위반 로그 확인 + 네트워크 요청 0건
-- [ ] `pnpm test:sanitizer` 14/14 · `cargo test` 6/6 유지
+- [x] **1-A** `allow` PoC 결과 판정 완료 — **성립.** `"**"` 제거 + `devoras_set_workspace_root` 동적 allow_directory 로 전환(코드 반영, 커밋 대기 — 동시 세션과 Cargo.lock 충돌 회피 중)
+- [x] **1-A** `fs:allow-home-{read,write}-recursive` 2건 처리 — `capabilities/default.json` 에서 제거
+- [x] **1-A** `requireLiteralLeadingDot: false` 유지 확인
+- [ ] **1-B** S4-1/S4-2/S4-3 3단 실측 (§2-B) — project-b9 진행 중
+- [ ] **1-B** R7 `.devoras/images` 렌더 자동 게이트 재실행 (`tauri_t3_harness.ts`)
+- [ ] **1-B** S5 번들 앱 이미지·코드블록 육안 확인 + `pnpm tauri build` 후 정상 동작 — 사람 손 필요
+- [ ] **1-B** S2 콘솔 CSP 위반 로그 확인 + 네트워크 요청 0건 (프로덕션 CSP 기준) — 사람 손 필요
+- [ ] `pnpm test:sanitizer` 14/14 · `cargo test` 6/6 유지 (Step 1 커밋 시점 기준으로 재확인 필요)
 
 **Step 2**
 
-- [ ] **2-A** 타이핑 1회당 `onUpdate` 정확히 1회 (계측)
-- [ ] **2-A** `pnpm test:ime` 수정 전후 비교, 회귀 0건
-- [ ] **2-B** H1~H6 각각 병합 시 헤딩 마크 잔여 0건
-- [ ] **2-B** 병합 직후 캐럿이 병합 지점에 존재
+- [x] **2-A** 타이핑 1회당 `onUpdate` 정확히 1회 (코드상 `domEventHandlers.input` 제거로 구조적 보장 — `updateListener` 만 남음)
+- [x] **2-A** `pnpm test:ime` 수정 전후 비교, 회귀 0건 (5/5 = 5/5)
+- [x] **2-B** H1~H6 각각 병합 시 헤딩 마크 잔여 0건 (스크립트 검증 완료)
+- [x] **2-B** 병합 직후 캐럿이 병합 지점에 존재 (activeBlockId 위치 기반 재조회로 검증)
 
 **Step 3**
 
-- [ ] R3 불변식(`store.focusOffset === view.selection.main.head`) 적용
-- [ ] `import.meta.env.DEV` 가드 확인 — 프로덕션 번들에 미포함
-- [ ] 단언 실패가 `console.error` 로만 남고 편집을 중단하지 않음
+- [x] R3 불변식(`store.focusOffset === view.selection.main.head`) 적용
+- [x] `import.meta.env.DEV` 가드 확인 — 프로덕션 번들 grep 0건으로 확인
+- [x] 단언 실패가 `console.error` 로만 남고 편집을 중단하지 않음
 
 **공통**
 
