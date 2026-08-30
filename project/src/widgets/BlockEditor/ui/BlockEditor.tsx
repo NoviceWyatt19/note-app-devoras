@@ -1,6 +1,6 @@
 import React, { useEffect, useRef} from 'react';
 import { useBlockStore, EditorBlock, flattenTree } from '@/entities/block/model/store';
-import { useDocumentStore } from '@/entities/document/model/store';
+import { useDocumentStore, TabItem } from '@/entities/document/model/store';
 import { useDebouncedCallback } from '@/shared/lib/useDebouncedCallback';
 import { useWorkspaceStore } from '@/entities/workspace/model/store';
 import { EditorState, Transaction, Compartment } from '@codemirror/state';
@@ -18,7 +18,7 @@ import { LanguageDescription } from '@codemirror/language';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { FileEdit } from 'lucide-react';
 import { FormatToolbar } from './FormatToolbar';
-import { ReadView } from './ReadView';
+import { ReadView, renderBlockToHtml } from './ReadView';
 
 
 
@@ -406,9 +406,31 @@ const BlockNode = React.memo<{
 });
 
 // ---------------------------------------------------------------------------
+// Inactive Pane — 7-A(P0-3 Stage A-2): 전역 blockStore 를 편집하는 인스턴스를
+// 상시 1개(활성 패널)로 제한한다. 비활성 패널은 이 정적 스냅샷만 그린다 —
+// useBlockStore 를 구독하지도, 쓰지도 않으므로 활성 패널의 편집 표면을
+// 절대 덮어쓸 수 없다. 캐시가 아직 없으면(디스크에서 아직 안 읽힌 탭) 빈 문서로.
+// ---------------------------------------------------------------------------
+const InactivePaneSnapshot: React.FC<{ content: string }> = React.memo(({ content }) => {
+  const workspacePath = useWorkspaceStore(s => s.workspacePath);
+  return (
+    <div className="w-full flex-1 px-4 sm:px-6 lg:px-8 py-6">
+      <div
+        className="rv-content max-w-none opacity-90"
+        dangerouslySetInnerHTML={{ __html: renderBlockToHtml(content, workspacePath) }}
+      />
+    </div>
+  );
+});
+
+// ---------------------------------------------------------------------------
 // Main Editor
 // ---------------------------------------------------------------------------
-export const BlockEditor: React.FC<{ paneId?: string }> = ({ paneId = 'pane-main' }) => {
+export const BlockEditor: React.FC<{ paneId?: string; tab?: TabItem; isActivePane?: boolean }> = ({
+  paneId = 'pane-main',
+  tab,
+  isActivePane = true,
+}) => {
   const currentFile = useDocumentStore(s => s.getCurrentFile());
   const viewMode = useDocumentStore(s => s.viewMode);
   const { settings } = useSettingsStore();
@@ -457,19 +479,24 @@ export const BlockEditor: React.FC<{ paneId?: string }> = ({ paneId = 'pane-main
     };
   }, []);
   React.useLayoutEffect(() => {
+    // 7-A: 비활성 패널은 전역 blockStore 를 절대 쓰지 않는다 — 활성 패널이
+    // 편집 중인 문서를 덮어쓰게 되는 것을 막는 것이 이 가드의 목적이다.
+    if (!isActivePane) return;
     const docStore = useDocumentStore.getState();
     const file = docStore.getCurrentFile();
     const content = docStore.rawContent;
-    const tab = docStore.getActiveTab();
-    if (file && tab && content !== undefined) {
-      useBlockStore.getState().setBlocksFromContent(content, tab.id);
+    const activeTabForBlocks = docStore.getActiveTab();
+    if (file && activeTabForBlocks && content !== undefined) {
+      useBlockStore.getState().setBlocksFromContent(content, activeTabForBlocks.id);
       const firstBlock = useBlockStore.getState().blocks[0];
       if (firstBlock) useBlockStore.getState().focusBlock(firstBlock.id, 0);
     }
   }, [currentFile?.path]);
 
   useTauriInputManager({
-    enabled: () => !!getActiveEditorView(),
+    // 7-A: 비활성 패널엔 인터랙티브 에디터 뷰가 아예 없으므로, 여기서도 막아
+    // 활성 패널의 드롭을 비활성 패널 인스턴스가 이중으로 처리하지 않게 한다.
+    enabled: () => isActivePane && !!getActiveEditorView(),
     onCommand: async (cmd) => {
       if (cmd.type !== 'INSERT_IMAGE') return;
       const { data, mimeType } = cmd.payload;
@@ -577,6 +604,21 @@ export const BlockEditor: React.FC<{ paneId?: string }> = ({ paneId = 'pane-main
     mergeBlockWithPrevious(id);
     syncContent();
   };
+
+  // 7-A(P0-3 Stage A-2): 비활성 패널은 전역 blockStore/documentStore 를 전혀
+  // 참조하지 않는 정적 스냅샷만 그린다 — 그 스토어들은 항상 "활성 패널의"
+  // 문서를 담고 있으므로, 비활성 패널이 그걸 그대로 그리면 탭 바 제목과
+  // 본문이 어긋난다(원 증상). 자기 자신의 tab prop 에서만 읽는다.
+  if (!isActivePane) {
+    if (!tab) {
+      return (
+        <div className="h-full flex items-center justify-center text-xs text-mutedText/40 select-none">
+          열린 문서가 없습니다.
+        </div>
+      );
+    }
+    return <InactivePaneSnapshot content={tab.cache?.rawContent ?? tab.savedContent ?? ''} />;
+  }
 
   if (!currentFile) {
     return (

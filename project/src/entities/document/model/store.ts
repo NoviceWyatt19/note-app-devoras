@@ -162,6 +162,19 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     const file = item as FileEntry;
     const tabId = file.path;
 
+    // 7-A Edge Case: 같은 파일을 다른 패널이 이미 열고 있으면 거기에 새 사본을
+    // 만드는 대신 그 패널로 포커스만 옮긴다. 각 패널은 독립된 tabs 배열을
+    // 가지므로, 막지 않으면 같은 파일에 대해 캐시/isDirty 가 패널마다
+    // 따로 갈라진다 — 어느 쪽이 "진짜" 최신인지 판단할 방법이 없어진다.
+    const otherPaneWithTab = panesWithSnapshot.find(
+      (p) => p.id !== activePane.id && p.tabs.some((t) => t.id === tabId),
+    );
+    if (otherPaneWithTab) {
+      get().setActivePane(otherPaneWithTab.id);
+      await get().setActiveTab(otherPaneWithTab.id, tabId);
+      return;
+    }
+
     const existingTab = activePane.tabs.find((t) => t.id === tabId);
 
     // 캐시 우선 복원
@@ -369,13 +382,17 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       });
       // Also clear blockStore content to avoid ghost text
       useBlockStore.getState().setBlocksFromContent('', undefined);
-    } else if (wasActiveTabClosed && paneId === newActivePaneId) {
-      // 닫힌 탭이 (전역으로 보이는) 활성 탭이었고 새 활성 탭으로 자동 전환됐다면,
-      // 그 탭의 콘텐츠를 캐시/디스크에서 복원해야 화면이 activeTabId 와 일치한다.
-      // 예전에는 activeTabId 만 갱신하고 rawContent/nodes/spatialData 는 그대로
-      // 둬서, 탭을 닫으면 화면이 방금 닫힌 탭 내용을 계속 보여주다가 이후 그
-      // 탭을 다시 클릭해도 setActiveTab 의 "이미 활성 탭" 가드에 걸려 아무
-      // 반응이 없는 것처럼 보였다.
+    } else if (newActivePaneId !== activePaneId || (wasActiveTabClosed && paneId === newActivePaneId)) {
+      // 새로 활성화된 탭의 콘텐츠를 캐시/디스크에서 다시 로드해야 하는 두 경우:
+      //  1. 닫힌 탭이 (전역으로 보이는) 활성 탭이었고 같은 패널의 다음 탭으로
+      //     자동 전환됐다 — 예전에는 activeTabId 만 갱신하고 rawContent/
+      //     nodes/spatialData 는 그대로 둬서, 탭을 닫으면 화면이 방금 닫힌
+      //     탭 내용을 계속 보여주다가 그 탭을 다시 클릭해도 setActiveTab 의
+      //     "이미 활성 탭" 가드에 걸려 아무 반응이 없는 것처럼 보였다.
+      //  2. 활성 패널 자체가 탭 0개로 GC 되어(그 패널의 마지막 탭을 닫음)
+      //     이미 자기 탭을 갖고 있던 **다른** 패널로 활성 소유권이 넘어갔다
+      //     (7-A 로 발견 — 이전에는 모든 패널이 같은 전역 상태를 봤으므로
+      //     드러나지 않았다). newActivePaneId !== activePaneId 가 이 경우다.
       await get()._activateTabContent(newActivePaneId, newActivePane.activeTabId, finalPanes);
     } else {
       set({ panes: finalPanes, activePaneId: newActivePaneId });
@@ -384,24 +401,40 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
 
   // REF-20260810-01: 특정 패널 닫기 — 탭은 인접 패널로 병합
   closePane: (paneId) => {
-    const { panes, activePaneId } = get();
-    if (panes.length <= 1) return; // 최소 1개 패널 보장
+    // 7-A: 닫히는 패널이 활성 패널이면(대개 그렇다 — 자기 패널 닫기 버튼) 그
+    // 안의 미저장 편집이 blockStore 에만 있고 tab.cache 엔 아직 없을 수 있다.
+    // 병합 대상 패널로 소유권이 넘어가기 전에 먼저 캐시에 반영해야, 병합된
+    // 탭이 방금 편집한 내용이 아니라 그 이전 스냅샷을 보여주는 걸 막는다.
+    const panesWithSnapshot = get()._snapshotActiveTab();
+    const { activePaneId } = get();
+    if (panesWithSnapshot.length <= 1) return; // 최소 1개 패널 보장
 
-    const targetIndex = panes.findIndex((p) => p.id === paneId);
+    const targetIndex = panesWithSnapshot.findIndex((p) => p.id === paneId);
     if (targetIndex === -1) return;
 
-    const targetPane = panes[targetIndex];
+    const targetPane = panesWithSnapshot[targetIndex];
 
     // 병합 대상: 왼쪽 패널 우선, 없으면 오른쪽 패널
-    const mergeTarget = panes[targetIndex - 1] ?? panes[targetIndex + 1];
+    const mergeTarget = panesWithSnapshot[targetIndex - 1] ?? panesWithSnapshot[targetIndex + 1];
 
-    // 닫히는 패널의 탭을 병합 대상으로 이동 (중복 탭 제거)
-    const existingIds = new Set(mergeTarget.tabs.map((t) => t.id));
-    const tabsToMerge = targetPane.tabs.filter((t) => !existingIds.has(t.id));
-    const mergedTabs = [...mergeTarget.tabs, ...tabsToMerge];
+    // 닫히는 패널의 탭을 병합 대상으로 이동 (중복 탭 제거).
+    // 닫히는 패널이 활성 패널이었다면(preferClosingCopy) 위에서 방금
+    // _snapshotActiveTab 으로 그 탭의 캐시를 최신화했다 — 같은 id 의 탭이
+    // mergeTarget 에도 있을 때(예: splitPane 직후처럼 두 패널이 같은 탭을
+    // 복사해 갖고 있는 경우) mergeTarget 의 기존(더 오래된) 사본을 그대로
+    // 두면 방금 캐시에 반영한 편집이 조용히 버려진다. 그래서 이 경우엔
+    // mergeTarget 자리를 유지한 채 내용만 닫히는 쪽의 사본으로 바꿔치기한다.
+    const preferClosingCopy = paneId === activePaneId;
+    const targetPaneTabsById = new Map(targetPane.tabs.map((t) => [t.id, t]));
+    const mergeTargetTabIds = new Set(mergeTarget.tabs.map((t) => t.id));
+    const reconciledMergeTargetTabs = mergeTarget.tabs.map((t) =>
+      preferClosingCopy && targetPaneTabsById.has(t.id) ? targetPaneTabsById.get(t.id)! : t,
+    );
+    const newTabsFromClosingPane = targetPane.tabs.filter((t) => !mergeTargetTabIds.has(t.id));
+    const mergedTabs = [...reconciledMergeTargetTabs, ...newTabsFromClosingPane];
     const mergedActiveTabId = mergeTarget.activeTabId || (mergedTabs[0]?.id ?? '');
 
-    const remaining = panes
+    const remaining = panesWithSnapshot
       .filter((p) => p.id !== paneId)
       .map((p) =>
         p.id === mergeTarget.id
@@ -415,11 +448,21 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     set({ panes: remaining, activePaneId: newActivePaneId });
   },
 
-  setActivePane: (paneId) => set({ activePaneId: paneId }),
+  setActivePane: (paneId) => {
+    // 7-A: 비활성 패널은 이제 tab.cache 스냅샷만 그린다. 소유권을 넘기기
+    // 전에 지금 활성 패널의 미저장 편집 상태를 먼저 캐시에 반영해야,
+    // 방금까지 편집하던 패널이 포커스를 잃는 순간 옛 내용을 보여주지 않는다.
+    const panesWithSnapshot = get()._snapshotActiveTab();
+    set({ panes: panesWithSnapshot, activePaneId: paneId });
+  },
 
   splitPane: (sourcePaneId, direction) => {
-    const { panes } = get();
-    const sourcePane = panes.find((p) => p.id === sourcePaneId);
+    // 7-A: 분할은 활성 패널에서 시작되는 게 보통이고, 새 패널로 활성 소유권이
+    // 넘어간다. sourcePane 이 활성 패널이었다면 그 안의 미저장 편집을 먼저
+    // 캐시에 반영해야, 새로 생기는 패널이 복사해가는 tabs 가 옛 스냅샷이
+    // 되는 걸 막는다(둘 다 같은 tab 객체를 참조하므로 원본 패널도 같이 낡는다).
+    const panesWithSnapshot = get()._snapshotActiveTab();
+    const sourcePane = panesWithSnapshot.find((p) => p.id === sourcePaneId);
     if (!sourcePane) return;
 
     const newPaneId = `pane-${Date.now()}`;
@@ -430,7 +473,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     };
 
     set({
-      panes: [...panes, newPane],
+      panes: [...panesWithSnapshot, newPane],
       activePaneId: newPaneId,
       layoutDirection: direction,
     });
