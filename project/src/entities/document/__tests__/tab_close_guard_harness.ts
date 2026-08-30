@@ -138,4 +138,24 @@ test('BUG-20260826-04 — 미저장 탭 종료 가드', async (t) => {
     assert.equal(tabById(B.path)?.isDirty, true, '복원 후에도 dirty 가 유지된다');
     assert.equal(useDocumentStore.getState().rawContent, 'EDITED', '편집 내용도 복원된다');
   });
+
+  // 실기(빌드) 테스트 중 발견: 활성 탭을 닫으면 activeTabId 는 다음 탭으로 넘어가는데
+  // rawContent/nodes/spatialData 는 방금 닫힌 탭 것으로 남아, 화면이 새 활성 탭과
+  // 어긋나고 이후 그 탭을 다시 클릭해도 setActiveTab 의 "이미 활성 탭" 가드에 걸려
+  // 아무 반응이 없는 것처럼 보이는 회귀였다.
+  await t.test('C7: 활성 탭을 닫으면 rawContent 가 새 활성 탭 것으로 즉시 갱신된다', async () => {
+    await setup();
+    // setup() 직후 활성 탭은 B(마지막에 로드됨).
+    assert.equal(pane().activeTabId, B.path);
+    assert.equal(useDocumentStore.getState().rawContent, 'BBB');
+
+    await useDocumentStore.getState().closeTab('pane-main', B.path);
+
+    assert.equal(pane().activeTabId, A.path, '다음 활성 탭은 A 여야 한다');
+    assert.equal(
+      useDocumentStore.getState().rawContent,
+      'AAA',
+      'rawContent 가 새 활성 탭(A) 내용으로 갱신되어야 한다 — 방금 닫힌 B 의 내용(BBB)이 남아있으면 회귀',
+    );
+  });
 });

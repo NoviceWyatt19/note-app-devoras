@@ -60,6 +60,7 @@ interface DocumentState {
 
   // ── Document/Editor 액션 ─────────────────────────────────────────
   _snapshotActiveTab: () => SplitPane[];
+  _activateTabContent: (paneId: string, tabId: string, panesBase: SplitPane[]) => Promise<void>;
   updateContentForTab: (tabId: string, content: string) => void;
   updateContent: (content: string) => void;
   updateNodeCoordinate: (nodeId: string, x: number, y: number) => void;
@@ -244,23 +245,31 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     const pane = panes.find((p) => p.id === paneId);
     if (!pane) return;
 
-    const targetTab = pane.tabs.find((t) => t.id === tabId);
     if (pane.activeTabId === tabId && paneId === activePaneId) return; // 이미 활성 탭
 
     // ── Step 1: 현재 활성 탭의 편집 상태를 캐시에 저장 ──
     const panesWithSavedCache = get()._snapshotActiveTab();
 
-    // ── Step 2: 대상 탭 활성화 ──
+    // ── Step 2: 대상 탭 활성화 + Step 3: 캐시에서 복원 또는 디스크에서 로드 ──
     const updatedPanes = panesWithSavedCache.map((p) =>
       p.id === paneId ? { ...p, activeTabId: tabId } : p
     );
+    await get()._activateTabContent(paneId, tabId, updatedPanes);
+  },
 
-    // ── Step 3: 캐시에서 복원 또는 디스크에서 로드 ──
+  // setActiveTab(사용자가 탭을 클릭)과 closeTab(닫은 탭 다음으로 자동 전환)이
+  // 공유하는 콘텐츠 복원 로직. panesBase 는 activeTabId 전환까지 이미 반영된
+  // panes — 이 함수는 targetTab 을 그 안에서 찾아 캐시 또는 디스크에서 콘텐츠를
+  // 복원해 커밋하기만 한다(활성 탭 자체를 바꾸는 책임은 호출자에게 있다).
+  _activateTabContent: async (paneId, tabId, panesBase) => {
+    const pane = panesBase.find((p) => p.id === paneId);
+    const targetTab = pane?.tabs.find((t) => t.id === tabId);
+
     if (targetTab && (targetTab.type === 'markdown' || targetTab.type === 'erd') && targetTab.fileEntry) {
       // 캐시가 있으면 디스크 I/O 없이 즉시 복원
       if (targetTab.cache) {
         set({
-          panes: updatedPanes,
+          panes: panesBase,
           activePaneId: paneId,
           rawContent: targetTab.cache.rawContent,
           nodes: targetTab.cache.nodes,
@@ -305,7 +314,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       }
     }
 
-    set({ panes: updatedPanes, activePaneId: paneId });
+    set({ panes: panesBase, activePaneId: paneId });
   },
 
   resetDocumentState: () => {
@@ -319,8 +328,10 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     });
   },
 
-  closeTab: (paneId, tabId) => {
+  closeTab: async (paneId, tabId) => {
     const { panes, activePaneId } = get();
+    const closingPane = panes.find((p) => p.id === paneId);
+    const wasActiveTabClosed = closingPane?.activeTabId === tabId;
 
     const updatedPanes = panes.map((p) => {
       if (p.id !== paneId) return p;
@@ -348,8 +359,8 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     // If the active pane no longer has an active tab, clear the editor state
     const newActivePane = finalPanes.find(p => p.id === newActivePaneId);
     if (!newActivePane || !newActivePane.activeTabId) {
-      set({ 
-        panes: finalPanes, 
+      set({
+        panes: finalPanes,
         activePaneId: newActivePaneId,
         rawContent: '',
         nodes: [],
@@ -358,6 +369,14 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       });
       // Also clear blockStore content to avoid ghost text
       useBlockStore.getState().setBlocksFromContent('', undefined);
+    } else if (wasActiveTabClosed && paneId === newActivePaneId) {
+      // 닫힌 탭이 (전역으로 보이는) 활성 탭이었고 새 활성 탭으로 자동 전환됐다면,
+      // 그 탭의 콘텐츠를 캐시/디스크에서 복원해야 화면이 activeTabId 와 일치한다.
+      // 예전에는 activeTabId 만 갱신하고 rawContent/nodes/spatialData 는 그대로
+      // 둬서, 탭을 닫으면 화면이 방금 닫힌 탭 내용을 계속 보여주다가 이후 그
+      // 탭을 다시 클릭해도 setActiveTab 의 "이미 활성 탭" 가드에 걸려 아무
+      // 반응이 없는 것처럼 보였다.
+      await get()._activateTabContent(newActivePaneId, newActivePane.activeTabId, finalPanes);
     } else {
       set({ panes: finalPanes, activePaneId: newActivePaneId });
     }
