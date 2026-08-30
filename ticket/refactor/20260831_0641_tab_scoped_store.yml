@@ -133,6 +133,49 @@ do_not:
   - "데코레이터 계층 성능(A6-후속)을 이 작업에 끌어들이지 말 것 — 원인 미특정 상태이며 DEBUG_STEP_PLAN §3-A 의 조사가 선행이다."
   - "ownerTabId 에 의존하는 새 코드를 늘리지 말 것 — C-4 에서 죽는다."
 # ━━━
+decisions:
+  - id: "D-1 (2026-08-31) — C-3 범위: MindView 팝업과 ErdDesignerMainView 모두 포함한다"
+    question: "MindView 팝업(isStandalone=false)과 prop 없는 ErdDesignerMainView 를 C-3 에서 전환할 것인가, 별건으로 남길 것인가"
+    decision: "둘 다 C-3 범위 안이다. 선택 사항이 아니라 C-4 의 전제조건이다."
+    rationale: >
+      C-4 는 전역 스토어를 삭제한다. 그때까지 전역을 읽는 소비자가 하나라도 남아 있으면
+      C-4 자체가 불가능하다. 따라서 '삭제 대상 스토어의 남은 소비자를 옮기는 일'은 범위
+      초과가 아니라 작업의 본체다. do_not 의 범위 경계는 A6 데코레이터 비용처럼 **이 작업과
+      무관한 축**을 끌어들이지 말라는 뜻이지, 같은 스토어의 소비자를 빼놓으라는 뜻이 아니다.
+  - id: "D-2 — MindView 팝업의 탭 해석: 활성 탭을 동적으로 따라간다"
+    decision: >
+      팝업(WorkspacePage.tsx:245)은 PaneContainer 바깥에 렌더되므로 React Context 가 닿지
+      않는다. activePaneId → 그 패널의 activeTabId → 해당 탭 스토어를 **동적으로 해석**해
+      소비한다. 열 때 한 번 고정(스냅샷)하지 않는다 — 탭을 바꾸면 따라오는 것이 이 패널의
+      제품 동작이다.
+    implication: >
+      **탭 스토어가 Provider 트리 바깥에서 tabId 로 조회 가능해야 한다.** Context 만으로는
+      부족하며 tabId → store 레지스트리가 필요하다. 이 저장소에는 이미 같은 형태의 선례가
+      있다(shared/lib/editorViewRegistry.ts, paneId → EditorView). 생명주기는 탭에 묶는다.
+    isolation_note: >
+      레지스트리가 '전역 조회'로 보여 격리 원칙에 어긋나는 것처럼 읽힐 수 있으나 다르다.
+      호출자가 tabId 를 **명시적으로 지정**해야 하므로 REF-20260826-01 의 Explicit Ownership
+      원칙(전역 활성 탭 조회로 자기 데이터를 '유추'하지 말 것)을 위반하지 않는다. 팝업의 경우
+      활성 탭을 따라가는 것이 결함이 아니라 명세다.
+    guards:
+      - "활성 탭이 없을 때의 빈 상태를 명시적으로 처리할 것"
+      - "활성 탭이 마크다운이 아닐 때(erd · mindmap-global) 마인드맵을 그리지 않도록 가드"
+      - "활성 탭 변경 시 스토어 구독을 깨끗이 교체할 것 — 이전 탭 스토어 구독이 남으면 누수"
+    survives_c4: >
+      C-4 가 제거하는 것은 문서 **내용** 상태(rawContent/blocks/nodes/isDirty/viewMode)와
+      useBlockStore 싱글턴이다. panes / activePaneId / activeTabId 같은 **구조**는 남으므로
+      위 해석 경로는 C-4 이후에도 유효하다.
+  - id: "D-3 — ErdDesignerMainView 는 BlockEditor 의 7-A 형태를 그대로 따른다"
+    decision: >
+      WorkspacePage.tsx:357 의 <ErdDesignerMainView /> 에 tab prop 을 주입한다. 같은 줄의
+      BlockEditor 가 이미 tab={activeTab} 을 받고 있고 activeTab 이 스코프에 있으므로
+      prop 스레딩 비용은 사실상 0 이다. MindView 의 isStandalone=true 사용처(:355)도 동일.
+    side_effect: >
+      이것은 **현존하는 버그를 함께 고친다** — 분할 패널에서 서로 다른 ERD 탭을 열면 지금은
+      교차 오염될 가능성이 높다(7-A 가 마크다운 패널만 다뤘기 때문에 남은 구멍). 의도한
+      수정이므로 커밋 메시지에 명시해 귀속을 남길 것. 별도 티켓으로 쪼개지 말 것 — 전환과
+      분리해서 고칠 수 있는 성질이 아니다.
+# ━━━
 open_questions:
   - "동일 파일을 두 패널에 열었을 때 탭 스토어를 공유할 것인가 분리할 것인가. 7-A 는 Stage A 회피책으로 '중복 오픈 시 기존 패널로 포커스 이동'을 택했다. C 단계에서 이 회피를 유지할지, 스토어 공유로 정면 해결할지 판단 필요."
   - "탭 스토어의 생명주기를 탭 언마운트에 묶으면 Phase 2 TTL 언마운터와 정책이 충돌할 수 있다. hydrate() 가 있으므로 소멸-복원이 가능하지만, 어느 계층이 생명주기를 소유하는지 C-5 에서 명시할 것."
