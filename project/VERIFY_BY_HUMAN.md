@@ -35,10 +35,13 @@
 - **배경**: 위 자동 검증은 전부 `pnpm tauri dev`(`devCsp`) 위에서 수행됐다. `devCsp`는 `script-src 'unsafe-inline'`과 HMR용 추가 `connect-src` 오리진을 허용하는 더 느슨한 정책이라, dev에서 위반 0건이 나와도 프로덕션 `csp`(더 엄격)에서 동일하다는 보장이 없다.
 - **확인 방법**: `pnpm tauri build` 산출물을 실행한 상태에서 콘솔에 CSP 위반 로그가 없는지 직접 확인. (자동 브리지가 release 빌드에 못 붙으므로 — 위 1·2번과 동일한 제약.)
 
-### 5. 워크스페이스 밖에서 드래그·드롭 이미지 붙여넣기 회귀 확인
+### 5. 워크스페이스 밖에서 드래그·드롭 이미지 붙여넣기 — 기능 확인 + 핫픽스 재검증
 
-- **배경**: Step 1-A에서 `fs:allow-home-read-recursive` 권한을 제거하는 과정에서 Finder 드래그앤드롭·URI 리스트 붙여넣기(`useTauriInputManager.ts`의 `readFile` 경로)가 깨지는 회귀가 발견되어, `devoras_image_save`와 동일한 scope-bypass 패턴의 `devoras_read_dropped_file` Rust 커맨드로 수정됨(project-b8 세션, 커밋 `b5a3bd1`).
-- **확인 방법**: 워크스페이스 **밖**에 있는 이미지 파일을 Finder에서 에디터로 드래그앤드롭 / URI 리스트로 붙여넣기 해서 정상적으로 삽입되는지 확인. 회귀 재발 여부 및 scope 우회가 워크스페이스 경계를 다시 뚫지 않는지(`ensure_inside` 동일 검증 로직 적용 여부) 함께 확인.
+- **배경**: Step 1-A에서 `fs:allow-home-read-recursive` 권한을 제거하며 Finder 드래그앤드롭·URI 리스트 붙여넣기가 깨지는 회귀가 생겨 `devoras_read_dropped_file` Rust 커맨드로 수정(커밋 `b5a3bd1`). 그런데 이 최초 구현이 `path` 인자를 검증 없이 `std::fs::read` 에 넘기는 **임의 파일 읽기 구멍**이었다 — L3/L4 가 닫은 것을 다시 여는 심각한 회귀(project-b1·project-31 이 각각 독립적으로 발견). 커밋 `8e93538` 에서 긴급 수정: `DragDropEvent::Drop` 을 Rust `on_window_event` 로 직접 구독해 "OS 가 실제로 이 창에 드롭한 경로"만 `DroppedPaths` 집합에 기록하고, 커맨드는 그 집합에 있는 경로만 1회용으로 소비해서 읽는다. uri-list 붙여넣기는 OS 드롭 이벤트가 없어 이 provenance 를 못 세우므로 `devoras_read_dropped_file` 대신 scope 가 적용되는 `plugin-fs` `readFile` 로 되돌렸다(워크스페이스 밖에서는 자연히 거부).
+- **확인 방법**:
+  1. (기능) 워크스페이스 **밖**에 있는 이미지 파일을 Finder에서 에디터로 드래그앤드롭 → 정상 삽입되는지.
+  2. (기능, 더 약한 보장) 같은 파일을 uri-list 로 붙여넣기 → 워크스페이스 **안** 파일은 되고, **밖** 파일은 "forbidden path" 로 실패하는 게 정상(회귀 아님 — 의도된 동작).
+  3. (보안, 가장 중요) 개발자 도구 콘솔에서 `await window.__TAURI__.core.invoke('devoras_read_dropped_file', { path: '/Users/<본인계정>/.ssh/id_rsa' })` 를 **드래그앤드롭 없이 직접** 호출 — "드롭 이벤트로 전달되지 않은 경로입니다" 에러로 거부되어야 한다. 200/데이터 반환이 나오면 핫픽스가 실패한 것이므로 즉시 보고할 것.
 
 ## 검증 종료 후
 
