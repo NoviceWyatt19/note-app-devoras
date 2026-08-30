@@ -274,6 +274,21 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
       annotations: [Transaction.userEvent.of('external')],
     });
 
+    // R3 불변식 (A5): 병합 등으로 문서가 통째로 갈릴 때 스토어의 focusOffset 과
+    // 뷰의 실제 caret 이 어긋나면 캐럿이 조용히 사라진다(BUG-20260828-02). 최종 증상
+    // (캐럿 유실)만 보는 게이트로는 원인 도달에 세션 하나가 통째로 들었으므로,
+    // 여기서 중간량을 직접 잰다. 개발 빌드 한정, 실패해도 편집은 막지 않는다.
+    if (import.meta.env.DEV && intent.isFocused) {
+      const storeFocusOffset = useBlockStore.getState().focusOffset;
+      const viewHead = view.state.selection.main.head;
+      if (storeFocusOffset !== viewHead) {
+        console.error(
+          `[R3 불변식 위반] store.focusOffset(${storeFocusOffset}) !== view.selection.main.head(${viewHead})`,
+          new Error().stack,
+        );
+      }
+    }
+
     // 병합으로 형제 블록이 언마운트되면 DOM 포커스가 통째로 사라진다.
     // 아래 캐럿 이펙트는 focusOffset 이 안 바뀌면 다시 돌지 않으므로 여기서 회수한다.
     // IME 조합 중에는 절대 건드리지 않는다 (BUG-20260810-02).

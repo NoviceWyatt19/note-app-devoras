@@ -211,8 +211,9 @@ export const useBlockStore = create<BlockState>((set, get) => ({
     const currentBlock = flatBlocks[index];
     const previousBlock = flatBlocks[index - 1];
 
-    // Strip H1, H2, H3, H4 header mark from current block start when merging into parent block content
-    const cleanedCurrentText = currentBlock.content.replace(/^#{1,4}\s*/, '');
+    // Strip H1~H6 header mark from current block start when merging into parent block content
+    // (parseHeadingLine 은 #{1,6} 을 인식하므로 여기서도 동일 범위를 벗겨야 마크가 남지 않는다)
+    const cleanedCurrentText = currentBlock.content.replace(/^#{1,6}\s*/, '');
     const joinSeparator = previousBlock.content.endsWith('\n') ? '' : '\n';
     const mergedContent = previousBlock.content + joinSeparator + cleanedCurrentText;
     const focusOffset = previousBlock.content.length;
@@ -223,12 +224,14 @@ export const useBlockStore = create<BlockState>((set, get) => ({
 
     // 전체 콘텐츠 문자열로 변환한 뒤, setBlocksFromContent 호출을 통해 트리 재생성!
     const fullText = flatBlocks.map(b => b.content).join('\n');
-    
+
     get().setBlocksFromContent(fullText, get().ownerTabId ?? undefined);
 
-    // activeBlockId와 focusOffset은 여기서 업데이트
+    // activeBlockId 는 재생성 전 previousBlock.id 를 그대로 쓰면 안 된다: 헤딩 블록의 id 는
+    // 라벨에서 파생되므로(buildHeadingId) 재생성 시 바뀔 수 있다. 재생성 후 "위치"로 재조회한다.
+    const rebuilt = flattenTree(get().blocks);
     set({
-      activeBlockId: previousBlock.id,
+      activeBlockId: rebuilt[index - 1]?.id ?? null,
       focusOffset,
     });
   },
