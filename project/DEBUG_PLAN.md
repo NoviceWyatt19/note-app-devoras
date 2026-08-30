@@ -43,7 +43,7 @@ Step 7  B4 구조 개편 (7-A → 7-B? → 7-C)
 |---|---|---|---|
 | 1 | ✅ **Step 4** 헤딩 매칭 2-패스 전환(콘텐츠 키 + 위치 폴백) | T1 K4/K5/K7 통과 + MindView 무변경(회귀 불가) — 실기 undo 확인만 이월 | 커밋 대기 |
 | 2 | ✅ **Step 5** 조정자 일원화 + diff 동기화 | `pnpm test:ime` 5/5 유지 + `test:diff` D1~D8 신설 통과 — 실기 R1~R6 은 사람 손 | `13a7f7e` |
-| 3 | **Step 6** 프로파일 → 판정 | 아래 §4 결정 게이트 표 판정 기록 | `chore(x.x.x): 마운트 비용 프로파일 결과 (A6)` |
+| 3 | ✅ **Step 6** 프로파일 → 판정 | 판정: 아키텍처 무죄, 배치는 답 아님, 데코레이터 계층이 범인(§4-2) — Step 7 그대로 진행 | 커밋 대기 |
 | 4 | **Step 7-A** 분할 패널 문서 해석 | 탭 바 제목과 본문 일치 + R5 | `fix(x.x.x): 분할 패널 표시 불일치 (P0-3 Stage A-2)` |
 | 5 | **Step 7-C** 탭 스코프 스토어 | R2·R6 + `ownerTabId` 소멸 | `refactor(x.x.x): 탭 스코프 스토어 (REF-01 2단계)` |
 
@@ -167,12 +167,86 @@ changes: { from: 0, to: currentDoc.length, insert: block.content }
 
 **[결정 게이트 — `DEBUG_STEP_PLAN.md` §0.1 과 연결]**
 
+원래 표는 두 갈래만 있었다:
+
 | 프로파일 결과 | 판정 |
 |---|---|
 | 초선형 성분이 레이아웃 스래싱이고 **선형 회복 가능** | **현행 구조 유지.** 필요 시 가상화(높이 캐시 동반) |
 | **선형 회복 불가** (비용이 `EditorView` 생성에 내재) | 「문서당 런타임 1개 + 블록 노드」 구조로의 전환을 **정식 안건화.** 이때 §0.1 의 결정을 재개봉한다 |
 
-**[DoD]** 프로파일 결과와 위 표의 **판정을 문서에 기록**한다. 판정 없이 Step 7 로 넘어가지 않는다 — 이 게이트가 이 배치의 존재 이유다.
+**실측 결과, 둘 중 어느 쪽도 아니다 — 세 번째 갈래가 필요하다.** 아래 §4-1.
+
+**[DoD]** 프로파일 결과와 판정을 문서에 기록한다. 판정 없이 Step 7 로 넘어가지 않는다 — 이 게이트가 이 배치의 존재 이유다. **✅ 충족.** 판정: §4-2.
+
+### 4-1. 실측 — 3-way 판별 실험 (2026-08-30, T2/Chromium, project-1f 설계·교정)
+
+**[방법]** `src/widgets/BlockEditor/__tests__/mount_cost_t2_harness.ts` (`mount_cost_t2.html` 로 실행) — React 마운트 오버헤드를 걷어내고 `EditorView` 생성 자체의 비용만 격리하기 위해, BlockEditor.tsx 의 `CodeMirrorBlock` 생성 이펙트와 **동일한 확장 구성**(마크다운 파서·12개 데코레이터 전부·`codeBlockInteractionPlugin`·테마·키맵)으로 `EditorView` N 개를 직접 생성해 시간을 잰다.
+
+최초 설계(attached vs `display:none`-detached 2-way)는 **거짓 "회복 가능" 판정을 낼 위험**이 있었다 — `display:none` 서브트리는 `getBoundingClientRect` 가 전부 0 이라, CodeMirror 가 라인 높이 측정 자체를 화면에 보일 때까지 미룰 수 있다. 그러면 detached 구간이 빠른 건 스래싱을 피해서가 아니라 **애초에 안 쟀기 때문**이고, 비용은 나중에 몰아서 나온다. 그래서 3-way 로 교정했다:
+
+1. **attached** — 화면 밖 고정 위치, 레이아웃 정상 참여(오늘의 실제 비용).
+2. **offscreen** — 마찬가지로 레이아웃엔 참여하되 다른 콘텐츠와의 인터리빙만 제거(중간 대조군).
+3. **detached→attach** — `display:none` 에서 생성한 뒤 보이게 전환해 레이아웃을 강제로 flush. **detached 와 attach 두 구간의 합**을 attached 총합과 비교 — CodeMirror 가 측정을 미뤘든 안 미뤘든 실제로 필요한 측정량은 이 합계에 다 들어오므로 "언제 쟀는지"와 무관하게 유효하다.
+
+**[실측값]**
+
+| N | attached | offscreen | detached+attach | postAttach 높이 |
+|---|---|---|---|---|
+| 25 | 88.4 ms | 70.2 ms | 36.0 ms | 3,525 px |
+| 50 | 253.8 ms | 254.3 ms | 118.8 ms | 7,050 px |
+| 100 | 1,060.5 ms | 1,180.5 ms | 372.1 ms | 14,099 px |
+| **200** | **5,170.4 ms** | 5,916.1 ms | **1,497.8 ms** | 28,198 px |
+
+성장 지수(N=25→200): attached **1.957** · offscreen **2.132** · detached+attach **1.793**. `postAttach` 높이가 N 에 비례해 non-zero → 위생 점검 통과(무효 표본 없음).
+
+**1차 결론(당초 판별 기준)**: N=200 기준 `(detached+attach)/attached = 0.290` — 배치하면 절대 시간은 **71% 절감**된다(8초→1.5초대, historical 노트의 "선형 회복 시 8초→1초대" 예측과 정합). 하지만 **지수가 1.79 로 여전히 뚜렷한 초선형** — 배치만으로는 선형화되지 않는다. 여기서 "그럼 상수는 줄지만 구조적으론 여전히 안 좋다"로 끝내지 않고 **왜 detached 단계 자체가 이미 초선형인지** 추가로 팠다.
+
+**[핵심 발견 — bare CodeMirror 대조군]** `markdownDecorationPlugin`·`codeBlockInteractionPlugin` 을 전부 뺀 **순수 CodeMirror 코어**(markdown 파서 + 테마 + history + drawSelection 만)로 같은 실험(N=25~200, `display:none`, 라이브 파괴):
+
+| N | 순수 CodeMirror | 블록당 |
+|---|---|---|
+| 25 | 17.2 ms | 0.69 ms |
+| 50 | 13.0 ms | 0.26 ms |
+| 100 | 26.7 ms | 0.27 ms |
+| 200 | 35.7 ms | 0.18 ms |
+
+**성장 지수 0.351(선형 이하) · N=200 절대 시간 35.7ms** — Devoras 데코레이터를 포함한 조건(1,363ms, detached 단계만)의 **약 38분의 1**이다. 하나 더: 생성 즉시 파괴를 N 회 반복(동시에 살아있는 인스턴스를 절대 늘리지 않음)하면 성장 지수는 **1.017**(사실상 완벽한 선형)이다.
+
+이 세 수치를 합치면 인과가 명확해진다:
+- **CodeMirror 코어 자체는 무죄다.** 순수 구성은 싸고 선형이다.
+- **"동시에 살아있는 인스턴스 수"가 원인이다** — 하나씩 만들고 바로 부수면(누적 없음) 완벽히 선형이지만, N 개를 계속 쌓아두면(attached 든 detached 든 무관하게) 초선형이 된다.
+- **레이아웃과 무관하다** — `display:none`(레이아웃 박스 없음)에서도 이미 초선형이므로, 스래싱 가설은 기각된다.
+
+**[추가 이분 탐색]** `markdownDecorationPlugin`(12개 데코레이터 오케스트레이터) 과 `codeBlockInteractionPlugin` 을 각각 단독으로(둘 다 detached, N=25~200):
+
+| 조건 | N=200 절대 시간 | 성장 지수 |
+|---|---|---|
+| `markdownDecorationPlugin` 만 | 411.7 ms | 1.201 |
+| `codeBlockInteractionPlugin` 만 | 872.9 ms | 1.158 |
+| **둘 다(=실제 BlockEditor.tsx 구성)** | **1,363.1 ms** | **1.972** |
+
+각각 단독으로는 **완만한** 초선형(1.16~1.20)인데, **함께 쓰면 지수가 거의 2 로 치솟는다** — 두 확장이 상호작용하며 비용이 산술합이 아니라 곱에 가깝게 늘어난다는 뜻이다. 정확한 내부 메커니즘(CodeMirror 의 Extension/Facet 해석 경로로 추정되나 이 세션에서 그 안까지는 확인하지 못했다)은 **미확정**으로 남긴다.
+
+### 4-2. 판정 — 세 번째 갈래: "회복 가능하지만 배치가 답이 아니다"
+
+두 원래 버킷 중 **어느 쪽도 정확히 맞지 않는다**:
+
+- "레이아웃 스래싱, 배치로 선형 회복" — **아니다.** `display:none` 격리 조건도 이미 초선형이라 레이아웃이 원인일 수 없다.
+- "EditorView 생성 자체에 내재, 아키텍처 전면 교체 필요" — **아니다.** 순수 CodeMirror 코어는 같은 조건에서 선형이고 38배 싸다. "블록당 CodeMirror 인스턴스"라는 **설계 자체는 무죄**다.
+
+**실제 원인은 Devoras 자체 데코레이터/확장 계층 — 특히 `markdownDecorationPlugin` 과 `codeBlockInteractionPlugin` 을 동시에 쓸 때의 상호작용**이다. 이는:
+
+- 「문서당 런타임 1개 + 블록 노드」로의 **아키텍처 전면 교체를 요구하지 않는다** — Step 7-C(탭 스코프 스토어)는 **이 설계 전제 위에서 그대로 진행 가능**하다. `DEBUG_STEP_PLAN.md` §0.1 재개봉 불필요.
+- 그러나 **"배치·`content-visibility`·측정 지연"(원래 계획이 제시한 회복 수단)으로는 고쳐지지 않는다** — 그 수단들은 전부 레이아웃/페인트 타이밍을 다루는데, 원인이 레이아웃이 아니기 때문이다. **데코레이터 확장 계층 자체의 최적화**가 필요하다(정확한 지점은 미확정 — 후속 조사 대상).
+- N=200 에서 **300ms 예산은 이 배치 범위 안에서 달성되지 않는다.** 데코레이터 계층 최적화 없이는 배치가 끝나도 예산 미달 상태로 남는다.
+
+**[이 배치에서 하지 않는 것]** 데코레이터 계층의 정확한 병목 지점 추가 조사·수정은 **본 배치(Step 4~7) 범위 밖**으로 판단한다 — Step 6 의 임무는 "가상화로 직행하지 않기 위한 판정"이었고, 그 판정(아키텍처는 무죄, 배치는 답이 아님, 데코레이터 계층이 범인)은 이제 섰다. 후속 티켓으로 이월한다(§8 보류 티켓에 추가).
+
+**[Step 7 에 대한 함의]**
+- 7-A·7-C 는 **그대로 진행**한다 — 판정이 아키텍처(블록당 인스턴스)를 무죄로 판단했으므로 설계 전제가 바뀌지 않는다.
+- 가상화(E7) 는 **여전히 후행 가능**이지만, 원래 계획대로 "선형 회복 후 재평가"가 아니라 **"데코레이터 계층 수정 후 재평가"**로 조건이 바뀐다. 그 수정 없이 가상화만 넣으면 뷰포트 안에 있는 블록들끼리도 여전히 이 상호작용 비용을 겪는다(가상화는 "몇 개가 동시에 사는가"만 줄이지 "동시에 여럿일 때 상호작용 비용이 있는가"는 안 고친다).
+
+**[재현 방법]** `pnpm dev` → `http://localhost:1420/src/widgets/BlockEditor/__tests__/mount_cost_t2.html` → 콘솔 `await qa.runDiscriminator()`. bare/이분 탐색 조건은 같은 파일의 `mountNBare`/`mountNNoCodeBlockPlugin`/`mountNOnlyCodeBlockPlugin` 을 직접 호출.
 
 ---
 
@@ -264,6 +338,7 @@ resetBlocks: () => set({ blocks: [], activeBlockId: null, focusOffset: 0, ownerT
 | Open Q #5 | 데코레이터 중재 인프라(`priority`/`claims`)를 언제 넣을까 | ⏳ 미결정 | `protectedRegions.ts` 의 N² 부채가 그때까지 유지된다. 상세: [`implementation_plan.md`](../implementation_plan.md) 「스파이크」 §S.4 |
 | P2-4~P2-8 | 코드 품질 (`codeContent` O(N²), `generateId` 충돌, 미종료 펜스, Rust panic 등) | ◻ 미착수 | 영향도 낮음 |
 | A4 (T3 심화) | 상시 디버그 채널 | ◻ 미착수 | 없으면 T3 결론이 계속 휘발된다. 검증이 아니라 **기능**이므로 별도 판단 사항 |
+| **신규 A6-후속** | **데코레이터 확장 계층의 인스턴스 수 초선형 상호작용**(§4 Step 6 판정) | ◻ Todo | `markdownDecorationPlugin`+`codeBlockInteractionPlugin` 동시 사용 시 성장 지수가 개별 ~1.2 에서 결합 ~1.97 로 치솟는다(N=200 에서 1.36초, 순수 CodeMirror 대비 38배). 레이아웃과 무관 — `display:none` 격리에서도 재현. 정확한 내부 메커니즘 미확정. `CustomSymbolDecorator.ts` → `protectedRegions.ts` 의 기존 "N² 부채"(Open Q #5, 문서 길이 축의 N)와 **같은 뿌리인지는 미확인** — 데코레이터 중재 인프라(§S.4) 착수 시 함께 조사할 가치가 있다. 재현: `src/widgets/BlockEditor/__tests__/mount_cost_t2_harness.ts` |
 
 ---
 
