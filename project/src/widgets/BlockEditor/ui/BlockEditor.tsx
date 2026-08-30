@@ -219,10 +219,19 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
       ],
     });
 
+    // G1 계측(A7 DoD 측정 수단): 개발 빌드에서 EditorView 생성/파괴를 블록 id 로
+    // 로깅한다. 제목만 편집했는데 그 블록 id 에 대해 파괴 로그가 찍히면 리마운트가
+    // 일어났다는 뜻 — id 가 여전히 내용(라벨)에서 파생되고 있다는 신호다.
+    if (import.meta.env.DEV) {
+      console.debug(`[G1] EditorView 생성: paneId=${paneId} blockId=${block.id}`);
+    }
     const view = new EditorView({ state, parent: containerRef.current });
     viewRef.current = view;
 
     return () => {
+      if (import.meta.env.DEV) {
+        console.debug(`[G1] EditorView 파괴: paneId=${paneId} blockId=${block.id}`);
+      }
       view.destroy();
       viewRef.current = null;
     };

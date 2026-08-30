@@ -38,17 +38,25 @@ export function flattenTree(blocks: EditorBlock[]): EditorBlock[] {
 // ---------------------------------------------------------
 // ID & Key Derivation (Legacy support for MindNode linking)
 // ---------------------------------------------------------
+interface DerivedKeyInfo {
+  /** 매칭 키(pass 1). 헤딩은 buildHeadingId(라벨+조상경로), 텍스트 블록은 위치 기반. */
+  key: string;
+  /** pass 2(위치 기반 폴백)를 부모+레벨 단위로 스코프하기 위한 값. */
+  parentKey: string | null;
+  effectiveLevel: number;
+}
+
 function deriveBlockKey(
   content: string,
   parentKeyStack: { level: number; key: string }[],
   siblingCountMap: Record<string, number>,
-): string {
+): DerivedKeyInfo {
   const firstLine = content.split('\n')[0];
   const parsed = parseHeadingLine(firstLine);
-  
+
   let parentKey: string | null = null;
   const effectiveLevel = parsed ? parsed.level : 999;
-  
+
   for (let i = parentKeyStack.length - 1; i >= 0; i--) {
     if (parentKeyStack[i].level < effectiveLevel) {
       parentKey = parentKeyStack[i].key;
@@ -60,25 +68,25 @@ function deriveBlockKey(
     const parentId = parentKey || 'root';
     const index = (siblingCountMap[parentId] || 0) + 1;
     siblingCountMap[parentId] = index;
-    return `${parentId}-textblock-${index}`;
+    return { key: `${parentId}-textblock-${index}`, parentKey, effectiveLevel };
   }
 
-  return buildHeadingId(parsed.label, parentKey, siblingCountMap);
+  return { key: buildHeadingId(parsed.label, parentKey, siblingCountMap), parentKey, effectiveLevel };
 }
 
-function deriveKeysWithParentStack(contents: string[]): string[] {
+function deriveKeysWithParentStack(contents: string[]): DerivedKeyInfo[] {
   const sibMap: Record<string, number> = {};
   const parentStack: { level: number; key: string }[] = [];
   return contents.map((content) => {
-    const key = deriveBlockKey(content, parentStack, sibMap);
+    const info = deriveBlockKey(content, parentStack, sibMap);
     const parsed = parseHeadingLine(content.split('\n')[0]);
     if (parsed) {
       while (parentStack.length > 0 && parentStack[parentStack.length - 1].level >= parsed.level) {
         parentStack.pop();
       }
-      parentStack.push({ level: parsed.level, key });
+      parentStack.push({ level: parsed.level, key: info.key });
     }
-    return key;
+    return info;
   });
 }
 // ---------------------------------------------------------
@@ -150,21 +158,51 @@ export const useBlockStore = create<BlockState>((set, get) => ({
       newBlockContents.push('');
     }
 
-    const newKeys = deriveKeysWithParentStack(newBlockContents);
+    const newInfo = deriveKeysWithParentStack(newBlockContents);
     const currentBlocks = flattenTree(get().blocks); // 기존 트리를 평면화하여 ID 매칭
-    const oldKeys = deriveKeysWithParentStack(currentBlocks.map((b) => b.content));
-    
+    const oldInfo = deriveKeysWithParentStack(currentBlocks.map((b) => b.content));
+
+    // ── Pass 1: 콘텐츠 키(헤딩=라벨+조상경로, 텍스트=위치) 매칭 ──
+    // 재정렬에 강하다 — 라벨이 그대로면 블록이 어디로 옮겨졌든 같은 키로 다시 잡힌다.
     const existingByKey = new Map<string, EditorBlock>();
     currentBlocks.forEach((b, i) => {
-      if (!existingByKey.has(oldKeys[i])) existingByKey.set(oldKeys[i], b);
+      if (!existingByKey.has(oldInfo[i].key)) existingByKey.set(oldInfo[i].key, b);
     });
 
     const usedIds = new Set<string>();
+    const pass1Ids: (string | null)[] = newBlockContents.map((_, i) => {
+      const existing = existingByKey.get(newInfo[i].key);
+      if (existing && !usedIds.has(existing.id)) {
+        usedIds.add(existing.id);
+        return existing.id;
+      }
+      return null;
+    });
+
+    // ── Pass 2: pass 1 에서 못 잡힌 것들을 (부모, 레벨) 그룹 안에서 위치로 폴백 매칭 ──
+    // A7: 헤딩 라벨만 바뀌면 콘텐츠 키가 달라져 pass 1 이 놓친다. 구조(부모·레벨)는
+    // 그대로이므로, "짝 없는 old" 와 "짝 없는 new" 를 부모+레벨로 묶어 만난 순서대로
+    // 대응시키면 — 보통 이 그룹엔 편집된 블록 하나만 남으므로 — 그 옛 id 를 물려받는다.
+    // 재정렬은 이미 pass 1 에서 라벨로 잡히므로 여기까지 오지 않는다: pass 2 는
+    // "내용이 실제로 바뀐" 경우에만 동작한다.
+    const leftoverOldByGroup = new Map<string, EditorBlock[]>();
+    currentBlocks.forEach((b, i) => {
+      if (usedIds.has(b.id)) return;
+      const info = oldInfo[i];
+      const groupKey = `${info.parentKey ?? 'root'}::${info.effectiveLevel}`;
+      const bucket = leftoverOldByGroup.get(groupKey);
+      if (bucket) bucket.push(b);
+      else leftoverOldByGroup.set(groupKey, [b]);
+    });
+
     const flatChunks: EditorBlock[] = newBlockContents.map((blockText, i) => {
-      const key = newKeys[i];
-      const existing = existingByKey.get(key);
-      const id = (existing && !usedIds.has(existing.id)) ? existing.id : generateId();
-      if (existing) usedIds.add(existing.id);
+      let id = pass1Ids[i];
+      if (id === null) {
+        const info = newInfo[i];
+        const groupKey = `${info.parentKey ?? 'root'}::${info.effectiveLevel}`;
+        const candidate = leftoverOldByGroup.get(groupKey)?.shift();
+        id = candidate ? candidate.id : generateId();
+      }
 
       // 레벨 계산
       const firstLine = blockText.split('\n')[0];
