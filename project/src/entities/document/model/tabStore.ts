@@ -31,6 +31,8 @@ export interface TabStoreSnapshot {
 export interface TabStoreState extends TabStoreSnapshot {
   /** 디스크/외부에서 읽은 원문으로 blocks·nodes 를 재계산한다(구조적 변경 경로). */
   setContent: (content: string) => void;
+  /** blocks 는 그대로 두고 rawContent 만 현재 blocks 와 일치하도록 갱신한다(디바운스 동기화용, 재파싱 없음). */
+  syncRawContentFromBlocks: () => void;
   getMergedContent: () => string;
   updateBlockContent: (id: string, content: string) => void;
   mergeBlockWithPrevious: (id: string) => void;
@@ -63,6 +65,16 @@ export function createTabStore(tabId: string, initialContent = ''): TabStoreApi 
       const blocks = resolveBlocksFromContent(content, get().blocks);
       const nodes = parseMarkdown(content);
       set({ rawContent: content, blocks, nodes });
+    },
+
+    // 타이핑 도중에는 updateBlockContent 가 매 키 입력마다 blocks 를 이미
+    // 갱신해 둔다. syncContent(디바운스) 는 그 blocks 를 문자열로 합쳐
+    // rawContent 에 "밀어 넣기"만 하면 되고, resolveBlocksFromContent 로
+    // 다시 매칭·파싱할 필요가 없다 — setContent 를 여기서 쓰면 매 디바운스
+    // 주기마다 불필요한 재파싱이 들어간다.
+    syncRawContentFromBlocks: () => {
+      const merged = flattenTree(get().blocks).map((b) => b.content).join('\n');
+      set({ rawContent: merged });
     },
 
     getMergedContent: () => flattenTree(get().blocks).map((b) => b.content).join('\n'),

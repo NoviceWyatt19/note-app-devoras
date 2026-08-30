@@ -1,6 +1,7 @@
 import React, { useEffect, useRef} from 'react';
 import { useBlockStore, EditorBlock, flattenTree } from '@/entities/block/model/store';
 import { useDocumentStore, TabItem } from '@/entities/document/model/store';
+import { useEffectiveTabStore } from '@/entities/document/model/useEffectiveTabStore';
 import { useDebouncedCallback } from '@/shared/lib/useDebouncedCallback';
 import { useWorkspaceStore } from '@/entities/workspace/model/store';
 import { EditorState, Transaction, Compartment } from '@codemirror/state';
@@ -431,8 +432,26 @@ export const BlockEditor: React.FC<{ paneId?: string; tab?: TabItem; isActivePan
   tab,
   isActivePane = true,
 }) => {
-  const currentFile = useDocumentStore(s => s.getCurrentFile());
-  const viewMode = useDocumentStore(s => s.viewMode);
+  // C-2(REF-20260831-01): 이 패널이 그려야 할 문서는 전역 getCurrentFile() 이
+  // 아니라 항상 자기 자신의 tab prop 이다(7-A 와 동일 원칙) — Provider 유무와
+  // 무관하게 이 파생은 그대로 유효하다.
+  const currentFile = tab?.fileEntry ?? null;
+  const effectiveStore = useEffectiveTabStore(tab?.id);
+  const {
+    blocks,
+    activeBlockId,
+    focusOffset,
+    viewMode,
+    mergeBlockWithPrevious,
+    focusBlock,
+    setContent,
+    syncRawContentFromBlocks,
+    getMergedContent,
+    updateBlockContent,
+    setDirty,
+    getFreshBlocks,
+    usingTabStore,
+  } = effectiveStore;
   const { settings } = useSettingsStore();
 
   React.useLayoutEffect(() => {
@@ -444,33 +463,33 @@ export const BlockEditor: React.FC<{ paneId?: string; tab?: TabItem; isActivePan
     }
   }, [viewMode]);
 
-  const blocks = useBlockStore(s => s.blocks);
-  const activeBlockId = useBlockStore(s => s.activeBlockId);
-  const focusOffset = useBlockStore(s => s.focusOffset);
-  const mergeBlockWithPrevious = useBlockStore(s => s.mergeBlockWithPrevious);
-  const focusBlock = useBlockStore(s => s.focusBlock);
-
   const handleFocusMove = React.useCallback((id: string, direction: 'prev' | 'next') => {
-    const flatBlocks = flattenTree(useBlockStore.getState().blocks);
+    const flatBlocks = flattenTree(getFreshBlocks());
     const index = flatBlocks.findIndex(b => b.id === id);
     if (index === -1) return;
-    
+
     if (direction === 'prev' && index > 0) {
       focusBlock(flatBlocks[index - 1].id, flatBlocks[index - 1].content.length);
     } else if (direction === 'next' && index < flatBlocks.length - 1) {
       focusBlock(flatBlocks[index + 1].id, 0);
     }
-  }, [focusBlock]);
+  }, [focusBlock, getFreshBlocks]);
 
-  const ownerTabIdRef = useRef<string>(currentFile?.path ?? '');
+  const ownerTabIdRef = useRef<string>(tab?.id ?? '');
   React.useLayoutEffect(() => {
-    ownerTabIdRef.current = currentFile?.path ?? '';
-  }, [currentFile?.path]);
+    ownerTabIdRef.current = tab?.id ?? '';
+  }, [tab?.id]);
 
   const syncContent = useDebouncedCallback(() => {
-    const bs = useBlockStore.getState();
-    if (bs.ownerTabId !== ownerTabIdRef.current) return;
-    useDocumentStore.getState().updateContentForTab(ownerTabIdRef.current, bs.getMergedContent());
+    // 탭 스코프 경로는 인스턴스 자체가 이미 한 탭 소유이므로 ownerTabId 경합이
+    // 구조적으로 성립하지 않는다 — 전역 경로에서만 소유권 가드가 필요하다.
+    if (usingTabStore) {
+      syncRawContentFromBlocks();
+    } else {
+      const bs = useBlockStore.getState();
+      if (bs.ownerTabId !== ownerTabIdRef.current) return;
+    }
+    useDocumentStore.getState().updateContentForTab(ownerTabIdRef.current, getMergedContent());
   }, 150);
 
   useEffect(() => {
@@ -482,14 +501,11 @@ export const BlockEditor: React.FC<{ paneId?: string; tab?: TabItem; isActivePan
     // 7-A: 비활성 패널은 전역 blockStore 를 절대 쓰지 않는다 — 활성 패널이
     // 편집 중인 문서를 덮어쓰게 되는 것을 막는 것이 이 가드의 목적이다.
     if (!isActivePane) return;
-    const docStore = useDocumentStore.getState();
-    const file = docStore.getCurrentFile();
-    const content = docStore.rawContent;
-    const activeTabForBlocks = docStore.getActiveTab();
-    if (file && activeTabForBlocks && content !== undefined) {
-      useBlockStore.getState().setBlocksFromContent(content, activeTabForBlocks.id);
-      const firstBlock = useBlockStore.getState().blocks[0];
-      if (firstBlock) useBlockStore.getState().focusBlock(firstBlock.id, 0);
+    const content = useDocumentStore.getState().rawContent;
+    if (currentFile && tab && content !== undefined) {
+      setContent(content);
+      const firstBlock = getFreshBlocks()[0];
+      if (firstBlock) focusBlock(firstBlock.id, 0);
     }
   }, [currentFile?.path]);
 
@@ -506,9 +522,8 @@ export const BlockEditor: React.FC<{ paneId?: string; tab?: TabItem; isActivePan
       
       const { workspacePath, config } = useWorkspaceStore.getState();
       if (!workspacePath) return;
-      
-      const { getCurrentFile: getCF } = useDocumentStore.getState();
-      const currentFilePath = getCF()?.path ?? null;
+
+      const currentFilePath = currentFile?.path ?? null;
 
       try {
         const relativePath = await saveImageAssetWithPolicy(
@@ -527,10 +542,12 @@ export const BlockEditor: React.FC<{ paneId?: string; tab?: TabItem; isActivePan
   });
 
   const handleBlockUpdate = (id: string, text: string, cursorOffset: number) => {
-    useDocumentStore.getState().setDirty(true);
+    setDirty(true);
 
-    const state = useBlockStore.getState();
-    
+    // updateBlockContent 로 갱신되기 전 스냅샷 — 렌더 스냅샷(blocks)이 아니라
+    // 항상-최신 값이 필요하다(같은 틱 안에서 이어지는 계산이 이 값을 쓴다).
+    const blocksBeforeUpdate = getFreshBlocks();
+
     // O(N) flattenTree를 피하기 위해, 업데이트 대상 블록의 기존 텍스트만 트리 탐색으로 빠르게 찾음
     let oldContent = '';
     const findOldContent = (nodes: any[]) => {
@@ -540,7 +557,7 @@ export const BlockEditor: React.FC<{ paneId?: string; tab?: TabItem; isActivePan
       }
       return false;
     };
-    findOldContent(state.blocks);
+    findOldContent(blocksBeforeUpdate);
 
     const countHeadings = (content: string) => {
       let count = 0;
@@ -556,20 +573,20 @@ export const BlockEditor: React.FC<{ paneId?: string; tab?: TabItem; isActivePan
     const oldHeadingCount = countHeadings(oldContent);
     const newHeadingCount = countHeadings(text);
 
-    state.updateBlockContent(id, text);
+    updateBlockContent(id, text);
 
     // 헤딩 개수가 변했을 때만 트리 분할(O(N) 리파싱)을 수행
     if (oldHeadingCount !== newHeadingCount) {
-      const currentFlatBlocks = flattenTree(state.blocks);
-      
+      const currentFlatBlocks = flattenTree(blocksBeforeUpdate);
+
       let absoluteCursorPos = cursorOffset;
       for (let b of currentFlatBlocks) {
         if (b.id === id) break;
         absoluteCursorPos += b.content.length + 1;
       }
-      const merged = state.getMergedContent();
-      state.setBlocksFromContent(merged);
-      const nextFlatBlocks = flattenTree(useBlockStore.getState().blocks);
+      const merged = getMergedContent();
+      setContent(merged);
+      const nextFlatBlocks = flattenTree(getFreshBlocks());
 
       let accumulated = 0;
       let targetId = nextFlatBlocks[nextFlatBlocks.length - 1].id;
@@ -592,8 +609,8 @@ export const BlockEditor: React.FC<{ paneId?: string; tab?: TabItem; isActivePan
         accumulated += len + 1;
       }
 
-      state.setBlocksFromContent(merged, ownerTabIdRef.current);
-      state.focusBlock(targetId, targetOffset);
+      setContent(merged);
+      focusBlock(targetId, targetOffset);
       useDocumentStore.getState().updateContentForTab(ownerTabIdRef.current, merged);
     } else {
       syncContent();

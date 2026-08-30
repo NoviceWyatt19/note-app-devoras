@@ -563,7 +563,7 @@ dependencies = [
 
 [[package]]
 name = "devoras"
-version = "0.8.45"
+version = "0.8.46"
 dependencies = [
  "base64 0.23.1",
  "log",
