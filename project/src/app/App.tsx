@@ -94,7 +94,7 @@ function App() {
         <div data-tauri-drag-region className="flex items-center space-x-3">
           <span data-tauri-drag-region className="font-bold text-sm tracking-widest text-primary">DEVORAS</span>
           <span data-tauri-drag-region className="text-[10px] bg-indigo-950 text-indigo-400 border border-indigo-900/60 px-2 py-0.5 rounded font-semibold tracking-wide">
-            MVP
+            Prototype
           </span>
         </div>
         <div data-tauri-drag-region className="text-xs text-mutedText font-medium">
