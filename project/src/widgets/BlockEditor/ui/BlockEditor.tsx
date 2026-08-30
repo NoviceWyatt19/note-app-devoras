@@ -196,16 +196,6 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
         markdownDecorationPlugin,
         codeBlockInteractionPlugin,
         createImeIsolationExtension(),
-        EditorView.domEventHandlers({
-          input(event, view) {
-            const inputEvent = event as InputEvent;
-            if (inputEvent.isComposing) return;
-            callbacksRef.current.onUpdate(
-              view.state.doc.toString(),
-              view.state.selection.main.anchor,
-            );
-          },
-        }),
         EditorView.updateListener.of((update) => {
           if (update.focusChanged && update.view.hasFocus) {
             reportCaretFocus(callbacksRef.current.paneId, callbacksRef.current.blockId);

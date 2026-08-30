@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Devoras",
-  "version": "0.8.32",
+  "version": "0.8.33",
   "identifier": "com.devoras.desktop",
   "build": {
     "frontendDist": "../dist",
