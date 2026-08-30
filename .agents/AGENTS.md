@@ -26,3 +26,12 @@
 - `project/package.json`
 - `project/src-tauri/Cargo.toml`
 - `project/src-tauri/tauri.conf.json`
+
+#### 버전업 예외 (문서 전용 변경)
+**문서만 변경한 커밋은 버전을 올리지 않습니다.** 위 업데이트 대상 파일을 건드리지 않고 그대로 둡니다.
+- 대상: `.md` 문서(`DEBUG_PLAN.md`, `DEBUG_STEP_PLAN.md`, `code_review.md`, `implementation_plan.md`, `README.md`, `.agents/` 규칙 문서 등), `ticket/` 의 티켓 파일, 문서 아카이브 이동(`claude-history/`).
+- 코드·설정 변경이 **한 줄이라도 섞이면** 예외가 아닙니다. 통상대로 패치 버전업을 수행합니다.
+- 커밋 속성은 `chore` 또는 `docs` 성격의 `chore` 를 사용하고, 괄호 안에는 **변경 없이 유지된 현재 버전**을 그대로 적습니다.
+  ```
+  chore(0.8.32): DEBUG_PLAN 갱신 — Step 1~3 사양 수립
+  ```
