@@ -7,6 +7,7 @@ import { EditorState, Transaction, Compartment } from '@codemirror/state';
 import { EditorView, keymap, drawSelection} from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap, indentMore, indentLess } from '@codemirror/commands';
 import { useSettingsStore } from '@/entities/settings/model/store';
+import { computeMinimalChange } from '@/shared/lib/editor/minimalDiff';
 
 const lineWrappingCompartment = new Compartment();
 const editorThemeCompartment = new Compartment();
@@ -249,45 +250,73 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
     };
   }, [paneId, block.id]);
 
-  // 캐럿 복원(아래 useLayoutEffect)은 이 이펙트보다 **먼저** 실행된다
-  // (React 는 모든 layout effect 를 passive effect 보다 앞서 돌린다).
-  // 즉 캐럿은 '아직 교체되지 않은 옛 문서' 위에 놓인 뒤, 여기서 문서가 통째로
-  // 갈리면서 다시 밀려난다. 그래서 selection 을 여기서 **명시적으로 다시 지정**해야 한다.
-  // 이 값을 layout effect 가 아니라 ref 로 읽는 이유는, 그것을 의존성에 넣으면
-  // 내용이 안 바뀐 포커스 이동에도 문서 교체 검사가 도는 낭비가 생기기 때문이다.
-  const focusIntentRef = useRef({ isFocused, focusOffset });
-  useEffect(() => {
-    focusIntentRef.current = { isFocused, focusOffset };
-  });
-
-  useEffect(() => {
+  // ── A1/A2 조정자: 스토어("원하는 상태") → 뷰 반영을 단일 진입점에서 처리한다 ──
+  //
+  // 이전에는 "캐럿 복원"(useLayoutEffect, deps=[isFocused,focusOffset])과 "내용
+  // 동기화"(passive useEffect, deps=[block.content]) 가 따로 있었다. React 는
+  // 모든 layout effect 를 passive effect 보다 먼저 돌리므로, 캐럿이 '아직
+  // 교체되지 않은 옛 문서' 위에 놓인 뒤 문서가 통째로 갈리며 다시 밀려나는 순서
+  // 의존 버그가 반복해서 났다 — 최근 버그 3건이 전부 "무엇을 하는가"가 아니라
+  // "어떤 순서로 선언·등록했는가"에 정확성이 걸려 있었고, 그 순서는 코드 어디에도
+  // 명시되지 않고 주석으로만 방어됐다. 하나의 useLayoutEffect 로 합쳐 그 순서
+  // 의존성 자체를 없앤다: "어떤 순서로 실행되는가"가 주석이 아니라 이 함수
+  // 본문의 문장 순서 그 자체가 된다.
+  //
+  // A2: 이전에는 내용이 다르면 항상 `changes: {from:0, to:len}` 로 문서 전체를
+  // 치환했다 — 커서를 삽입 텍스트 끝으로 밀어내고, undo 입도를 뭉개고, 데코레이션
+  // 위치를 전부 무효화했다. 블록 내용은 대개 한두 글자만 다르므로 공통 접두/접미를
+  // 잘라낸 최소 diff 치환(computeMinimalChange)으로 바꾼다 — 커서·undo·데코레이션이
+  // 자동으로 보존되어 조정 부담 자체가 준다.
+  React.useLayoutEffect(() => {
     const view = viewRef.current;
     if (!view) return;
-    const currentDoc = view.state.doc.toString();
-    if (block.content === currentDoc) return;
 
-    // ⚠️ `changes: { from: 0, to: len }` 는 **문서 전체 치환**이다.
-    //    CodeMirror 는 치환 구간 *안* 에 있던 커서를 삽입된 텍스트의 **끝**으로 보낸다.
-    //    따라서 selection 을 함께 지정하지 않으면 블록 병합(R3) 때마다 캐럿이
-    //    병합 지점이 아니라 블록 맨 끝으로 튄다. (BUG-20260828-02)
-    const nextLength = block.content.length;
-    const intent = focusIntentRef.current;
-    // 이 블록이 포커스 대상이면 스토어의 의도(focusOffset)가 정답이고,
-    // 아니면 이 뷰가 갖고 있던 위치를 그대로 유지하는 것이 정답이다.
-    const desired = intent.isFocused ? intent.focusOffset : view.state.selection.main.anchor;
-    const anchor = Math.min(Math.max(0, desired), nextLength);
+    // IME 이중 가드 — 조합 중에는 diff 도 캐럿 재배치도 하지 않는다. 조합 중
+    // 문서 치환은 Step 2-A 가 막 해소한 한글 입력 붕괴를 되살린다(BUG-20260810-02).
+    if (isImeComposingRef.current || view.composing) return;
+
+    const currentDoc = view.state.doc.toString();
+    const contentChanged = currentDoc !== block.content;
+
+    if (!contentChanged) {
+      // 내용은 그대로 — 포커스/오프셋만 스토어 의도에 맞춘다.
+      if (!isFocused) return;
+      const length = view.state.doc.length;
+      const targetOffset = Math.min(focusOffset, length);
+      const currentAnchor = view.state.selection.main.anchor;
+      if (currentAnchor !== targetOffset) {
+        view.dispatch({
+          selection: { anchor: targetOffset, head: targetOffset },
+          scrollIntoView: false,
+        });
+      }
+      if (!view.hasFocus) view.focus();
+      return;
+    }
+
+    // 내용이 다르다 — 최소 diff 만 치환한다(A2).
+    const change = computeMinimalChange(currentDoc, block.content);
+    const changes = view.state.changes(change);
+
+    // 원하는 caret: 이 블록이 포커스 대상이면 스토어의 focusOffset 이 정답이고,
+    // 아니면 지금 caret 위치를 diff 를 통해 그대로 투영한다 — 변경 구간 밖이면
+    // 위치가 안 바뀐다(전체 치환처럼 매번 문서 끝으로 밀려나지 않는다).
+    const anchor = isFocused
+      ? Math.min(Math.max(0, focusOffset), block.content.length)
+      : changes.mapPos(view.state.selection.main.anchor);
 
     view.dispatch({
-      changes: { from: 0, to: currentDoc.length, insert: block.content },
+      changes: change,
       selection: { anchor, head: anchor },
+      // updateListener 의 external 트랜잭션 배제 규칙이 이 태그로 이 dispatch 를
+      // 걸러낸다 — 없으면 여기서 되돌려 쓴 내용이 다시 onUpdate 로 나가 루프가 된다.
       annotations: [Transaction.userEvent.of('external')],
     });
 
-    // R3 불변식 (A5): 병합 등으로 문서가 통째로 갈릴 때 스토어의 focusOffset 과
-    // 뷰의 실제 caret 이 어긋나면 캐럿이 조용히 사라진다(BUG-20260828-02). 최종 증상
-    // (캐럿 유실)만 보는 게이트로는 원인 도달에 세션 하나가 통째로 들었으므로,
-    // 여기서 중간량을 직접 잰다. 개발 빌드 한정, 실패해도 편집은 막지 않는다.
-    if (import.meta.env.DEV && intent.isFocused) {
+    // R3 불변식 (A5): 병합 등으로 문서가 갈릴 때 스토어의 focusOffset 과 뷰의
+    // 실제 caret 이 어긋나면 캐럿이 조용히 사라진다(BUG-20260828-02). 개발 빌드
+    // 한정, 실패해도 편집을 막지 않는다.
+    if (import.meta.env.DEV && isFocused) {
       const storeFocusOffset = useBlockStore.getState().focusOffset;
       const viewHead = view.state.selection.main.head;
       if (storeFocusOffset !== viewHead) {
@@ -298,33 +327,9 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
       }
     }
 
-    // 병합으로 형제 블록이 언마운트되면 DOM 포커스가 통째로 사라진다.
-    // 아래 캐럿 이펙트는 focusOffset 이 안 바뀌면 다시 돌지 않으므로 여기서 회수한다.
-    // IME 조합 중에는 절대 건드리지 않는다 (BUG-20260810-02).
-    if (intent.isFocused && !view.hasFocus && !view.composing) {
-      view.focus();
-    }
-  }, [block.content]);
-
-  React.useLayoutEffect(() => {
-    const view = viewRef.current;
-    if (!view || !isFocused) return;
-    const length = view.state.doc.length;
-    const targetOffset = Math.min(focusOffset, length);
-    
-    // D-3: dispatch before focus, no scrollIntoView
-    const currentAnchor = view.state.selection.main.anchor;
-    if (currentAnchor !== targetOffset) {
-      view.dispatch({
-        selection: { anchor: targetOffset, head: targetOffset },
-        scrollIntoView: false
-      });
-    }
-
-    if (!view.hasFocus) {
-      view.focus();
-    }
-  }, [isFocused, focusOffset]);
+    // 병합으로 형제 블록이 언마운트되면 DOM 포커스가 통째로 사라진다 — 여기서 회수한다.
+    if (isFocused && !view.hasFocus) view.focus();
+  }, [block.content, isFocused, focusOffset]);
 
   // Remove individual borders/backgrounds here so BlockNode can handle the layout tree.
   return (
