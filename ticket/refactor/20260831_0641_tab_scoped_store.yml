@@ -210,6 +210,28 @@ decisions:
       현재 어떤 하네스도 '저장 버튼의 dirty 표시'와 'viewMode 토글 클릭'을 검사하지 않는다.
       test:t1 · test:paneownership · test:ime 어느 것도 잡지 못한다. C-3 에 이 두 케이스를
       추가할 것 — 없으면 회귀가 사람 눈에만 보인다.
+  - id: "D-6 (2026-08-31) — D-3 정정: MindView isStandalone=true 는 tab prop 대상이 아니다"
+    supersedes: "D-3 의 마지막 문장('MindView 의 isStandalone=true 사용처(:355)도 동일')"
+    raised_by: "project-b8, 코드 근거 제시"
+    verification: "2026-08-31 코드 대조로 확인 — 지적이 전부 정확했다."
+    evidence:
+      - "openTab 의 mindmap-global 분기(store.ts:137-158)는 tabId 를 고정 싱글턴 'global-mindmap' 으로 만들고, 탭 객체에 path·fileEntry·cache 가 없다. 두 갈래 모두 set({ panes }) 만 하고 즉시 return — rawContent/nodes 를 건드리지 않는다."
+      - "_activateTabContent(store.ts:281)는 targetTab.type 이 markdown 또는 erd 이고 fileEntry 가 있을 때만 내용을 채운다. mindmap-global 은 두 조건 모두 불충족이라 블록 전체를 건너뛴다."
+      - "따라서 이 탭은 **자기 내용을 갖지 않는다.** 화면에 보이는 것은 마지막으로 활성화된 실제 문서의 rawContent 를 실시간으로 비추는 것이다."
+    why_d3_was_wrong: >
+      tab prop + useEffectiveTabStore('global-mindmap') 를 주면, 내용이 한 번도 채워지지 않는
+      탭에 스토어를 붙이는 셈이 된다. 최초 활성화 시점의 값으로 시드된 뒤 **영구히 고착**되어
+      실제 문서 편집을 따라가지 않는다. 아키텍처적 흠이 아니라 **명백한 표시 회귀**다.
+    decision: >
+      isStandalone 두 호출부(:245 팝업, :355 탭)를 **동일하게** 처리한다. 둘 다 D-2 의
+      활성 탭 해석(activePaneId → activeTabId → 레지스트리)을 쓴다. 두 호출부의 차이는
+      닫기 버튼 노출 같은 UI 뿐이고 상태 소스는 같다. Provider 마운트는 유지하되 MindView 가
+      내용을 그 Context 에서 읽지는 않는다.
+    lesson: >
+      D-3 은 '탭이면 탭 스코프 스토어를 붙인다' 는 일반 규칙을 기계적으로 적용한 결과였다.
+      **탭이라고 해서 전부 문서를 소유하지는 않는다** — mindmap-global 은 탭 UI 를 빌린
+      뷰포트에 가깝다. 남은 전환 대상에도 같은 질문을 먼저 던질 것: 이 탭은 자기 내용을
+      갖는가, 아니면 남의 내용을 비추는가.
 # ━━━
 open_questions:
   - "동일 파일을 두 패널에 열었을 때 탭 스토어를 공유할 것인가 분리할 것인가. 7-A 는 Stage A 회피책으로 '중복 오픈 시 기존 패널로 포커스 이동'을 택했다. C 단계에서 이 회피를 유지할지, 스토어 공유로 정면 해결할지 판단 필요."
