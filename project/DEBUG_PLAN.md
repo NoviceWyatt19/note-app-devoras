@@ -45,7 +45,7 @@ Step 7  B4 구조 개편 (7-A → 7-B? → 7-C)
 | 2 | ✅ **Step 5** 조정자 일원화 + diff 동기화 | `pnpm test:ime` 5/5 유지 + `test:diff` D1~D8 신설 통과 — 실기 R1~R6 은 사람 손 | `13a7f7e` |
 | 3 | ✅ **Step 6** 프로파일 → 판정 | 판정: 아키텍처 무죄, 배치는 답 아님, 데코레이터 계층이 범인(§4-2) — Step 7 그대로 진행 | 커밋 대기 |
 | 4 | ✅ **Step 7-A** 분할 패널 문서 해석 | T1(`test:paneownership` P1~P5) 통과 — 실기 R5 는 사람 손 | 커밋 대기 |
-| 5 | ⏳ **Step 7-C** 탭 스코프 스토어(REF-20260831-01) — C-1·C-2 완료, C-3~C-5 진행 중 | C-1: 동작 변화 0(회귀 전량 통과) · C-2: `test:paneownership` 5/5 + `test:ime` 5/5 — 실기 R1·R2·R3·R5·R6 은 사람 손(VERIFY_BY_HUMAN.md §8) | C-1 `d8f5545` · C-2 `bd3fabf` |
+| 5 | ⏳ **Step 7-C** 탭 스코프 스토어(REF-20260831-01) — C-1~C-3 완료, C-4~C-5 남음 | C-1: 동작 변화 0 · C-2: `test:paneownership` 5/5 + `test:ime` 5/5 · C-3: Provider 최초 실마운트 + `test:activetab` 12/12 신설 — 실기는 전부 VERIFY_BY_HUMAN.md §8·§9 로 이월 | C-1 `d8f5545` · C-2 `bd3fabf` · C-3 `9a7c82c` |
 
 > **7-B 는 조건부다.** 7-C 를 곧바로 진행하면 REF-02 는 **구조적으로 소멸**한다. 7-C 착수가 확정이면 건너뛴다.
 
@@ -311,8 +311,8 @@ resetBlocks: () => set({ blocks: [], activeBlockId: null, focusOffset: 0, ownerT
 
 - ✅ **C-1 — 스토어 팩토리 + Provider 신설(동작 변화 0)** (`d8f5545`, 0.8.45): `createTabStore(tabId)`(2-패스 매칭 재사용) · `TabDocumentProvider` · `tab_store_isolation_harness.ts`(`test:tabstore`) 신설. 소비자 미연결, 전역 스토어가 계속 권위 유지 — 회귀 테스트 전량 그대로 통과로 확인.
 - ✅ **C-2 — BlockEditor 를 Context 소비자로 전환** (`bd3fabf`, 0.8.46): `useEffectiveTabStore` 어댑터(두 소스 훅을 항상 함께 구독, `usingTabStore` 로 분기, `getFreshBlocks()` 로 즉시-최신 읽기 보존) 신설, `BlockEditor` 의 전역 구독 지점을 전부 이 어댑터로 교체. Provider 를 아직 어디에도 마운트하지 않아 100% 전역 폴백 경로로만 동작 — `tsc --noEmit`·`pnpm build`·`test:t1` 전량·`test:paneownership` 5/5·`test:ime` 5/5 통과. 실기 R1·R2·R3·R5·R6 은 VERIFY_BY_HUMAN.md §8 로 이월.
-- ⏳ **C-3 — 나머지 소비자 전환**: `ReadView`·`MindView`·`ErdDesignerMainView` 를 Provider 소비자로 전환. `TabDocumentProvider` 를 `PaneContainer` 에 실제로 마운트하는 지점이기도 하다(모든 소비자가 준비된 뒤에 한 번에 마운트해 split-brain 방지).
-- ⏳ **C-4 — 전역 싱글턴 제거 + `ownerTabId` 소멸** ⚠️ 되돌리기 지점: C-1~C-3 전부 green 확인 후 착수.
+- ✅ **C-3 — 나머지 소비자 전환 + Provider 실제 마운트** (`9a7c82c`, 0.8.47): 티켓의 C-3 컴포넌트 열거는 예시였을 뿐 전수가 아니었다(계획자 과실, D-4) — `ReadView`·`FormatToolbar`(누락분)·`ErdDesignerMainView`·`MindView`(팝업+전역 탭 2곳)·`WorkspacePage` 상단 툴바(누락분) 까지 전부 grep 으로 확인해 전환. `TabDocumentProvider` 를 `PaneContainer` 에 처음으로 실제 마운트(C-1/C-2 는 Provider 부재로 전역 폴백만 탐 — 이번이 `usingTabStore=true` 최초 성립 지점). `tabStoreRegistry.ts`(tabId→store 조회, editorViewRegistry.ts 선례) + `useActiveTabStoreView`(Context 밖 동적 해석, D-2) 신설. ErdDesignerMainView 전환이 분할 패널 ERD 교차 오염이라는 기존 버그(7-A 가 마크다운만 다뤄 남은 구멍)도 함께 고쳤다(D-3). `test:activetab`(12케이스) 신설로 D-5 test_gap(viewMode 토글·저장 버튼 dirty) 의 밑바탕 로직 커버. 부수 발견: `MindView isStandalone=true` 는 이 티켓 이전부터 `getCurrentFile()` 이 mindmap-global 타입에 항상 null 을 줘 빈 상태만 보여줬다 — 기존 결함, 보존.
+- ⏳ **C-4 — 전역 싱글턴 제거 + `ownerTabId` 소멸** ⚠️ 되돌리기 지점: C-1~C-3 전부 green 확인 후 착수. **C-4 직전 재-grep 필수**(D-4 mandate) — 열거 목록을 믿지 말 것.
 - ⏳ **C-5 — `serialize()`/`hydrate()` 계약 확정 및 문서화**: `advanced_rendering_optimization.md` Phase 2 TTL 언마운터가 참조.
 
 ---
