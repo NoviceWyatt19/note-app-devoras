@@ -1215,7 +1215,7 @@ pub async fn devoras_search_workspace(
 mod search;
 
 .invoke_handler(tauri::generate_handler![
-    save_image_file, read_image_base64, show_main_window, close_splashscreen,
+    devoras_image_save, devoras_set_workspace_root, show_main_window, close_splashscreen,
     search::devoras_search_workspace,  // ✅ 추가
 ])
 ```
@@ -1697,7 +1697,7 @@ mod search;
 
 // invoke_handler에 추가:
 .invoke_handler(tauri::generate_handler![
-    save_image_file, read_image_base64, show_main_window, close_splashscreen,
+    devoras_image_save, devoras_set_workspace_root, show_main_window, close_splashscreen,
     search::devoras_search_workspace,  // ✅ 추가
 ])
 ```
