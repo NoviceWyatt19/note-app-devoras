@@ -42,7 +42,7 @@ Step 7  B4 구조 개편 (7-A → 7-B? → 7-C)
 | 순서 | 작업 | 게이트 | 커밋 |
 |---|---|---|---|
 | 1 | ✅ **Step 4** 헤딩 매칭 2-패스 전환(콘텐츠 키 + 위치 폴백) | T1 K4/K5/K7 통과 + MindView 무변경(회귀 불가) — 실기 undo 확인만 이월 | 커밋 대기 |
-| 2 | **Step 5** 조정자 일원화 + diff 동기화 | R3 불변식 미발화 + R1~R6 | `refactor(x.x.x): 뷰↔스토어 조정자 일원화 (A1/A2)` |
+| 2 | ✅ **Step 5** 조정자 일원화 + diff 동기화 | `pnpm test:ime` 5/5 유지 + `test:diff` D1~D8 신설 통과 — 실기 R1~R6 은 사람 손 | `13a7f7e` |
 | 3 | **Step 6** 프로파일 → 판정 | 아래 §4 결정 게이트 표 판정 기록 | `chore(x.x.x): 마운트 비용 프로파일 결과 (A6)` |
 | 4 | **Step 7-A** 분할 패널 문서 해석 | 탭 바 제목과 본문 일치 + R5 | `fix(x.x.x): 분할 패널 표시 불일치 (P0-3 Stage A-2)` |
 | 5 | **Step 7-C** 탭 스코프 스토어 | R2·R6 + `ownerTabId` 소멸 | `refactor(x.x.x): 탭 스코프 스토어 (REF-01 2단계)` |
@@ -134,6 +134,10 @@ changes: { from: 0, to: currentDoc.length, insert: block.content }
 - 리팩터링 도중 **주석으로만 방어되던 순서 제약을 코드로 승격**한다. 조정자가 단일 진입점이 되면 순서는 주석이 아니라 함수 본문의 문장 순서가 된다.
 
 **[DoD]** R3 불변식 미발화 · 타이핑 중 undo 입도 유지(문자 단위로 뭉개지지 않음) · §6.2 R1~R6 전부 통과 · `pnpm test:ime` 회귀 0건.
+
+**[상태]** ✅ 코드 완료(`13a7f7e`). `BlockEditor.tsx` 의 두 이펙트를 `useLayoutEffect` 하나로 합치고, `shared/lib/editor/minimalDiff.ts` 의 `computeMinimalChange`(공통 접두/접미 절단)로 A2 를 해소했다. IME 이중 가드를 조정자 진입부로 이관하면서 이전에 "캐럿 복원" 이펙트에는 이 가드가 **없었다**는 것도 발견해 — 조합 중 focus/offset prop 변화가 caret 을 강제 이동시킬 수 있는 잠재 구멍이었다 — 균일하게 적용했다. `changes.mapPos()` 로 비포커스 블록의 caret 투영을 클램프 대신 정밀 매핑으로 바꿨다.
+
+검증: `pnpm test:ime` 5/5 수정 전후 동일 · `computeMinimalChange` 전용 T1 하네스(D1~D8, 경계 케이스 포함) 신설·통과 · `pnpm test:t1` 41개 케이스 전부 통과 · `tsc`/`build` clean. **실기(T3) 확인**(실제 한글 IME 연속 입력 체감, undo 입도 체감)은 사람 손 필요 — `VERIFY_BY_HUMAN.md` 로 이월. project-1f 의 코드 리뷰(어서시브 패스) 요청함.
 
 ---
 
