@@ -211,7 +211,25 @@ export const useBlockStore = create<BlockState>((set, get) => ({
         const normalizedParent = info.parentKey ?? 'root';
         const translatedParent = parentKeyTranslation.get(normalizedParent) ?? normalizedParent;
         const groupKey = `${translatedParent}::${info.effectiveLevel}`;
-        const candidate = leftoverOldByGroup.get(groupKey)?.shift();
+        const bucket = leftoverOldByGroup.get(groupKey);
+
+        // Pass 2a: 그룹 안에서 콘텐츠가 완전히 같은 후보를 우선한다(project-1f
+        // 발견 — 부모 리네임과 자식 재정렬이 같은 재파싱에서 동시에 일어나면,
+        // 순서로만 매칭하는 shift() 는 두 자식의 id 를 서로 맞바꿔 버린다:
+        // A1 의 EditorView 가 A2 의 undo 히스토리를 갖게 되는 등, 리마운트보다
+        // 나쁜 실수 연결이 된다. 콘텐츠 일치가 순번보다 강한 증거이므로 먼저 찾는다.
+        // 끝에서 두 번째 줄 이후를 잘라 비교하는 이유: 마지막 블록은 뒤따르는
+        // 빈 줄이 없어 join 시 트레일링 개행이 안 붙는 반면, 같은 블록이 중간
+        // 위치로 옮겨가면 붙는다 — 순수 위치 차이일 뿐인데 다른 문자열이 된다.
+        // Pass 2b: 그래도 못 찾으면(=콘텐츠도 실제로 바뀜) 예전처럼 위치(순번)로 폴백한다.
+        let candidate: { block: EditorBlock; oldKey: string } | undefined;
+        if (bucket) {
+          const normalize = (s: string) => s.replace(/\n+$/, '');
+          const normalizedBlockText = normalize(blockText);
+          const exactIdx = bucket.findIndex((entry) => normalize(entry.block.content) === normalizedBlockText);
+          candidate = exactIdx >= 0 ? bucket.splice(exactIdx, 1)[0] : bucket.shift();
+        }
+
         if (candidate) {
           id = candidate.block.id;
           if (info.key !== candidate.oldKey) {

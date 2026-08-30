@@ -146,4 +146,30 @@ test('Heading Identity Stability (G1 / A7)', async (t) => {
       '자식 A2 도 마찬가지',
     );
   });
+
+  await t.test('K9: 부모 리네임과 자식 재정렬이 한 재파싱에서 동시에 일어나도 id 가 맞바뀌지 않는다', () => {
+    const store = useBlockStore.getState();
+    store.setBlocksFromContent(
+      '## A\n본문\n\n### A1\na1\n\n### A2\na2',
+      'test-tab-g1f',
+    );
+    const before = flattenTree(useBlockStore.getState().blocks);
+    const idA1 = before.find((b) => b.content.startsWith('### A1'))!.id;
+    const idA2 = before.find((b) => b.content.startsWith('### A2'))!.id;
+
+    // 부모 리네임 + 자식 순서 뒤집기를 한 번의 setBlocksFromContent 로 동시에.
+    // (updateBlockContent 를 거치지 않고 바로 재파싱하는 경로 — 외부 파일
+    // 재로드나 undo/redo 로 다른 문서 버전을 복원하는 경우와 같다.)
+    store.setBlocksFromContent(
+      '## A-renamed\n본문\n\n### A2\na2\n\n### A1\na1',
+      'test-tab-g1f',
+    );
+
+    const after = flattenTree(useBlockStore.getState().blocks);
+    // 콘텐츠(a1/a2)로 정체를 확인 — 순서로 판단하면 스왑을 놓친다.
+    const afterA1 = after.find((b) => b.content.includes('a1') && b.content.startsWith('### A1'));
+    const afterA2 = after.find((b) => b.content.includes('a2') && b.content.startsWith('### A2'));
+    assert.strictEqual(afterA1!.id, idA1, 'A1 의 콘텐츠를 담은 블록은 여전히 A1 의 옛 id 를 가져야 한다(맞바뀌면 안 됨)');
+    assert.strictEqual(afterA2!.id, idA2, 'A2 도 마찬가지 — id 가 서로 맞바뀌면 undo 히스토리가 엉뚱한 콘텐츠에 붙는다');
+  });
 });
