@@ -15,7 +15,7 @@ Step 1~3 이 **증상**을 껐다면, 이 배치는 **증상을 계속 만들어
 - **Step 4 (A7)** — ✅ 완료. 렌더 key(`EditorBlock.id`)는 애초에 불투명 토큰이었지만 재파싱 시 매칭이 라벨에 묶여 있어 제목을 고치면 정체성이 바뀌었다. 2-패스 매칭(콘텐츠 키 우선 + 위치 폴백)으로 교체 — 제목 편집·재정렬(드래그앤드롭) 양쪽 다 id 안정.
 - **Step 5 (A1/A2)** — 스토어와 `EditorView` 가 둘 다 권위를 주장하고, 조정을 두 이펙트의 **실행 순서**에 맡긴다. 최근 버그 3건이 전부 이 계열이었다.
 - **Step 6 (A6)** — 마운트 비용이 예산의 **20~58배**이고 **초선형**이다. 프로파일 결과가 아키텍처 재검토의 공식 결정 게이트다.
-- **Step 7 (B4)** — 전역 `blockStore` 를 탭 스코프로 이관한다. `ownerTabId` 스캐폴딩이 여기서 소멸한다.
+- **Step 7 (B4)** — 🔶 진행 중. 7-A(분할 패널 표시 불일치) ✅ 완료, 7-B 건너뜀 결정, 7-C(전역 `blockStore` 를 탭 스코프로 이관 — `ownerTabId` 스캐폴딩이 여기서 소멸) 착수 예정.
 
 ---
 
@@ -44,7 +44,7 @@ Step 7  B4 구조 개편 (7-A → 7-B? → 7-C)
 | 1 | ✅ **Step 4** 헤딩 매칭 2-패스 전환(콘텐츠 키 + 위치 폴백) | T1 K4/K5/K7 통과 + MindView 무변경(회귀 불가) — 실기 undo 확인만 이월 | 커밋 대기 |
 | 2 | ✅ **Step 5** 조정자 일원화 + diff 동기화 | `pnpm test:ime` 5/5 유지 + `test:diff` D1~D8 신설 통과 — 실기 R1~R6 은 사람 손 | `13a7f7e` |
 | 3 | ✅ **Step 6** 프로파일 → 판정 | 판정: 아키텍처 무죄, 배치는 답 아님, 데코레이터 계층이 범인(§4-2) — Step 7 그대로 진행 | 커밋 대기 |
-| 4 | **Step 7-A** 분할 패널 문서 해석 | 탭 바 제목과 본문 일치 + R5 | `fix(x.x.x): 분할 패널 표시 불일치 (P0-3 Stage A-2)` |
+| 4 | ✅ **Step 7-A** 분할 패널 문서 해석 | T1(`test:paneownership` P1~P5) 통과 — 실기 R5 는 사람 손 | 커밋 대기 |
 | 5 | **Step 7-C** 탭 스코프 스토어 | R2·R6 + `ownerTabId` 소멸 | `refactor(x.x.x): 탭 스코프 스토어 (REF-01 2단계)` |
 
 > **7-B 는 조건부다.** 7-C 를 곧바로 진행하면 REF-02 는 **구조적으로 소멸**한다. 7-C 착수가 확정이면 건너뛴다.
@@ -269,6 +269,16 @@ changes: { from: 0, to: currentDoc.length, insert: block.content }
 - 패널 포커스 전환(`setActivePane`) 시 **이전 활성 패널을 먼저 `_snapshotActiveTab()`** 한 뒤 소유권 이전.
 - 동일 파일을 두 패널에 열면 캐시가 갈라지므로 Stage A 에서는 **중복 오픈 시 기존 패널로 포커스 이동**으로 회피.
 
+**[상태]** ✅ 코드 완료. `BlockEditor` 에 `tab`·`isActivePane` prop 추가, 비활성 패널은 `InactivePaneSnapshot`(전역 스토어 미구독, `tab.cache?.rawContent ?? tab.savedContent` 를 `renderBlockToHtml` 로 정적 렌더)만 그린다. `setBlocksFromContent` 이펙트·`useTauriInputManager` 를 `isActivePane` 가드로 막아 비활성 패널이 전역 blockStore 를 절대 쓰지 않게 했다.
+
+**Edge Case 구현 중 3건 추가 발견(리뷰: project-1f)** — `activePaneId` 가 바뀌는 지점이 `setActivePane` 하나가 아니었다:
+1. `closePane` 도 활성 패널을 닫을 때 소유권을 넘기면서 스냅샷이 없었다 — 추가.
+2. `splitPane` 도 새 패널로 활성 소유권을 넘기면서 스냅샷이 없었다 — 추가.
+3. `closeTab`: 활성 패널이 탭 0개로 GC 되어 **이미 자기 탭을 가진 다른 패널**로 소유권이 넘어가는 경우(패널의 마지막 탭을 닫음), 그 다른 패널의 콘텐츠가 전역 `rawContent`/`blockStore` 에 로드되지 않는 세 번째 케이스가 있었다 — `_activateTabContent` 호출 조건에 `newActivePaneId !== activePaneId` 추가.
+4. **(부수 발견)** `closePane` 의 중복 탭 제거 로직이 항상 `mergeTarget`(병합 대상)의 기존 사본을 우선해, 방금 스냅샷으로 최신화한 **닫히는 패널 쪽 캐시가 조용히 버려지는** 문제 — `splitPane` 직후처럼 두 패널이 같은 탭을 복사해 가진 상태에서 재현됨. 닫히는 패널이 활성 패널이었을 때만 그쪽 사본을 우선하도록 수정.
+
+`pane_ownership_harness.ts`(`test:paneownership`) 신설, P1~P5 로 위 4곳 전부 고정: `setActivePane`·`splitPane`·`closePane` 스냅샷, `closeTab` GC 전환, `openTab` 중복 오픈 회피.
+
 ### 5-B. REF-02 / P1-3 — 경계 전환 시 `blockStore` 잔존 *(조건부)*
 
 **[파일 & 라인]** `project/src/entities/workspace/model/store.ts:40, 59` · `project/src/entities/document/model/store.ts:311`
@@ -284,6 +294,8 @@ resetBlocks: () => set({ blocks: [], activeBlockId: null, focusOffset: 0, ownerT
 를 `blockStore` 에 추가하고 `resetDocumentState` 에서 함께 호출(`viewMode: 'write'` 포함).
 
 > ⚠️ **건너뛰기 판단**: 5-C(탭 스코프 스토어)를 곧바로 진행할 계획이면 **REF-02 는 구조적으로 소멸**하므로 건너뛰어도 무방하다. 5-C 착수가 불확실할 때만 5-B 를 먼저 넣는다.
+
+**[결정 — 2026-08-30]** 5-C 착수를 확정한다. **5-B 는 건너뛴다** — `resetBlocks` 를 지금 추가해도 5-C 가 `useBlockStore` 전역 싱글턴 자체를 탭 스코프 컨텍스트로 대체하므로 곧 죽는 코드가 된다.
 
 ### 5-C. REF-01 2단계 / P0-3 Stage B — 탭 스코프 스토어
 
@@ -439,9 +451,9 @@ fix(0.8.39): 헤딩 정체성 분리 (A7)
 
 **Step 7 (B4)**
 
-- [ ] **7-A** 비활성 패널이 자기 탭 문서를 그림 (탭 바 제목과 본문 일치)
-- [ ] **7-A** 비활성 패널 `readOnly` · 패널 전환 시 `_snapshotActiveTab()` 선행
-- [ ] **7-B** 5-C 착수 확정 시 **건너뜀**을 문서에 기록 / 미확정이면 `resetBlocks` 추가
+- [x] **7-A** 비활성 패널이 자기 탭 문서를 그림 (탭 바 제목과 본문 일치) — `InactivePaneSnapshot`
+- [x] **7-A** 비활성 패널 `readOnly` · 패널 전환 시 `_snapshotActiveTab()` 선행(`setActivePane`·`splitPane`·`closePane` 3곳 전부)
+- [x] **7-B** 5-C 착수 확정 — **건너뜀**으로 기록(§5-B)
 - [ ] **7-C** 탭 스코프 스토어 이관 · `ownerTabId` 소스 트리에서 소멸
 - [ ] **7-C** `serialize()` / `hydrate()` 계약 문서화 (Phase 2 TTL 언마운터와 공유)
 
