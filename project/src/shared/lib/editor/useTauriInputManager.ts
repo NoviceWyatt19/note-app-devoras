@@ -1,5 +1,6 @@
 import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
+import { readFile } from '@tauri-apps/plugin-fs';
 /**
  * useTauriInputManager.ts
  *
@@ -118,21 +119,29 @@ export function useTauriInputManager({
     const isEnabled = () => (enabledRef.current ? enabledRef.current() : true);
 
     // ── 공통: 절대 경로 파일을 읽어 커맨드로 변환 ────────────────────────
-    async function dispatchFromFilePath(absPath: string, dropPosition?: { x: number; y: number }): Promise<void> {
+    // `source` 로 읽기 경로를 가른다:
+    //  - 'drop'     : 실제 tauri://drag-drop 이벤트로 들어온 경로. Rust 쪽이 자체
+    //                 DragDrop 윈도우 이벤트로 기록해둔 provenance 와 대조하는
+    //                 devoras_read_dropped_file 커맨드를 쓴다(HOTFIX 2026-08-30 —
+    //                 이전에는 이 검증이 없어 임의 파일 읽기 primitive 였다).
+    //  - 'paste-uri': text/uri-list 붙여넣기. OS 드롭 이벤트가 없어 위 provenance 를
+    //                 세울 수 없으므로, scope 가 그대로 적용되는 plugin-fs readFile 을
+    //                 쓴다 — 워크스페이스 밖 경로는 자연히 forbidden path 로 거부된다.
+    async function dispatchFromFilePath(
+      absPath: string,
+      source: 'drop' | 'paste-uri',
+      dropPosition?: { x: number; y: number },
+    ): Promise<void> {
       const ext = getExtension(absPath);
       if (!isImageExt(ext)) {
         console.log('[TAURI-INPUT] skipping non-image file:', absPath);
         return;
       }
-      console.log('[TAURI-INPUT] reading file from path:', absPath);
+      console.log('[TAURI-INPUT] reading file from path:', absPath, 'via', source);
       try {
-        // L4-scope: fs 플러그인 scope(fs:allow-home-read-recursive)를 제거하면서
-        // 워크스페이스 밖에서 Finder 로 드래그한 이미지가 forbidden path 로 막히는
-        // 회귀가 생겼다. 이 경로는 OS 가 중재하는 드롭 이벤트로 사용자가 명시적으로
-        // 선택한 파일이라 네이티브 다이얼로그와 동급의 신뢰 경계이므로,
-        // devoras_image_save 와 동일하게 scope 를 우회하는 Rust 커맨드로 직접 읽는다.
-        const bytes = await invoke<number[]>('devoras_read_dropped_file', { path: absPath });
-        const data = new Uint8Array(bytes);
+        const data = source === 'drop'
+          ? new Uint8Array(await invoke<number[]>('devoras_read_dropped_file', { path: absPath }))
+          : await readFile(absPath);
         const mimeType = mimeFromExt(ext);
         console.log('[TAURI-INPUT] file read OK, dispatching INSERT_IMAGE', { mimeType, size: data.length });
         await onCommandRef.current({ type: 'INSERT_IMAGE', payload: { data, mimeType, dropPosition, sourcePath: absPath } });
@@ -186,7 +195,7 @@ export function useTauriInputManager({
             for (const absPath of paths) {
               const ext = getExtension(absPath);
               if (isImageExt(ext)) {
-                await dispatchFromFilePath(absPath, position);
+                await dispatchFromFilePath(absPath, 'drop', position);
                 break;
               }
             }
@@ -265,7 +274,7 @@ export function useTauriInputManager({
           for (const uri of uris) {
             if (!uri.startsWith('file://')) continue;
             const absPath = decodeURIComponent(uri.replace(/^file:\/\//, ''));
-            await dispatchFromFilePath(absPath);
+            await dispatchFromFilePath(absPath, 'paste-uri');
             break;
           }
         });

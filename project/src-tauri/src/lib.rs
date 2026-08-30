@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
@@ -5,6 +6,23 @@ use std::sync::Mutex;
 /// 아니라 이 Rust 상태에서 읽는다 — XSS 가 성립하면 invoke 인자는 위조될 수
 /// 있으므로 신뢰 경계를 프론트엔드 쪽에 두지 않는다(BUG-20260826-01 L3).
 struct WorkspaceRoot(Mutex<Option<PathBuf>>);
+
+/// OS 가 실제로 이 창에 드롭한 경로의 집합(canonicalize 된 형태). `devoras_read_dropped_file`
+/// 은 이 안에 있는 경로만 읽는다 — invoke 인자로 넘어온 문자열 자체는 신뢰할 수 없으므로
+/// (BUG-20260826-01 L3 와 동일한 이유), "OS 가 이 창에 드롭했다"는 provenance 를 Rust 쪽
+/// 이벤트 핸들러에서 직접 기록해 신뢰 경계로 삼는다. 한 번 읽히면 제거되는 1회용이다.
+struct DroppedPaths(Mutex<HashSet<PathBuf>>);
+
+/// `path` 를 canonicalize 한 뒤 `dropped` 집합에서 제거하며 멤버십을 확인한다.
+/// 없으면(=OS 드롭 이벤트로 전달된 적 없는 경로) 에러. 순수 함수로 분리해 단위 테스트 가능.
+fn take_dropped_path(dropped: &mut HashSet<PathBuf>, path: &str) -> Result<PathBuf, String> {
+    let canon = std::fs::canonicalize(path).map_err(|e| format!("경로 확인 실패: {}", e))?;
+    if dropped.remove(&canon) {
+        Ok(canon)
+    } else {
+        Err("드롭 이벤트로 전달되지 않은 경로입니다".into())
+    }
+}
 
 /// `path`(또는 아직 존재하지 않으면 그 조상 중 실존하는 가장 가까운 경로)를
 /// canonicalize 하여 `root` 내부인지 검사한다. 심볼릭 링크를 통한 탈출도
@@ -107,16 +125,38 @@ fn devoras_image_save(
     Ok(())
 }
 
-/// Finder 드래그앤드롭 · uri-list 붙여넣기로 넘어온 절대 경로의 파일을 읽는다.
+/// Finder 드래그앤드롭으로 넘어온 절대 경로의 파일을 읽는다.
 ///
 /// L4-scope 에서 `capabilities/default.json` 의 `fs:allow-home-read-recursive` 를
 /// 제거하면서, 워크스페이스 밖에서 드래그한 이미지가 plugin-fs scope 에 막혀
-/// 읽히지 않는 회귀가 생겼다. 이 경로는 OS 가 중재하는 드롭/붙여넣기 이벤트로
-/// 사용자가 명시적으로 선택한 파일이라 네이티브 파일 다이얼로그와 동급의 신뢰
-/// 경계이므로, `devoras_image_save` 와 동일하게 scope 를 우회해 std::fs 로 직접 읽는다.
+/// 읽히지 않는 회귀가 생겼다.
+///
+/// ⚠️ **HOTFIX(2026-08-30)**: 최초 커밋(b5a3bd1)은 `path` 인자를 그대로 `std::fs::read`
+/// 에 넘겨 검증이 전혀 없었다 — webview 의 어떤 JS 든 `invoke('devoras_read_dropped_file',
+/// { path: '~/.ssh/id_rsa' })` 로 임의 파일을 읽을 수 있는, L3/L4 가 닫은 구멍을 그대로
+/// 다시 여는 구멍이었다(project-b1·project-31 두 세션이 각각 독립적으로 지적).
+/// `devoras_image_save` 는 `ensure_inside` 로 워크스페이스 경계를 Rust 쪽에서 검증하므로
+/// scope 우회이면서도 경계는 유지한다 — **동일 패턴이 아니었다.**
+///
+/// 지금은 `DragDropEvent::Drop` 을 Rust 쪽에서 직접 구독해 "OS 가 실제로 이 창에
+/// 드롭한 경로"만 `DroppedPaths` 에 기록하고, 이 커맨드는 그 집합에 있는 경로만
+/// (1회용으로 소비하며) 읽는다. provenance 를 프론트엔드가 아니라 Rust 이벤트
+/// 핸들러에서 직접 확립하므로, invoke 인자로 넘어온 문자열 자체는 신뢰하지 않는다
+/// (BUG-20260826-01 L3 와 동일한 원칙).
+///
+/// uri-list 붙여넣기는 OS 드롭 이벤트가 없어 이 provenance 를 세울 수 없으므로
+/// 이 커맨드를 쓰지 않는다 — `useTauriInputManager.ts` 에서 scope 가 적용되는
+/// `@tauri-apps/plugin-fs` 의 `readFile` 로 별도 처리한다(워크스페이스 밖 경로는
+/// 그쪽에서 자연히 거부된다).
 #[tauri::command]
-fn devoras_read_dropped_file(path: String) -> Result<Vec<u8>, String> {
-    std::fs::read(&path).map_err(|e| format!("파일 읽기 실패 ({}): {}", path, e))
+fn devoras_read_dropped_file(
+    path: String,
+    dropped: tauri::State<DroppedPaths>,
+) -> Result<Vec<u8>, String> {
+    let mut set = dropped.0.lock().map_err(|e| e.to_string())?;
+    let canon = take_dropped_path(&mut set, &path)?;
+    drop(set);
+    std::fs::read(&canon).map_err(|e| format!("파일 읽기 실패 ({:?}): {}", canon, e))
 }
 
 #[cfg(test)]
@@ -191,6 +231,43 @@ mod tests {
         let root = PathBuf::from("/definitely/does/not/exist/devoras_test");
         assert!(ensure_inside(&root, "/tmp/pic.png").is_err());
     }
+
+    #[test]
+    fn take_dropped_path_rejects_path_never_dropped() {
+        let root = tempdir();
+        let target = root.join("never_dropped.png");
+        std::fs::write(&target, b"x").unwrap();
+        let mut dropped = HashSet::new();
+        // devoras_read_dropped_file 의 hotfix 대상 시나리오: invoke 를 직접 호출해
+        // 드롭된 적 없는 임의 경로(예: ~/.ssh/id_rsa)를 읽으려는 시도는 거부되어야 한다.
+        assert!(take_dropped_path(&mut dropped, target.to_str().unwrap()).is_err());
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn take_dropped_path_allows_and_consumes_dropped_path() {
+        let root = tempdir();
+        let target = root.join("dropped.png");
+        std::fs::write(&target, b"x").unwrap();
+        let canon = std::fs::canonicalize(&target).unwrap();
+
+        let mut dropped = HashSet::new();
+        dropped.insert(canon.clone());
+
+        assert_eq!(
+            take_dropped_path(&mut dropped, target.to_str().unwrap()).unwrap(),
+            canon
+        );
+        // 1회용: 같은 경로를 두 번째로 읽으려 하면 거부된다.
+        assert!(take_dropped_path(&mut dropped, target.to_str().unwrap()).is_err());
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn take_dropped_path_rejects_nonexistent_path() {
+        let mut dropped = HashSet::new();
+        assert!(take_dropped_path(&mut dropped, "/definitely/does/not/exist/devoras_test.png").is_err());
+    }
 }
 
 
@@ -223,11 +300,27 @@ fn show_main_window(window: tauri::Window) -> Result<(), String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+  use tauri::Manager;
+
   tauri::Builder::default()
     .plugin(tauri_plugin_fs::init())
     .plugin(tauri_plugin_dialog::init())
     .plugin(tauri_plugin_shell::init())
     .manage(WorkspaceRoot(Mutex::new(None)))
+    .manage(DroppedPaths(Mutex::new(HashSet::new())))
+    // devoras_read_dropped_file 의 provenance 근거: OS 가 실제로 이 창에 드롭한 경로만
+    // 여기서 기록한다. invoke 인자로 넘어온 문자열은 이 기록과 대조하기 전까진 신뢰하지 않는다.
+    .on_window_event(|window, event| {
+      if let tauri::WindowEvent::DragDrop(tauri::DragDropEvent::Drop { paths, .. }) = event {
+        let state = window.state::<DroppedPaths>();
+        let Ok(mut set) = state.0.lock() else { return };
+        for p in paths {
+          if let Ok(canon) = std::fs::canonicalize(p) {
+            set.insert(canon);
+          }
+        }
+      }
+    })
     .invoke_handler(tauri::generate_handler![
       devoras_image_save,
       devoras_set_workspace_root,
