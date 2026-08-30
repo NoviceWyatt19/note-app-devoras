@@ -1,5 +1,5 @@
 import { listen } from '@tauri-apps/api/event';
-import { readFile } from '@tauri-apps/plugin-fs';
+import { invoke } from '@tauri-apps/api/core';
 /**
  * useTauriInputManager.ts
  *
@@ -126,7 +126,13 @@ export function useTauriInputManager({
       }
       console.log('[TAURI-INPUT] reading file from path:', absPath);
       try {
-        const data = await readFile(absPath);
+        // L4-scope: fs 플러그인 scope(fs:allow-home-read-recursive)를 제거하면서
+        // 워크스페이스 밖에서 Finder 로 드래그한 이미지가 forbidden path 로 막히는
+        // 회귀가 생겼다. 이 경로는 OS 가 중재하는 드롭 이벤트로 사용자가 명시적으로
+        // 선택한 파일이라 네이티브 다이얼로그와 동급의 신뢰 경계이므로,
+        // devoras_image_save 와 동일하게 scope 를 우회하는 Rust 커맨드로 직접 읽는다.
+        const bytes = await invoke<number[]>('devoras_read_dropped_file', { path: absPath });
+        const data = new Uint8Array(bytes);
         const mimeType = mimeFromExt(ext);
         console.log('[TAURI-INPUT] file read OK, dispatching INSERT_IMAGE', { mimeType, size: data.length });
         await onCommandRef.current({ type: 'INSERT_IMAGE', payload: { data, mimeType, dropPosition, sourcePath: absPath } });

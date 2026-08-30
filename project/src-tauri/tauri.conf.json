@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Devoras",
-  "version": "0.8.34",
+  "version": "0.8.35",
   "identifier": "com.devoras.desktop",
   "build": {
     "frontendDist": "../dist",
@@ -42,9 +42,7 @@
       "assetProtocol": {
         "enable": true,
         "scope": {
-          "allow": [
-            "**"
-          ],
+          "allow": [],
           "deny": [
             "$HOME/.ssh/**",
             "$HOME/.aws/**",

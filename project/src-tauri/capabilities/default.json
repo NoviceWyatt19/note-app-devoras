@@ -16,8 +16,6 @@
     "fs:allow-exists",
     "fs:allow-remove",
     "fs:allow-rename",
-    "fs:allow-home-read-recursive",
-    "fs:allow-home-write-recursive",
     "dialog:default",
     "dialog:allow-open",
     "dialog:allow-save",

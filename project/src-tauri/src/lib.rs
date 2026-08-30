@@ -36,12 +36,32 @@ fn ensure_inside(root: &Path, path: &str) -> Result<PathBuf, String> {
 
 /// 워크스페이스를 열 때(혹은 전환할 때) 프론트엔드가 호출해 Rust 쪽 신뢰 경계를
 /// 갱신하는 커맨드. `devoras_image_save` 는 이 상태만 신뢰하고 검증한다.
+///
+/// L4-scope: `tauri.conf.json` 의 `assetProtocol.scope.allow` 에서 `"**"` 를 제거한 대신,
+/// 여기서 워크스페이스 루트를 asset protocol scope 와 fs 플러그인 scope 양쪽에 동적으로
+/// 허용한다. 두 scope 는 append-only(제거 API 없음)라 이전 세션에서 연 워크스페이스도
+/// 계속 허용된 채로 남지만, 그래도 파일시스템 전체(`**`)보다는 압도적으로 좁다.
+/// deny 목록(.ssh/.aws/.gnupg/.config/.env*)은 이 허용보다 항상 우선한다.
 #[tauri::command]
-fn devoras_set_workspace_root(path: String, state: tauri::State<WorkspaceRoot>) -> Result<(), String> {
+fn devoras_set_workspace_root(
+    path: String,
+    app: tauri::AppHandle,
+    state: tauri::State<WorkspaceRoot>,
+) -> Result<(), String> {
+    use tauri::Manager;
+    use tauri_plugin_fs::FsExt;
+
     let root = PathBuf::from(&path);
     if !root.is_dir() {
         return Err(format!("워크스페이스 경로가 유효한 디렉터리가 아닙니다: {}", path));
     }
+
+    app.asset_protocol_scope()
+        .allow_directory(&root, true)
+        .map_err(|e| format!("asset scope 허용 실패: {}", e))?;
+    app.fs_scope()
+        .allow_directory(&root, true)
+        .map_err(|e| format!("fs scope 허용 실패: {}", e))?;
 
     let mut guard = state.0.lock().map_err(|e| e.to_string())?;
     *guard = Some(root);
@@ -85,6 +105,18 @@ fn devoras_image_save(
         .map_err(|e| format!("파일 쓰기 실패 ({:?}): {}", file_path, e))?;
 
     Ok(())
+}
+
+/// Finder 드래그앤드롭 · uri-list 붙여넣기로 넘어온 절대 경로의 파일을 읽는다.
+///
+/// L4-scope 에서 `capabilities/default.json` 의 `fs:allow-home-read-recursive` 를
+/// 제거하면서, 워크스페이스 밖에서 드래그한 이미지가 plugin-fs scope 에 막혀
+/// 읽히지 않는 회귀가 생겼다. 이 경로는 OS 가 중재하는 드롭/붙여넣기 이벤트로
+/// 사용자가 명시적으로 선택한 파일이라 네이티브 파일 다이얼로그와 동급의 신뢰
+/// 경계이므로, `devoras_image_save` 와 동일하게 scope 를 우회해 std::fs 로 직접 읽는다.
+#[tauri::command]
+fn devoras_read_dropped_file(path: String) -> Result<Vec<u8>, String> {
+    std::fs::read(&path).map_err(|e| format!("파일 읽기 실패 ({}): {}", path, e))
 }
 
 #[cfg(test)]
@@ -199,6 +231,7 @@ pub fn run() {
     .invoke_handler(tauri::generate_handler![
       devoras_image_save,
       devoras_set_workspace_root,
+      devoras_read_dropped_file,
       show_main_window,
       close_splashscreen
     ])

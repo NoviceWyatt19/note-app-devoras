@@ -31,12 +31,14 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     try {
       const selectedPath = await fileSystemRepository.openDirectory();
       if (selectedPath && selectedPath !== get().workspacePath) {
-        set({ isLoading: true, files: [], workspacePath: selectedPath });
-        // BUG-20260826-01 L3: devoras_image_save 가 신뢰하는 Rust 쪽 워크스페이스
-        // 루트도 함께 갱신한다. 실패해도 워크스페이스 탐색 자체는 계속 진행한다.
-        fileSystemRepository.setWorkspaceRoot(selectedPath).catch((e) =>
+        // BUG-20260826-01 L3 / L4-scope: devoras_image_save 가 신뢰하는 워크스페이스
+        // 루트를 갱신하고, asset/fs scope 에도 이 루트를 동적으로 허용한다. 이 호출이
+        // 끝나기 전에 scanWorkspace 의 readDirectory 가 실행되면 scope 축소 이후
+        // "forbidden path" 로 실패할 수 있으므로 반드시 먼저 완료를 기다린다.
+        await fileSystemRepository.setWorkspaceRoot(selectedPath).catch((e) =>
           console.error('Failed to sync workspace root to Rust state:', e),
         );
+        set({ isLoading: true, files: [], workspacePath: selectedPath });
         useDocumentStore.getState().resetDocumentState();
         await get().scanWorkspace();
       }
@@ -49,13 +51,12 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   openWorkspaceByPath: async (path: string) => {
     if (path === get().workspacePath) return;
     try {
-      // path의 유효성을 검사하기 위해 얉은 스캔을 먼저 해볼 수도 있지만, 
-      // 실패시 catch로 넘어가도록 fileSystemRepository.readDirectory를 체크할 수 있음.
-      await fileSystemRepository.readDirectory(path); // 폴더가 존재하는지 확인
+      // devoras_set_workspace_root 가 디렉터리 존재 여부를 검증하고, 성공 시 이 루트를
+      // asset/fs scope 에 동적으로 허용한다. 이전에는 readDirectory 로 먼저 존재를
+      // 확인했지만, scope 축소 이후에는 그 호출 자체가 허용 전이라 실패할 수 있어
+      // 순서를 뒤집는다 — 이 호출의 성공/실패가 곧 존재 확인이다.
+      await fileSystemRepository.setWorkspaceRoot(path);
       set({ isLoading: true, files: [], workspacePath: path });
-      fileSystemRepository.setWorkspaceRoot(path).catch((e) =>
-        console.error('Failed to sync workspace root to Rust state:', e),
-      );
       useDocumentStore.getState().resetDocumentState();
       await get().scanWorkspace();
     } catch (e) {
