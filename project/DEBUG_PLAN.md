@@ -91,7 +91,9 @@ Step 7  B4 구조 개편 (7-A → 7-B? → 7-C)
 
 **[DoD]** 제목 변경 → 헤딩 추가/삭제 시나리오에서 편집 중이던 블록의 `EditorView` **인스턴스 동일성 유지**(아래 §9.2 G1 계측 + T1 `block_key_stability_harness.ts` K4/K5 로 측정) · undo 히스토리 보존(뷰 인스턴스가 파괴되지 않으므로 구조적으로 보존 — 실기 확인은 사람 손) · MindView 링크 회귀 0건(코드 무변경으로 충족) · **재정렬 안정성**(K7, 이번에 추가로 발견한 요구사항) 회귀 0건.
 
-**[상태]** ✅ 코드 완료(`entities/block/model/store.ts`, `shared/lib/headingId.ts` 무변경, `widgets/BlockEditor/ui/BlockEditor.tsx` G1 로그 추가). T1 `test:blockkey` K1~K8 전부 통과(`ff3912d`).
+**[상태]** ✅ 코드 완료(`entities/block/model/store.ts`, `shared/lib/headingId.ts` 무변경, `widgets/BlockEditor/ui/BlockEditor.tsx` G1 로그 추가). T1 `test:blockkey` K1~K9 전부 통과(`ff3912d`, `2572292`).
+
+**[id 스왑 케이스 — project-1f 발견, 같은 사이클 안에서 수정]** K8 수정을 검증하며 부모 리네임 + 자식 재정렬이 **한 재파싱 안에서 동시에** 일어나는 경우(일반 타이핑 경로가 아니라 외부 파일 재로드·undo/redo 복원·프로그램적 content 설정)를 발견 — 두 자식 모두 pass 1 을 놓치고 pass 2 의 순번 매칭이 서로 자리를 바꿔 **id 가 맞바뀐다**(리마운트보다 나쁘다 — undo 히스토리가 엉뚱한 콘텐츠에 붙는다). pass 2 를 2a(그룹 내 콘텐츠 완전 일치 우선)/2b(그래도 없으면 순번 폴백)로 나눠 해소. K9 로 고정.
 
 **[중첩 케이스 — project-1f 발견, 같은 커밋 사이클 안에서 수정]** 2-패스 매칭을 실제로 돌려보니 부모 헤딩만 리네임해도 **자식 헤딩들**은 pass 1(조상경로에 옛 라벨이 남음)·pass 2(부모 그룹키가 새 라벨) 양쪽 다 놓쳐 undo 를 잃는 게 확인됐다 — 부모 자신은 보존되지만 A7 증상이 한 단계 아래에서 그대로 살아 있었던 것. `deriveKeysWithParentStack` 이 문서 순서로 훑어 부모가 항상 자식보다 먼저 처리된다는 점을 이용해, pass 2 가 부모를 매칭하는 순간 "새 부모키 → 옛 부모키" 번역(`parentKeyTranslation`)을 기록하고 자식의 그룹키 조회 전에 거치도록 했다(정방향 1패스, fixpoint 불필요). K8 로 고정.
 
