@@ -26,6 +26,15 @@ export interface TabStoreSnapshot {
   viewMode: 'write' | 'read';
   activeBlockId: string | null;
   focusOffset: number;
+  /**
+   * BUG-20260831-01 — `focusOffset` 은 "지금 캐럿이 여기 있다"는 상태가 아니라
+   * "캐럿을 여기로 옮겨라"는 명령이다. 명령이 실제로 발행됐을 때만 단조
+   * 증가한다(같은 오프셋으로 다시 명령해도 반드시 증가 — 병합이 이미 있는
+   * 위치로 "다시" 옮기라고 요청하는 경우가 있다). CodeMirror↔store 조정자는
+   * 이 값이 자기가 마지막으로 반영한 값과 다를 때만 focusOffset 을 적용한다 —
+   * 일반 타이핑 중에는(이 값이 안 바뀌므로) 뷰 자신의 캐럿을 그대로 신뢰한다.
+   */
+  focusToken: number;
 }
 
 export interface TabStoreState extends TabStoreSnapshot {
@@ -74,6 +83,7 @@ export function createTabStore(tabId: string, initialContent = '', initialNodes?
     viewMode: 'write',
     activeBlockId: null,
     focusOffset: 0,
+    focusToken: 0,
 
     setContent: (content) => {
       const blocks = resolveBlocksFromContent(content, get().blocks);
@@ -129,10 +139,16 @@ export function createTabStore(tabId: string, initialContent = '', initialNodes?
       // 블록의 id 는 라벨에서 파생되는 매칭을 거치므로 재생성 시 바뀔 수 있다.
       // 재생성 후 "위치"로 재조회한다(A7 의 부분 완화, 방어적으로 유지).
       const rebuilt = flattenTree(get().blocks);
-      set({ activeBlockId: rebuilt[index - 1]?.id ?? null, focusOffset });
+      // focusToken 을 여기서도 올려야 한다 — focusBlock() 을 거치지 않고 직접
+      // activeBlockId/focusOffset 을 쓰는 유일한 다른 경로라, 안 올리면 병합
+      // 직후 조정자가 "새 명령 없음"으로 오판해 캐럿을 안 옮긴다(BUG-20260828-02 재발).
+      set((s) => ({ activeBlockId: rebuilt[index - 1]?.id ?? null, focusOffset, focusToken: s.focusToken + 1 }));
     },
 
-    focusBlock: (id, offset = 0) => set({ activeBlockId: id, focusOffset: offset }),
+    // BUG-20260831-01: 오프셋이 이전과 같아도 반드시 올린다 — "이미 있는 위치로
+    // 다시 옮겨라"도 유효한 명령이다(예: 병합이 같은 지점을 다시 요청하는 경우).
+    // 값이 바뀌었는지로 게이팅하면 그 케이스를 조용히 삼킨다.
+    focusBlock: (id, offset = 0) => set((s) => ({ activeBlockId: id, focusOffset: offset, focusToken: s.focusToken + 1 })),
 
     reorderBlocks: (fromIndex, toIndex) => {
       const flat = flattenTree(get().blocks);
@@ -168,8 +184,8 @@ export function createTabStore(tabId: string, initialContent = '', initialNodes?
     toggleViewMode: () => set((s) => ({ viewMode: s.viewMode === 'write' ? 'read' : 'write' })),
 
     serialize: () => {
-      const { tabId: id, rawContent, blocks, nodes, isDirty, viewMode, activeBlockId, focusOffset } = get();
-      return { tabId: id, rawContent, blocks, nodes, isDirty, viewMode, activeBlockId, focusOffset };
+      const { tabId: id, rawContent, blocks, nodes, isDirty, viewMode, activeBlockId, focusOffset, focusToken } = get();
+      return { tabId: id, rawContent, blocks, nodes, isDirty, viewMode, activeBlockId, focusOffset, focusToken };
     },
 
     hydrate: (snapshot) => {

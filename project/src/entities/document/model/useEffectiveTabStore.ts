@@ -23,6 +23,8 @@ export interface EffectiveTabStore {
   viewMode: 'write' | 'read';
   activeBlockId: string | null;
   focusOffset: number;
+  /** BUG-20260831-01 — focusOffset 이 "명령"인지 판정하는 토큰. CodeMirrorBlock 조정자 전용. */
+  focusToken: number;
   /** 디스크/외부에서 읽은 원문으로 blocks 를 재계산한다(구조적 변경 경로). */
   setContent: (content: string) => void;
   /** ERD 탭 전용 — 마크다운 재파싱 없이 rawContent 만 교체한다. */
@@ -57,6 +59,7 @@ export function useEffectiveTabStore(): EffectiveTabStore {
   const viewMode = tabApi((s) => s.viewMode);
   const activeBlockId = tabApi((s) => s.activeBlockId);
   const focusOffset = tabApi((s) => s.focusOffset);
+  const focusToken = tabApi((s) => s.focusToken);
 
   return {
     rawContent,
@@ -66,6 +69,7 @@ export function useEffectiveTabStore(): EffectiveTabStore {
     viewMode,
     activeBlockId,
     focusOffset,
+    focusToken,
     setContent: (content) => tabApi.getState().setContent(content),
     setRawContent: (content) => tabApi.getState().setRawContent(content),
     syncRawContentFromBlocks: () => tabApi.getState().syncRawContentFromBlocks(),

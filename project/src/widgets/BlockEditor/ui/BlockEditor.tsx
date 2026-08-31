@@ -9,6 +9,7 @@ import { EditorView, keymap, drawSelection} from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap, indentMore, indentLess } from '@codemirror/commands';
 import { useSettingsStore } from '@/entities/settings/model/store';
 import { computeMinimalChange } from '@/shared/lib/editor/minimalDiff';
+import { decideCaretAction } from '@/shared/lib/editor/caretCoordinator';
 
 const lineWrappingCompartment = new Compartment();
 const editorThemeCompartment = new Compartment();
@@ -74,6 +75,8 @@ interface CodeMirrorBlockProps {
   block: EditorBlock;
   isFocused: boolean;
   focusOffset: number;
+  /** BUG-20260831-01 — focusOffset 이 새 캐럿 명령인지 판정하는 토큰. */
+  focusToken: number;
   onUpdate: (content: string, cursorOffset: number) => void;
   onMerge: () => void;
   onFocusPrev: () => void;
@@ -107,6 +110,7 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
   block,
   isFocused,
   focusOffset,
+  focusToken,
   onUpdate,
   onMerge,
   onFocusPrev,
@@ -115,6 +119,11 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const callbacksRef = useRef({ onFocusPrev, onFocusNext, onMerge, onUpdate, paneId, blockId: block.id });
+  // BUG-20260831-01 — 이 블록 인스턴스가 마지막으로 "반영한" 캐럿 명령의 토큰.
+  // 마운트 시점의 focusToken 으로 시작한다: EditorState.create(아래)가 이미
+  // 그 시점의 focusOffset 으로 초기 캐럿을 심어 두므로, 조정자가 첫 실행에서
+  // 그걸 "새 명령"으로 오판해 또 옮기지 않게 한다.
+  const consumedFocusTokenRef = useRef(focusToken);
 
   const { settings } = useSettingsStore();
 
@@ -280,16 +289,41 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
     const contentChanged = currentDoc !== block.content;
 
     if (!contentChanged) {
-      // 내용은 그대로 — 포커스/오프셋만 스토어 의도에 맞춘다.
+      // 내용은 그대로 — 새 캐럿 명령이 있을 때만 반영한다. BUG-20260831-01:
+      // focusOffset 을 매 렌더 캐럿 정답으로 취급하면(옛 코드) 일반 타이핑
+      // 중에도 뷰의 캐럿을 낡은 값으로 되돌려 버린다 — 판정은 caretCoordinator.ts 참고.
       if (!isFocused) return;
-      const length = view.state.doc.length;
-      const targetOffset = Math.min(focusOffset, length);
-      const currentAnchor = view.state.selection.main.anchor;
-      if (currentAnchor !== targetOffset) {
+      const decision = decideCaretAction({
+        contentChanged: false,
+        isFocused,
+        focusToken,
+        consumedFocusToken: consumedFocusTokenRef.current,
+        focusOffset,
+        mappedAnchor: 0, // contentChanged=false 분기에서는 안 쓰인다
+        maxOffset: view.state.doc.length,
+      });
+
+      if (decision.type === 'apply') {
         view.dispatch({
-          selection: { anchor: targetOffset, head: targetOffset },
+          selection: { anchor: decision.anchor, head: decision.anchor },
           scrollIntoView: false,
         });
+        consumedFocusTokenRef.current = focusToken;
+
+        // R3 불변식 (A5, 위치 재조정): 방금 디스패치한 캐럿 명령이 실제로
+        // 반영됐는지 확인한다. 병합 등으로 문서가 갈릴 때 캐럿이 조용히
+        // 사라지는 걸 잡는다(BUG-20260828-02). 개발 빌드 한정, 실패해도
+        // 편집을 막지 않는다. 새 명령이 없는 일반 타이핑 경로에서는
+        // decision.type 이 'skip' 이라 이 분기에 들어오지 않는다 — 그게 이 수정의 핵심이다.
+        if (import.meta.env.DEV) {
+          const viewHead = view.state.selection.main.head;
+          if (decision.anchor !== viewHead) {
+            console.error(
+              `[R3 불변식 위반] 캐럿 명령(anchor=${decision.anchor}) 이 반영되지 않음 — view.selection.main.head=${viewHead}`,
+              new Error().stack,
+            );
+          }
+        }
       }
       if (!view.hasFocus) view.focus();
       return;
@@ -298,13 +332,25 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
     // 내용이 다르다 — 최소 diff 만 치환한다(A2).
     const change = computeMinimalChange(currentDoc, block.content);
     const changes = view.state.changes(change);
+    const mappedAnchor = changes.mapPos(view.state.selection.main.anchor);
 
-    // 원하는 caret: 이 블록이 포커스 대상이면 스토어의 focusOffset 이 정답이고,
-    // 아니면 지금 caret 위치를 diff 를 통해 그대로 투영한다 — 변경 구간 밖이면
+    // 원하는 caret: 새 캐럿 명령이 있을 때만 스토어의 focusOffset 을 쓴다.
+    // 없으면(디바운스 동기화·형제 블록 갱신·헤딩 재분할 등 단순 콘텐츠 갱신)
+    // 지금 caret 위치를 diff 를 통해 그대로 투영한다 — 변경 구간 밖이면
     // 위치가 안 바뀐다(전체 치환처럼 매번 문서 끝으로 밀려나지 않는다).
-    const anchor = isFocused
-      ? Math.min(Math.max(0, focusOffset), block.content.length)
-      : changes.mapPos(view.state.selection.main.anchor);
+    // isFocused 만으로 분기하던 이전 코드가 바로 위 !contentChanged 분기와
+    // 같은 결함을 여기 갖고 있었다 — 판정은 두 분기 모두 같은 caretCoordinator.ts 로 통일했다.
+    const decision = decideCaretAction({
+      contentChanged: true,
+      isFocused,
+      focusToken,
+      consumedFocusToken: consumedFocusTokenRef.current,
+      focusOffset,
+      mappedAnchor,
+      maxOffset: block.content.length,
+    });
+    // contentChanged=true 분기는 decideCaretAction 이 항상 'apply' 를 돌려준다(치환은 캐럿 판단과 무관하게 필요).
+    const anchor = decision.type === 'apply' ? decision.anchor : mappedAnchor;
 
     view.dispatch({
       changes: change,
@@ -314,14 +360,19 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
       annotations: [Transaction.userEvent.of('external')],
     });
 
-    // R3 불변식 (A5): 병합 등으로 문서가 갈릴 때 스토어의 focusOffset 과 뷰의
-    // 실제 caret 이 어긋나면 캐럿이 조용히 사라진다(BUG-20260828-02). 개발 빌드
-    // 한정, 실패해도 편집을 막지 않는다.
-    if (import.meta.env.DEV && isFocused) {
+    const consumedFreshCommand = decision.type === 'apply' && decision.consumedFreshCommand;
+    if (consumedFreshCommand) {
+      consumedFocusTokenRef.current = focusToken;
+    }
+
+    // R3 불변식 (A5): 새 캐럿 명령을 반영했을 때만 검사한다 — 병합 등으로
+    // 문서가 갈릴 때 캐럿이 조용히 사라지는 걸 잡는다(BUG-20260828-02).
+    // 개발 빌드 한정, 실패해도 편집을 막지 않는다.
+    if (import.meta.env.DEV && consumedFreshCommand) {
       const viewHead = view.state.selection.main.head;
-      if (focusOffset !== viewHead) {
+      if (anchor !== viewHead) {
         console.error(
-          `[R3 불변식 위반] store.focusOffset(${focusOffset}) !== view.selection.main.head(${viewHead})`,
+          `[R3 불변식 위반] 캐럿 명령(anchor=${anchor}) 이 반영되지 않음 — view.selection.main.head=${viewHead}`,
           new Error().stack,
         );
       }
@@ -329,7 +380,7 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
 
     // 병합으로 형제 블록이 언마운트되면 DOM 포커스가 통째로 사라진다 — 여기서 회수한다.
     if (isFocused && !view.hasFocus) view.focus();
-  }, [block.content, isFocused, focusOffset]);
+  }, [block.content, isFocused, focusOffset, focusToken]);
 
   // Remove individual borders/backgrounds here so BlockNode can handle the layout tree.
   return (
@@ -349,11 +400,12 @@ const BlockNode = React.memo<{
   block: EditorBlock;
   activeBlockId: string | null;
   focusOffset: number;
+  focusToken: number;
   handleBlockUpdate: (id: string, text: string, cursorOffset: number) => void;
   handleMerge: (id: string) => void;
   focusBlock: (id: string, offset?: number) => void;
   handleFocusMove: (id: string, direction: 'prev' | 'next') => void;
-}>(({ paneId, block, activeBlockId, focusOffset, handleBlockUpdate, handleMerge, focusBlock, handleFocusMove }) => {
+}>(({ paneId, block, activeBlockId, focusOffset, focusToken, handleBlockUpdate, handleMerge, focusBlock, handleFocusMove }) => {
   
   const getLevelStyles = (level: number) => {
     switch(level) {
@@ -378,6 +430,7 @@ const BlockNode = React.memo<{
           block={block}
           isFocused={isFocused}
           focusOffset={focusOffset}
+          focusToken={focusToken}
           onUpdate={(text, offset) => handleBlockUpdate(block.id, text, offset)}
           onMerge={() => handleMerge(block.id)}
           onFocusPrev={() => handleFocusMove(block.id, 'prev')}
@@ -393,6 +446,7 @@ const BlockNode = React.memo<{
               block={child}
               activeBlockId={activeBlockId}
               focusOffset={focusOffset}
+              focusToken={focusToken}
               handleBlockUpdate={handleBlockUpdate}
               handleMerge={handleMerge}
               focusBlock={focusBlock}
@@ -441,6 +495,7 @@ export const BlockEditor: React.FC<{ paneId?: string; tab?: TabItem; isActivePan
     blocks,
     activeBlockId,
     focusOffset,
+    focusToken,
     viewMode,
     mergeBlockWithPrevious,
     focusBlock,
@@ -674,6 +729,7 @@ export const BlockEditor: React.FC<{ paneId?: string; tab?: TabItem; isActivePan
                 block={rootBlock}
                 activeBlockId={activeBlockId}
                 focusOffset={focusOffset}
+                focusToken={focusToken}
                 handleBlockUpdate={handleBlockUpdate}
                 handleMerge={handleMerge}
                 focusBlock={focusBlock}
