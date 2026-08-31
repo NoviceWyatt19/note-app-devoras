@@ -8,14 +8,20 @@
  * DoD: **탭 노란 점 표시가 실제 디스크 반영 여부와 항상 일치**해야 한다.
  *      따라서 이 하네스는 isDirty 를 "디스크에 있는 내용과 다른가"와 대조한다.
  *
+ * C-4(REF-20260831-01): 블록 스토어가 전역 싱글턴에서 탭 스코프로 바뀌었다.
+ * "편집 경로"는 이제 탭 스코프 스토어에 setContent 를 호출한 뒤 updateContentForTab
+ * 으로 TabItem.isDirty 를 갱신하는 것 — 실제 BlockEditor.handleBlockUpdate 가
+ * 타는 경로와 동일하다.
+ *
  * 실행: pnpm test:dirty
  */
 import { test } from 'node:test';
 import assert from 'node:assert';
 import { useDocumentStore } from '../model/store.ts';
 import { useWorkspaceStore } from '@/entities/workspace/model/store';
-import { useBlockStore } from '@/entities/block/model/store';
 import { fileSystemRepository } from '@/shared/api/fs';
+import { createTabStore } from '../model/tabStore.ts';
+import { getTabStore, registerTabStore, __clearTabStoreRegistryForTests } from '../model/tabStoreRegistry.ts';
 
 const FILE = { name: 'dirty.md', path: '/mock-workspace/dirty.md', isDir: false };
 
@@ -28,25 +34,32 @@ const tabDirty = () => {
 /** 디스크에 실제로 들어 있는 내용 */
 const onDisk = () => fileSystemRepository.readFile(FILE.path);
 
-/** 앱의 실제 편집 경로를 그대로 재현한다 — 블록 스토어가 내용의 소유자다.
- *  saveFile 이 markdown 내용을 블록 스토어에서 읽으므로 이 경로를 타야 의미가 있다. */
+function liveStore() {
+  let store = getTabStore(FILE.path);
+  if (!store) {
+    store = createTabStore(FILE.path, '');
+    registerTabStore(FILE.path, store);
+  }
+  return store;
+}
+
+/** 앱의 실제 편집 경로를 그대로 재현한다 — 탭 스코프 스토어가 내용의 소유자다.
+ *  saveFile 이 markdown 내용을 그 스토어에서 읽으므로 이 경로를 타야 의미가 있다. */
 function edit(content: string) {
-  useBlockStore.getState().setBlocksFromContent(content, FILE.path);
-  useDocumentStore.getState().updateContent(content);
+  liveStore().getState().setContent(content);
+  useDocumentStore.getState().updateContentForTab(FILE.path, content);
 }
 
 async function freshLoad(initial: string) {
+  __clearTabStoreRegistryForTests(); // 이전 테스트 케이스가 등록해 둔 탭 스토어 잔존 방지
   useWorkspaceStore.setState({ workspacePath: '/mock-workspace' });
   await fileSystemRepository.writeFile(FILE.path, initial);
   useDocumentStore.getState().resetDocumentState?.();
   useDocumentStore.setState({
     panes: [{ id: 'pane-main', tabs: [], activeTabId: '' }] as any,
     activePaneId: 'pane-main',
-    rawContent: '',
-    isDirty: false,
   });
   await useDocumentStore.getState().loadFile(FILE as any);
-  useBlockStore.getState().setBlocksFromContent(initial, FILE.path);
 }
 
 test('BUG-20260826-07 — dirty 기준선', async (t) => {
@@ -75,7 +88,12 @@ test('BUG-20260826-07 — dirty 기준선', async (t) => {
   await t.test('D3: 노드 좌표 변경이 dirty 를 만든다', async () => {
     await freshLoad('AAA');
     assert.equal(tabDirty(), false);
-    useDocumentStore.getState().updateNodeCoordinate('node-1', 10, 20);
+
+    // MindView 의 handleMouseMove 가 타는 경로: 탭 스코프 스토어의
+    // updateNodeCoordinate + markTabDirty(탭 바 점 갱신, C-4 신설 — 좌표만
+    // 바뀌면 콘텐츠 비교로는 dirty 를 못 잡는다).
+    liveStore().getState().updateNodeCoordinate('node-1', 10, 20);
+    useDocumentStore.getState().markTabDirty(FILE.path);
     assert.equal(tabDirty(), true, '좌표 변경도 저장 대상이므로 dirty');
   });
 

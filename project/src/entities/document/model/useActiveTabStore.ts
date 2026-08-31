@@ -57,6 +57,12 @@ export function useActiveTabStoreView(): ActiveTabStoreView {
     rawContent,
     nodes,
     isDirty,
-    updateNodeCoordinate: (nodeId, x, y) => resolvedApi.getState().updateNodeCoordinate(nodeId, x, y),
+    updateNodeCoordinate: (nodeId, x, y) => {
+      resolvedApi.getState().updateNodeCoordinate(nodeId, x, y);
+      // 탭 스코프 스토어의 isDirty 는 켜지지만(저장 버튼용), 좌표만 바뀐
+      // 경우 updateContentForTab 을 거치지 않으므로 탭 바 점(dot)은 별도로
+      // 켜야 한다 — activeTabId 는 이 시점에도 여전히 이 탭이어야 정확하다.
+      if (activeTabId) useDocumentStore.getState().markTabDirty(activeTabId);
+    },
   };
 }

@@ -357,16 +357,17 @@ const PaneContainer: React.FC<{
             열린 문서가 없습니다.
           </div>
         ) : (
-          // C-3(REF-20260831-01): 이 탭이 활성인 동안의 rawContent/blocks/nodes/
-          // isDirty/viewMode 를 담는 유일한 Provider — 세 분기(mindmap-global·
-          // erd·markdown)가 전부 같은 탭 스토어 인스턴스를 공유한다. initialContent
-          // 는 activeTabId 전환이 커밋되는 바로 그 렌더에서 이미 최신값이다
-          // (setActiveTab/_activateTabContent 가 panes 전환과 rawContent 를 같은
-          // set() 호출로 원자적으로 반영하므로 — 캐시 적중이든 디스크 로드 완료
-          // 후든 동일).
+          // C-3/C-4(REF-20260831-01): 이 탭이 활성인 동안의 rawContent/blocks/
+          // nodes/isDirty/viewMode 를 담는 유일한 Provider — 세 분기(mindmap-global·
+          // erd·markdown)가 전부 같은 탭 스토어 인스턴스를 공유한다. initialContent/
+          // initialNodes 는 activeTab.cache 에서 읽는다 — openTab/_activateTabContent
+          // 가 panes 전환을 커밋하는 바로 그 시점에 이미 cache 를 채워 뒀으므로
+          // (캐시 적중이든 디스크 로드 완료 후든 동일하게), 여기선 전역 필드를
+          // 거칠 필요 없이 activeTab 자체가 소스다.
           <TabDocumentProvider
             tabId={activeTab.id}
-            initialContent={useDocumentStore.getState().rawContent}
+            initialContent={activeTab.cache?.rawContent ?? ''}
+            initialNodes={activeTab.cache?.nodes}
           >
             {activeTab.type === 'mindmap-global' ? (
               <MindView isStandalone={true} />

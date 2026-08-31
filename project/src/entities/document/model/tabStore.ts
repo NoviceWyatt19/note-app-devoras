@@ -5,12 +5,12 @@ import { MindNode, parseMarkdown } from '@/entities/document/lib/parser';
 /**
  * REF-20260831-01 (Step 7-C, P0-3 Stage B) — 탭 스코프 문서 스토어.
  *
- * `rawContent`/`blocks`/`nodes`/`isDirty`/`viewMode` 를 전역 싱글턴(`useBlockStore`
+ * `rawContent`/`blocks`/`nodes`/`isDirty`/`viewMode` 를 전역 싱글턴(옛 블록 스토어
  * + `useDocumentStore` 의 문서 필드)에서 탭 하나에 묶인 독립 인스턴스로 옮긴다.
  * `createTabStore(tabId)` 가 호출될 때마다 완전히 새 zustand 스토어를 만든다 —
- * 소유권을 `ownerTabId` 런타임 가드로 검사하는 대신, **구조적으로 다른 탭이 이
- * 인스턴스에 접근할 방법 자체가 없게** 만드는 것이 목적이다(7-A 가 겪은 "소유권
- * 이전 지점마다 가드를 잊는다" 류의 버그를 애초에 성립 불가능하게 한다).
+ * 소유권을 런타임 가드로 검사하는 대신, **구조적으로 다른 탭이 이 인스턴스에
+ * 접근할 방법 자체가 없게** 만드는 것이 목적이다(7-A 가 겪은 "소유권 이전
+ * 지점마다 가드를 잊는다" 류의 버그를 애초에 성립 불가능하게 한다).
  *
  * 블록 매칭 로직(`resolveBlocksFromContent`)은 `entities/block/model/store.ts`
  * 의 검증된 2-패스 알고리즘을 그대로 재사용한다 — 두 벌로 갈라지면 그 자체가
@@ -57,12 +57,19 @@ export interface TabStoreState extends TabStoreSnapshot {
 
 export type TabStoreApi = UseBoundStore<StoreApi<TabStoreState>>;
 
-export function createTabStore(tabId: string, initialContent = ''): TabStoreApi {
+/**
+ * @param initialNodes C-4 — 마인드맵 좌표(spatialData)로 정렬된 nodes 를 호출부가
+ *   이미 계산해 뒀을 때(예: 워크스페이스 메타데이터에서 복원) 그걸 그대로 쓴다.
+ *   생략하면 initialContent 를 그냥 parseMarkdown 해서 전부 (0,0) 기본값으로
+ *   시작한다 — MindView 가 그 경우 자동 배치하므로 깨지진 않지만, 사용자가
+ *   이전에 드래그해 둔 위치가 매 탭 전환마다 사라지는 걸 막으려면 넘겨야 한다.
+ */
+export function createTabStore(tabId: string, initialContent = '', initialNodes?: MindNode[]): TabStoreApi {
   return create<TabStoreState>((set, get) => ({
     tabId,
     rawContent: initialContent,
     blocks: initialContent ? resolveBlocksFromContent(initialContent, []) : [],
-    nodes: initialContent ? parseMarkdown(initialContent) : [],
+    nodes: initialNodes ?? (initialContent ? parseMarkdown(initialContent) : []),
     isDirty: false,
     viewMode: 'write',
     activeBlockId: null,

@@ -202,7 +202,7 @@ export const ReadView: React.FC<{ tab?: TabItem }> = ({ tab }) => {
     setViewMode,
     getMergedContent,
     getFreshBlocks,
-  } = useEffectiveTabStore(tab?.id);
+  } = useEffectiveTabStore();
   const { workspacePath } = useWorkspaceStore();
 
   // ── Drag state ─────────────────────────────────────────────────────────────

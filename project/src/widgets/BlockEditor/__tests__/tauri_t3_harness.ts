@@ -82,11 +82,15 @@ export function padBlocks(from: number, to: number): string[] {
 
 export async function loadFixture(markdown: string) {
   const docMod = await import('@/entities/document/model/store');
-  const blkMod = await import('@/entities/block/model/store');
+  const registryMod = await import('@/entities/document/model/tabStoreRegistry');
   const tab = docMod.useDocumentStore.getState().getActiveTab();
   if (!tab) throw new Error('열린 문서가 없습니다. 워크스페이스에서 마크다운 파일을 먼저 여세요.');
-  docMod.useDocumentStore.getState().updateContent(markdown);
-  blkMod.useBlockStore.getState().setBlocksFromContent(markdown, tab.id);
+  // C-4(REF-20260831-01): 블록 스토어가 탭 스코프로 바뀌었다 — 실행 중인 앱에서
+  // TabDocumentProvider 가 이미 이 탭의 스토어를 레지스트리에 등록해 뒀다.
+  const tabStore = registryMod.getTabStore(tab.id);
+  if (!tabStore) throw new Error(`탭 ${tab.id} 에 마운트된 탭 스코프 스토어를 찾을 수 없습니다.`);
+  tabStore.getState().setContent(markdown);
+  docMod.useDocumentStore.getState().updateContentForTab(tab.id, markdown);
 
   // 고정 sleep 을 쓰면 안 된다. 블록 하나당 마운트 비용이 40~87ms 라
   // (ARCHITECTURE_FINDINGS.md A6) 40 블록이면 2~3초가 걸리고, 그 전에 재면
@@ -325,6 +329,7 @@ export async function ensureEditorAlive(): Promise<boolean> {
 
 export async function gateR7(mdPath: string | null, saveError?: string): Promise<GateResult> {
   const docMod = await import('@/entities/document/model/store');
+  const registryMod = await import('@/entities/document/model/tabStoreRegistry');
   if (!mdPath) {
     return { gate: 'R7 .devoras/images 렌더', pass: false, detail: { saveError: saveError ?? 'unknown' } };
   }
@@ -340,7 +345,11 @@ export async function gateR7(mdPath: string | null, saveError?: string): Promise
   const writeSrc = wImgs[0]?.src ?? null;
 
   // Read Mode — ReadView 의 resolveAssetPaths 경로
-  docMod.useDocumentStore.getState().setViewMode('read');
+  // C-4: viewMode 는 이제 탭 스코프 스토어 소유다 — 활성 탭의 등록된 스토어에서 토글한다.
+  const activeTab = docMod.useDocumentStore.getState().getActiveTab();
+  const tabStore = activeTab ? registryMod.getTabStore(activeTab.id) : undefined;
+  if (!tabStore) throw new Error('활성 탭의 탭 스코프 스토어를 찾을 수 없습니다.');
+  tabStore.getState().setViewMode('read');
   await sleep(900);
   const rImgs = Array.from(document.querySelectorAll('.rv-content img')) as HTMLImageElement[];
   await Promise.all(
@@ -349,7 +358,7 @@ export async function gateR7(mdPath: string | null, saveError?: string): Promise
   await sleep(300);
   const readOk = rImgs.some((im) => im.naturalWidth > 0);
   const readSrc = rImgs[0]?.src ?? null;
-  docMod.useDocumentStore.getState().setViewMode('write');
+  tabStore.getState().setViewMode('write');
   await sleep(600);
 
   return {

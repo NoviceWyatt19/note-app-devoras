@@ -10,7 +10,7 @@ import ErdDesigner from './ErdDesigner';
  * 마크다운 패널만 다뤘기 때문에 남아 있던 구멍)도 함께 고친다.
  */
 export const ErdDesignerMainView: React.FC<{ tab?: TabItem }> = ({ tab }) => {
-  const { rawContent, setRawContent } = useEffectiveTabStore(tab?.id);
+  const { rawContent, setRawContent } = useEffectiveTabStore();
   const [document, setDocument] = useState<any>(null);
 
   useEffect(() => {

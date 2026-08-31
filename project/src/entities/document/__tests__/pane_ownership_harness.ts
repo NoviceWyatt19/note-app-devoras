@@ -8,36 +8,54 @@
  * 옛 스냅샷을 보여준다(리뷰 중 project-1f 가 setActivePane 외에 closePane·
  * splitPane 도 같은 결함을 갖고 있음을 발견).
  *
+ * C-4(REF-20260831-01): "라이브 편집 중"의 판정 근거가 옛 전역 블록 스토어의
+ * 소유권 필드에서 tabStoreRegistry 의 등록 여부로 바뀌었다. simulateLiveEdit 이 실제 앱의
+ * TabDocumentProvider 마운트를 흉내내 탭 스코프 스토어를 레지스트리에 직접
+ * 등록한다 — 레지스트리는 모듈 전역이라 테스트 케이스 사이에 남지 않도록
+ * setupSinglePane 에서 매번 비운다.
+ *
  * 실행: pnpm test:paneownership
  */
 import { test } from 'node:test';
 import assert from 'node:assert';
 import { useDocumentStore } from '../model/store.ts';
 import { useWorkspaceStore } from '@/entities/workspace/model/store';
-import { useBlockStore } from '@/entities/block/model/store';
 import { fileSystemRepository } from '@/shared/api/fs';
+import { createTabStore } from '../model/tabStore.ts';
+import { getTabStore, registerTabStore, __clearTabStoreRegistryForTests } from '../model/tabStoreRegistry.ts';
 
 const A = { name: 'a.md', path: '/mock-workspace/a.md', isDir: false };
 const B = { name: 'b.md', path: '/mock-workspace/b.md', isDir: false };
 
 /** A 를 연 단일 패널(pane-main) 상태로 리셋. */
 async function setupSinglePane() {
+  __clearTabStoreRegistryForTests(); // 이전 테스트 케이스가 등록해 둔 탭 스토어 잔존 방지
   useWorkspaceStore.setState({ workspacePath: '/mock-workspace' });
   await fileSystemRepository.writeFile(A.path, 'AAA');
   await fileSystemRepository.writeFile(B.path, 'BBB');
   useDocumentStore.setState({
     panes: [{ id: 'pane-main', tabs: [], activeTabId: '' }] as any,
     activePaneId: 'pane-main',
-    rawContent: '',
-    isDirty: false,
   });
   await useDocumentStore.getState().loadFile(A as any);
 }
 
-/** 활성 블록의 라이브 편집 상태를 시뮬레이션 — updateContent 가 실제 타이핑 경로다. */
+/**
+ * 활성 탭의 라이브 편집 상태를 시뮬레이션 — 실제 앱에서는 TabDocumentProvider
+ * 가 마운트한 탭 스코프 스토어에 BlockEditor 가 setContent 를 호출하는 경로다.
+ * 아직 등록된 스토어가 없으면(이 탭을 "여는" 첫 편집) 새로 만들어 등록한다.
+ */
 function simulateLiveEdit(newContent: string) {
-  useBlockStore.getState().setBlocksFromContent(newContent, useDocumentStore.getState().getCurrentFile()?.path);
-  useDocumentStore.getState().updateContent(newContent);
+  const activeTabId = useDocumentStore.getState().getCurrentFile()?.path;
+  if (!activeTabId) return;
+  let store = getTabStore(activeTabId);
+  if (!store) {
+    store = createTabStore(activeTabId, '');
+    registerTabStore(activeTabId, store);
+  }
+  store.getState().setContent(newContent);
+  store.getState().setDirty(true);
+  useDocumentStore.getState().updateContentForTab(activeTabId, newContent);
 }
 
 function tabInPane(paneId: string, tabId: string) {
@@ -117,10 +135,11 @@ test('7-A 패널 소유권 이전 — 떠나는 패널의 라이브 편집이 �
 
     assert.strictEqual(useDocumentStore.getState().panes.length, 1, 'mainPane 이 GC 로 사라져야 한다');
     assert.strictEqual(useDocumentStore.getState().activePaneId, newPaneId, '활성 소유권이 newPane 으로 넘어가야 한다');
+    const bTab = tabInPane(newPaneId, B.path);
     assert.strictEqual(
-      useDocumentStore.getState().rawContent,
+      bTab?.cache?.rawContent,
       'BBB',
-      'newPane 이 이미 갖고 있던 B 의 콘텐츠가 전역 rawContent 에 로드돼야 한다(회귀: 이전엔 안 됐음)',
+      'newPane 이 이미 갖고 있던 B 의 콘텐츠가 그 tab.cache 에 남아 있어야 한다(TabDocumentProvider 가 여기서 읽는다)',
     );
   });
 

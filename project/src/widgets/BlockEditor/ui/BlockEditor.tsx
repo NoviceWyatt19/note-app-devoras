@@ -1,5 +1,5 @@
 import React, { useEffect, useRef} from 'react';
-import { useBlockStore, EditorBlock, flattenTree } from '@/entities/block/model/store';
+import { EditorBlock, flattenTree } from '@/entities/block/model/store';
 import { useDocumentStore, TabItem } from '@/entities/document/model/store';
 import { useEffectiveTabStore } from '@/entities/document/model/useEffectiveTabStore';
 import { useDebouncedCallback } from '@/shared/lib/useDebouncedCallback';
@@ -318,11 +318,10 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
     // 실제 caret 이 어긋나면 캐럿이 조용히 사라진다(BUG-20260828-02). 개발 빌드
     // 한정, 실패해도 편집을 막지 않는다.
     if (import.meta.env.DEV && isFocused) {
-      const storeFocusOffset = useBlockStore.getState().focusOffset;
       const viewHead = view.state.selection.main.head;
-      if (storeFocusOffset !== viewHead) {
+      if (focusOffset !== viewHead) {
         console.error(
-          `[R3 불변식 위반] store.focusOffset(${storeFocusOffset}) !== view.selection.main.head(${viewHead})`,
+          `[R3 불변식 위반] store.focusOffset(${focusOffset}) !== view.selection.main.head(${viewHead})`,
           new Error().stack,
         );
       }
@@ -407,10 +406,11 @@ const BlockNode = React.memo<{
 });
 
 // ---------------------------------------------------------------------------
-// Inactive Pane — 7-A(P0-3 Stage A-2): 전역 blockStore 를 편집하는 인스턴스를
-// 상시 1개(활성 패널)로 제한한다. 비활성 패널은 이 정적 스냅샷만 그린다 —
-// useBlockStore 를 구독하지도, 쓰지도 않으므로 활성 패널의 편집 표면을
-// 절대 덮어쓸 수 없다. 캐시가 아직 없으면(디스크에서 아직 안 읽힌 탭) 빈 문서로.
+// Inactive Pane — 7-A(P0-3 Stage A-2)·C-4: 탭 스코프 스토어를 편집하는
+// 인스턴스를 상시 1개(활성 패널)로 제한한다. 비활성 패널은 이 정적 스냅샷만
+// 그린다 — TabDocumentProvider 를 구독하지도, 쓰지도 않으므로 활성 패널의
+// 편집 표면을 절대 덮어쓸 수 없다. 캐시가 아직 없으면(디스크에서 아직 안
+// 읽힌 탭) 빈 문서로.
 // ---------------------------------------------------------------------------
 const InactivePaneSnapshot: React.FC<{ content: string }> = React.memo(({ content }) => {
   const workspacePath = useWorkspaceStore(s => s.workspacePath);
@@ -436,7 +436,7 @@ export const BlockEditor: React.FC<{ paneId?: string; tab?: TabItem; isActivePan
   // 아니라 항상 자기 자신의 tab prop 이다(7-A 와 동일 원칙) — Provider 유무와
   // 무관하게 이 파생은 그대로 유효하다.
   const currentFile = tab?.fileEntry ?? null;
-  const effectiveStore = useEffectiveTabStore(tab?.id);
+  const effectiveStore = useEffectiveTabStore();
   const {
     blocks,
     activeBlockId,
@@ -450,7 +450,6 @@ export const BlockEditor: React.FC<{ paneId?: string; tab?: TabItem; isActivePan
     updateBlockContent,
     setDirty,
     getFreshBlocks,
-    usingTabStore,
   } = effectiveStore;
   const { settings } = useSettingsStore();
 
@@ -475,21 +474,16 @@ export const BlockEditor: React.FC<{ paneId?: string; tab?: TabItem; isActivePan
     }
   }, [focusBlock, getFreshBlocks]);
 
-  const ownerTabIdRef = useRef<string>(tab?.id ?? '');
+  const myTabIdRef = useRef<string>(tab?.id ?? '');
   React.useLayoutEffect(() => {
-    ownerTabIdRef.current = tab?.id ?? '';
+    myTabIdRef.current = tab?.id ?? '';
   }, [tab?.id]);
 
   const syncContent = useDebouncedCallback(() => {
-    // 탭 스코프 경로는 인스턴스 자체가 이미 한 탭 소유이므로 ownerTabId 경합이
-    // 구조적으로 성립하지 않는다 — 전역 경로에서만 소유권 가드가 필요하다.
-    if (usingTabStore) {
-      syncRawContentFromBlocks();
-    } else {
-      const bs = useBlockStore.getState();
-      if (bs.ownerTabId !== ownerTabIdRef.current) return;
-    }
-    useDocumentStore.getState().updateContentForTab(ownerTabIdRef.current, getMergedContent());
+    // C-4: 탭 스코프 스토어 인스턴스 자체가 이미 한 탭 소유이므로 소유권 경합이
+    // 구조적으로 성립하지 않는다 — 런타임 소유권 가드 자체가 불필요해졌다.
+    syncRawContentFromBlocks();
+    useDocumentStore.getState().updateContentForTab(myTabIdRef.current, getMergedContent());
   }, 150);
 
   useEffect(() => {
@@ -498,12 +492,14 @@ export const BlockEditor: React.FC<{ paneId?: string; tab?: TabItem; isActivePan
     };
   }, []);
   React.useLayoutEffect(() => {
-    // 7-A: 비활성 패널은 전역 blockStore 를 절대 쓰지 않는다 — 활성 패널이
-    // 편집 중인 문서를 덮어쓰게 되는 것을 막는 것이 이 가드의 목적이다.
+    // 7-A: 비활성 패널은 이 탭 스토어를 그릴 일이 없다(Provider 자체가 활성
+    // 패널의 활성 탭에만 마운트된다) — 방어적으로 남겨 둔다.
     if (!isActivePane) return;
-    const content = useDocumentStore.getState().rawContent;
-    if (currentFile && tab && content !== undefined) {
-      setContent(content);
+    // C-4: blocks 는 이미 TabDocumentProvider 의 initialContent 로 마운트
+    // 시점에 정확히 세팅돼 있다(PaneContainer 가 activeTab.cache/savedContent
+    // 에서 계산) — 여기서 다시 setContent 를 부르면 같은 내용을 또 재파싱하는
+    // 낭비다. 이 effect 의 남은 책임은 "문서를 열면 첫 블록에 포커스" 뿐이다.
+    if (currentFile && tab) {
       const firstBlock = getFreshBlocks()[0];
       if (firstBlock) focusBlock(firstBlock.id, 0);
     }
@@ -611,7 +607,7 @@ export const BlockEditor: React.FC<{ paneId?: string; tab?: TabItem; isActivePan
 
       setContent(merged);
       focusBlock(targetId, targetOffset);
-      useDocumentStore.getState().updateContentForTab(ownerTabIdRef.current, merged);
+      useDocumentStore.getState().updateContentForTab(myTabIdRef.current, merged);
     } else {
       syncContent();
     }
@@ -660,7 +656,7 @@ export const BlockEditor: React.FC<{ paneId?: string; tab?: TabItem; isActivePan
     >
       <div className="sticky top-0 z-10 bg-darkBg/95 backdrop-blur-sm w-full">
         <div className=" mx-auto" style={maxWidthStyle}>
-          <FormatToolbar tab={tab} />
+          <FormatToolbar />
         </div>
       </div>
 

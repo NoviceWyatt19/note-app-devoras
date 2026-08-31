@@ -50,3 +50,14 @@ export function subscribeTabStoreRegistry(listener: () => void): () => void {
 export function getTabStoreRegistryVersion(): number {
   return version;
 }
+
+/**
+ * 테스트 전용 — T1 하네스가 `TabDocumentProvider` 없이 `registerTabStore` 를
+ * 직접 호출해 "라이브 편집 중"을 흉내낼 때, 이전 테스트 케이스가 등록해 둔
+ * 항목이 남아 다음 케이스를 오염시키는 걸 막는다(레지스트리가 모듈 전역이라
+ * 테스트 파일 하나 안에서 프로세스 수명 내내 유지된다). 실제 앱에서는
+ * `TabDocumentProvider` 의 마운트/언마운트가 이 역할을 하므로 쓸 일이 없다.
+ */
+export function __clearTabStoreRegistryForTests(): void {
+  registry.clear();
+}
