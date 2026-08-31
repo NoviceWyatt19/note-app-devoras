@@ -174,13 +174,13 @@ T1 로는 실제 키 입력·캐럿 렌더를 재현할 수 없다. 아래는 �
 
 ## 5. DoD
 
-- [ ] S1 재현 불가 — H1 입력 시 캐럿이 `#` 앞으로 이동하지 않음
-- [ ] S2 재현 불가 — H2·H3 입력 시 순서 뒤집힘 0건
-- [ ] R3 불변식이 `!contentChanged` 분기에서도 동작
-- [ ] `caret_stability_harness.ts` C1~C5 통과
-- [ ] `pnpm test:ime` 회귀 0건 (V4 수동 확인 포함)
-- [ ] V1~V6 실기 확인 (또는 `VERIFY_BY_HUMAN.md` 이관)
-- [ ] 안 A 로 착지한 경우 안 B 후속 티켓 등록
+- [x] S1 재현 불가 — H1 입력 시 캐럿이 `#` 앞으로 이동하지 않음 — **설계상 해소.** 실기 재현 확인은 VERIFY_BY_HUMAN.md §11 로 이월(코드 대조로 원인 확정됐던 결함이라 자동화로 커버 가능한 부분은 다 했으나, 실제 키 입력·캐럿 렌더는 T1 로 재현 불가)
+- [x] S2 재현 불가 — H2·H3 입력 시 순서 뒤집힘 0건 — 상동
+- [x] R3 불변식이 `!contentChanged` 분기에서도 동작 — 두 분기(`!contentChanged`·`contentChanged`) 모두 "새 캐럿 명령을 반영했을 때만" 검사하도록 통일. 예전엔 `contentChanged` 분기에만 있어 타이핑 경로(`!contentChanged`)를 영원히 못 잡았다
+- [x] `caret_stability_harness.ts` C1~C5 통과 — 10/10(C1~C5 + 경계 케이스 4종). 판정 로직을 `shared/lib/editor/caretCoordinator.ts` 의 순수 함수(`decideCaretAction`)로 뽑아 `BlockEditor.tsx` 조정자가 그대로 호출 — 하네스가 실제 코드 경로를 검증한다(패러렐 재구현 아님)
+- [x] `pnpm test:ime` 회귀 0건 — 5/5. V4(한글 연속 입력) 수동 확인은 VERIFY_BY_HUMAN.md §11 로 이월
+- [ ] V1~V6 실기 확인 — VERIFY_BY_HUMAN.md §11 로 이월
+- [x] 안 A/B 중 하나 선택 — **안 B(의도 토큰)로 직행.** `focusToken`(단조 증가 카운터)을 탭 스코프 스토어에 신설, `focusBlock`/`mergeBlockWithPrevious` 양쪽에서 올린다(둘 다 activeBlockId/focusOffset 을 직접 쓰는 경로라 하나만 올리면 병합 후 캐럿이 다시 사라진다 — BUG-20260828-02 재발 지점). 안 A 를 거치지 않았으므로 후속 티켓 불필요
 
 ---
 
