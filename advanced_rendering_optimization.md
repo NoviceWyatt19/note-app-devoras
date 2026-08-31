@@ -85,13 +85,70 @@ Tauri(WKWebView/WebView2) 환경에서는 WebView의 Heap Memory 한계로 인�
 | 단계 | 내용 | 착수 시점 |
 |---|---|---|
 | **Phase 0 (현재)** | 에디터·ReactFlow 탭은 전환 시 언마운트하지 않아 빠른 전환을 보장하되, **동시 열람 탭 수 제한** 또는 경량 캐싱만 적용 | v0.8.x |
-| **Phase 1** | 상태 스냅샷 아키텍처 도입 — 탭 전환 시 로컬 상태(Scroll/Zoom/Selection)를 전역 스토어에 임시 저장하는 인터페이스 구현 | 탭 스코프 스토어 리팩터링과 동시 진행 |
+| **Phase 1** | ✅ **완료(2026-08-31, REF-20260831-01 / Step 7-C, C-1~C-4)** — 상태 스냅샷 아키텍처. §4.1 참고. | v0.8.48 |
 | **Phase 1.5 (신규)** | **블록 에디터 가상화** (§3.4.1) — 높이 캐시 + 플레이스홀더 인프라 포함 | `DEBUG_PLAN.md` E0 게이트 결과에 따라 **E1 이전 또는 E7** |
-| **Phase 2** | TTL 기반 언마운터(Garbage Collector Component) 래퍼 개발 — 백그라운드 5분 경과 탭을 더미 컨테이너로 교체 | Phase 1 완료 직후 |
+| **Phase 2** | TTL 기반 언마운터(Garbage Collector Component) 래퍼 개발 — 유휴 5분 경과 시 활성 패널이라도 더미 컨테이너로 교체. 계약은 §4.1 이 이미 확정해 뒀다 — 새로 설계할 게 없다 | 착수 가능(Phase 1 완료됨) |
 | **Phase 3** | Web Worker 파이프라인 구축 — 마크다운 파서 및 대규모 노드 연산의 Worker 모듈화 | 문서 크기 이슈 발생 시 |
 | **Phase 4** | 3D 뷰 적용 및 검증 — Child WebView 분리 + 메모리 풋프린트 모니터링 | 3D Freeform 뷰 도입 시점 |
 
-> **의존성 주의**: Phase 1은 [`code_review.md`](code_review.md) **P0-3(분할 패널 전역 상태 공유)** 의 탭 스코프 스토어 개편과 동일한 지점을 건드립니다. 두 작업을 분리해서 진행하면 상태 스냅샷 인터페이스를 두 번 설계하게 되므로 **반드시 함께 처리**해야 합니다.
+> **완료 기록**: Phase 1과 [`code_review.md`](code_review.md) **P0-3(분할 패널 전역 상태 공유)** 의 탭 스코프 스토어 개편은 동일 지점이라 예정대로 함께 처리됐다(REF-20260831-01, `project/ticket/refactor/20260831_0641_tab_scoped_store.yml`).
+
+### 4.1. Phase 1 완료 — 탭 스코프 스토어의 `serialize()`/`hydrate()` 계약 (C-5)
+
+Phase 1 이 요구한 "탭 전환 시 로컬 상태를 임시 저장하는 인터페이스"는 REF-20260831-01
+의 `createTabStore(tabId)`(`project/src/entities/document/model/tabStore.ts`)로
+구현됐다. Phase 2 가 그대로 가져다 쓸 수 있도록 계약을 여기 확정해 둔다 — **이 절이
+바뀌면 Stage 2 Thin Client 의 IPC 경계(`getBlockTree(tabId)`, `updateBlock(tabId,
+blockId, content)`) 초안도 함께 바뀐다**(`architecture_stages.md`).
+
+**생명주기 소유권 (open_question 2 의 답)** — 탭 스코프 스토어의 생명은 지금도
+앞으로도 `TabDocumentProvider`(React 컴포넌트)의 마운트/언마운트가 소유한다. **Phase 2
+는 이 소유권 모델을 바꾸지 않는다** — 한 단계 위에서, "언제 `TabDocumentProvider` 렌더를
+멈출 것인가"를 결정하는 정책만 추가한다:
+
+- **오늘(C-4 까지)**: 활성 패널의 활성 탭이 바뀌는 순간(사용자가 다른 탭을 클릭)에만
+  언마운트한다. `PaneContainer`(`WorkspacePage.tsx`)가 `_snapshotActiveTab()` 으로
+  떠나는 탭의 최신 상태를 **먼저** `TabItem.cache` 에 반영한 뒤, 새 탭을 위한
+  `TabDocumentProvider` 를 그 탭의 `cache.rawContent`/`cache.nodes` 로 다시 만든다.
+  이 왕복은 이미 프로덕션 경로이고 `pane_ownership_harness.ts`(`test:paneownership`)
+  가 5개 소유권 이전 지점 전부를 덮는다.
+- **Phase 2 가 더하는 것**: 탭을 **안 바꿔도**(같은 탭을 계속 보고 있어도) 일정 시간
+  조작이 없으면 같은 왕복을 강제로 트리거하는 유휴 타이머. 메커니즘은 새로 짤 게
+  없다 — 오늘 탭 전환이 이미 타는 "스냅샷 → 언마운트 → 재시드" 경로를 유휴 타이머가
+  대신 트리거하기만 하면 된다.
+
+**`initialContent`/`initialNodes` 재시드 vs `hydrate()` — 언제 무엇을 쓰는가**:
+
+- `PaneContainer` 가 오늘 쓰는 방식(캐시에서 `initialContent`/`initialNodes` 를 뽑아
+  `createTabStore` 를 **새로** 호출)은 `rawContent`/`blocks`/`nodes` 는 정확히
+  복원하지만 `activeBlockId`/`focusOffset`/`viewMode` 는 기본값(`null`/`0`/`'write'`)
+  으로 리셋된다 — 탭 전환은 어차피 캐럿 위치가 안 이어져도 자연스럽다.
+- Phase 2 의 유휴-TTL 언마운트는 사용자 입장에서 "탭이 내려갔었다는 사실 자체를
+  인지하지 못해야" 한다(§3.1 목표) — 즉 캐럿·viewMode 까지 정확히 이어져야 한다.
+  그래서 Phase 2 는 `initialContent` 재시드가 아니라 **`serialize()` → (어딘가에 보관)
+  → 새 스토어에 `hydrate()`** 경로를 써야 한다. `hydrate()` 는 C-1 부터 이미 존재하고
+  `tab_store_isolation_harness.ts`(`test:tabstore`)가 왕복을 검증해 뒀다 — Phase 2 가
+  새로 만들 것은 **"언제 스냅샷 뜨고 언제 hydrate 할지"를 결정하는 유휴 타이머 하나**뿐이다.
+- 스냅샷 보관 위치는 `TabItem.cache`(이미 있는 필드)를 그대로 쓰는 걸 권장한다 —
+  `TabStoreSnapshot` 의 `rawContent`/`nodes` 는 `TabCache` 와 이미 같은 모양이고,
+  `activeBlockId`/`focusOffset`/`viewMode`/`blocks`/`isDirty` 만 추가로 얹으면 된다.
+  별도 저장소를 새로 만들면 캐시가 두 벌로 갈라진다.
+
+**직렬화 형식 함정(constraints 절 재확인)**: `serialize()` 가 뽑는 `rawContent` 는
+블록을 `\n` 으로 이어 붙인 것이라 **마지막 블록만 후행 개행이 없다**(join 순서
+아티팩트, Step 4 에서 발견). 스냅샷을 콘텐츠 해시나 문자열 동등 비교로 캐싱 키를
+만들 계획이 있다면 정규화 없이 비교하지 말 것 — 정확히 같은 문서라도 블록 재정렬
+직후엔 문자열이 달라질 수 있다.
+
+**open_question 1(동일 파일 다중 패널 공유)의 현재 상태**: 아직 미해결이며, 의도적으로
+그렇다. 7-A 가 택한 회피("동일 파일을 다른 패널에서 열면 새 탭 대신 그 패널로 포커스만
+이동")가 지금도 살아 있고, `tabStoreRegistry.ts` 는 `tabId → 스토어 하나` 관계를
+전제한다(같은 tabId 로 두 번째 `TabDocumentProvider` 가 마운트되면 레지스트리의 최신
+등록이 이전 것을 조용히 덮어써, 첫 번째 Provider 가 인식 못한 채 고아가 된다).
+**Phase 2 든 그 이후든, 이 회피를 없애고 다중 패널 공유를 정면으로 풀려면 레지스트리를
+`tabId → 스토어 인스턴스 1개` 에서 `tabId → 스토어, 참조 카운트` 로 먼저 바꿔야 한다.**
+그 전까지는 회피를 유지할 것 — UX 상 흠으로 보이지만 구조적 격리(이 티켓의 핵심 성과)를
+공짜로 지켜준다.
 
 ---
 
