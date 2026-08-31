@@ -188,6 +188,56 @@ function mountNBare(n: number, container: HTMLElement): { ms: number; views: Edi
   return { ms, views };
 }
 
+/** [진단용, A6-후속 §3-A H1] mountNBare + 인스턴스마다 새로 만든 EditorView.theme()
+ *  (compartment 로 감싼 createEditorTheme() 호출) 만 추가 — 데코레이터·플러그인·
+ *  keymap 은 전부 뺀다. mountNNoCodeBlockPlugin/mountNOnlyCodeBlockPlugin 이 공유하는
+ *  "인스턴스마다 EditorView.theme() 재호출" 이 이분 탐색 오염원인지 단독으로 격리해서 본다. */
+function mountNBarePlusThemeOnly(n: number, container: HTMLElement): { ms: number; views: EditorView[] } {
+  const views: EditorView[] = [];
+  const t0 = performance.now();
+  for (let i = 0; i < n; i++) {
+    const child = document.createElement('div');
+    container.appendChild(child);
+    const editorThemeCompartment = new Compartment();
+    const state = EditorState.create({
+      doc: makeBlockContent(i),
+      extensions: [
+        markdown({ codeLanguages: matchFenceLanguage }),
+        oneDark,
+        history(),
+        drawSelection(),
+        editorThemeCompartment.of(createEditorTheme(settingsEditor)),
+      ],
+    });
+    views.push(new EditorView({ state, parent: child }));
+  }
+  const ms = performance.now() - t0;
+  return { ms, views };
+}
+
+/** [진단용, A6-후속 §3-A H1] mountNBare + keymap 만 추가(테마·데코레이터·플러그인은 뺀다). */
+function mountNBarePlusKeymapOnly(n: number, container: HTMLElement): { ms: number; views: EditorView[] } {
+  const views: EditorView[] = [];
+  const t0 = performance.now();
+  for (let i = 0; i < n; i++) {
+    const child = document.createElement('div');
+    container.appendChild(child);
+    const state = EditorState.create({
+      doc: makeBlockContent(i),
+      extensions: [
+        markdown({ codeLanguages: matchFenceLanguage }),
+        oneDark,
+        history(),
+        drawSelection(),
+        keymap.of([...defaultKeymap, ...historyKeymap]),
+      ],
+    });
+    views.push(new EditorView({ state, parent: child }));
+  }
+  const ms = performance.now() - t0;
+  return { ms, views };
+}
+
 /** mountN 의 확장 구성에서 codeBlockInteractionPlugin 만 뺀 변형 — 데코레이터
  *  오케스트레이터(markdownDecorationPlugin)와 codeBlockInteractionPlugin 중
  *  어느 쪽이 O(N²) 의 원인인지 이분 탐색한다. */
@@ -370,6 +420,8 @@ export async function runDiscriminator(ns: number[] = [25, 50, 100, 200]) {
   measureAt,
   mountN,
   mountNBare,
+  mountNBarePlusThemeOnly,
+  mountNBarePlusKeymapOnly,
   mountNNoCodeBlockPlugin,
   mountNOnlyCodeBlockPlugin,
 };

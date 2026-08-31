@@ -178,6 +178,48 @@ Step 7  B4 구조 개편 (7-A → 7-B? → 7-C)
 
 원인 특정 전에 [`implementation_plan.md`](implementation_plan.md) §S.4 의 중재 계층(`priority`/`claims`)을 설계하지 않는다. 그것은 **정확성·결합도** 문제(겹치는 `Decoration.replace` 회피를 각 데코레이터가 `protectedRegions` 로 방어하는 구조)를 푸는 수단이고, **비용** 문제를 푼다는 보장이 없다. 두 문제는 같은 계층에 살 뿐 다른 문제다. 우아한 체인을 만들고도 지수가 1.97 로 남을 수 있다.
 
+### 3-A-1. 조사 세션 기록 (project-82, 2026-08-31, SESS-20260831-A6)
+
+**판정: 미확정 — 그러나 두 건의 독립 결함을 코드 근거로 확정, 기존 판별 실험 자체의 오염을 확인, 후속 세션을 위한 교정된 하네스와 프로토콜을 남긴다.** H1~H4 중 어느 것도 확정도 기각도 하지 못했다 — 이유는 아래 §a.
+
+**a. 측정 환경 오염 — 이 세션 최대의 발견**
+
+이 세션은 Claude Code 의 Browser pane(Chromium, `mcp__Claude_Browser__*`)으로 하네스를 재실행했다. 그런데 이 pane 은 **`document.visibilityState === 'hidden'`, `document.hasFocus() === false`** 상태로 렌더링된다(스크린샷은 가능하지만 탭은 백그라운드로 남는다). 그 결과:
+
+- **순수 CodeMirror(`mountNBare`, 이전엔 무죄로 확정된 조건)조차 이 환경에서는 지수 ≈1.67 로 초선형이었다**(N=25 62.1ms → N=200 2,005.2ms). 원 세션(§4-1)의 같은 조건은 지수 0.351(사실상 선형)이었다.
+- 데코레이터 유무와 무관하게 이 환경의 모든 조건(bare / bare+theme-only / bare+keymap-only)이 지수 1.65~1.68 로 **균일하게** 나왔다 — 즉 지수가 콘텐츠가 아니라 **환경 자체**(Chromium 의 백그라운드 탭 CPU 스로틀링으로 추정)에서 나온다는 뜻이다.
+- **결론: 이 세션에서 새로 만든 절대 시간/지수 수치는 전부 신뢰할 수 없다.** §4-1 의 원 수치(같은 세션 안에서 bare 는 선형, 데코레이터는 초선형으로 갈렸다는 **내부 대비**)는 여전히 유효한 근거로 남긴다 — 그 세션은 tab 이 아니라 `display:none` **엘리먼트**만 숨겼으므로 Page Visibility API 가 발화하지 않았을 가능성이 높다.
+- **후속 세션에 대한 규칙 추가 제안**: T2 재현 전에 반드시 `document.visibilityState`/`document.hasFocus()` 를 찍어 `'visible'`/`true` 인지 확인할 것. 이 세션은 Claude Browser pane 대신 실제 포그라운드 Chrome(`claude-in-chrome`)을 시도했으나 이 환경에 연결되지 않아 확보하지 못했다.
+
+**b. H1 관련 — "이분 탐색"이 애초에 깨끗하지 않았다 (코드로 확정, 재측정 없이도 유효)**
+
+`mount_cost_t2_harness.ts` 의 `mountNNoCodeBlockPlugin`/`mountNOnlyCodeBlockPlugin` 을 다시 읽으니, 둘 다 `mountNBare` 에는 **없는** 세 가지를 여전히 공유한다 — `lineWrappingCompartment`/`editorThemeCompartment`(매 인스턴스 `new Compartment()`), `keymap.of([...defaultKeymap, ...historyKeymap])`, 그리고 **`editorThemeCompartment.of(createEditorTheme(settingsEditor))`**(인스턴스마다 `EditorView.theme()` 재호출). 즉 "`codeBlockInteractionPlugin` 만" 조건도 실제로는 "`codeBlockInteractionPlugin` + 이 세 가지"였다 — **순수 격리가 아니었다.** §4-1 의 "`codeBlockInteractionPlugin` 만 872.9ms > `markdownDecorationPlugin` 만 411.7ms" 결과(리스너 하나만 다는 플러그인이 12개 데코레이터 오케스트레이터보다 비싸다는, 코드만 봐서는 설명 안 되는 역전)는 **이 공유 오염 때문일 가능성이 높다.** H1 이 지목한 "귀속 오류"는 실재하지만, 원래 가설이 말한 "위젯 `toDOM` 을 플러그인 쪽에 잘못 넣었다"가 아니라 **설정 레벨 오염**이다.
+
+**교정 하네스를 이 세션이 추가했다** — `mount_cost_t2_harness.ts` 에 `mountNBarePlusThemeOnly`(bare + 인스턴스별 `createEditorTheme()` 만) / `mountNBarePlusKeymapOnly`(bare + keymap 만) 를 추가하고 `qa` 에 노출했다. **§a 의 환경 오염 때문에 이 세션은 유효한 수치를 얻지 못했다** — 포그라운드 브라우저에서 재실행이 필요하다(§d 참조).
+
+**c. 독립 결함 확정 — `EditorView.theme()` 인스턴스별 재호출로 인한 StyleModule 누수 (신규, A6 원인 여부와 무관하게 실재)**
+
+`node_modules/style-mod` 와 `@codemirror/view` 소스를 직접 읽어 확인했다:
+
+- `EditorView.theme(spec)` 는 호출마다 `StyleModule.newName()` 으로 **전역 유일 클래스 접두사**를 새로 발급하고 `new StyleModule(...)` 을 반환한다(`@codemirror/view/dist/index.js:8728-8730`) — 내용이 같아도 객체 동일성 캐시가 없다. style-mod 자신의 문서 주석이 명시적으로 경고한다: *"Style modules should be created once... don't create these dynamically, but treat them as one-time allocations."*
+- `BlockEditor.tsx:229` 의 `editorThemeCompartment.of(createEditorTheme(settings.editor))` 는 **블록(EditorView)마다** 실행된다 — `markdownDecorationPlugin`(§3-A "이미 배제된 것" 3번, 모듈 로드 시 1회)과 달리 이건 인스턴스별이다. 하네스도 동일하게 인스턴스별(`mountN` 루프 안에서 `createEditorTheme(settingsEditor)` 호출)이라 재현 대상과 일치한다.
+- `EditorView.destroy()`(`@codemirror/view/dist/index.js:8625-8638`) 에는 스타일 모듈을 언마운트하는 코드가 **없다.** style-mod 의 `StyleSet.mount()` 도 제거 API 를 제공하지 않는다 — 한 번 마운트된 모듈은 **탭이 살아있는 한 영구적으로 남는다.**
+- **실측으로 재확인**: 이 세션의 (오염된 환경이지만 이 지표엔 영향 없는) create-destroy 배치 실험에서, `<style>` 총 글자수가 인스턴스당 **정확히 525자씩, destroy 이후에도 감소 없이** 선형 누적됐다(70,126 → 223,510 자, 누적 생성 360건 구간에서 확인). 인스턴스를 즉시 파괴해도 스타일은 남는다.
+- **비용 판정**: 같은 실험에서 배치당(10~20개) 소요 시간은 누적 생성 개수가 90→360 으로 늘어도 뚜렷이 증가하지 않았다(대략 20~68ms 범위에서 등락, 추세 없음). 즉 **이 누수가 A6 의 N=200 동시-생존 초선형(§4-1) 을 직접 설명하지는 못한다** — 별개의, 그러나 실재하는 자원 누수다. 세션이 길어질수록(문서를 오래 열어두고 블록을 많이 오갈수록) `<style>` 이 무한정 자라는 문제이므로 **A6 판정과 무관하게 수정 대상**이다. 처방은 이 배치 규칙(처방 금지) 밖이라 여기 적지 않는다 — `markdownDecorationPlugin`/`decorationBaseTheme` 가 이미 쓰고 있는 "모듈 로드 시 1회 생성" 패턴을 `createEditorTheme()` 결과에도 적용하면 되는 종류의 수정으로 보인다(확정은 후속 세션 몫).
+
+**d. R-2 (code_review.md §3) 코드 확인** — `tabStore.ts:106-113`(현재 라인 기준) `updateBlockContent` 의 `updateNode` 를 직접 읽었다. 자식이 있는 블록은 대상 서브트리 포함 여부와 무관하게 무조건 `{ ...block, children: updateNode(block.children) }` 로 새 객체가 된다 — 기술된 그대로다. 런타임 계측은 하지 않았다(§a 의 환경 문제로 시간 배분을 §b/c 에 집중).
+
+**e. 남은 일 (다음 세션 인계)**
+
+1. **포그라운드(진짜 `visible`) 브라우저 확보가 최우선.** 그것 없이는 H1~H4 어느 것도 유효하게 판별할 수 없다 — §a.
+2. 확보되면: `mountNBarePlusThemeOnly`/`mountNBarePlusKeymapOnly`(N=25~200)로 §b 의 오염 가설을 확정하고, **그 다음에** `mountNNoCodeBlockPlugin`/`mountNOnlyCodeBlockPlugin` 을 재측정해 진짜 귀속을 다시 잰다.
+3. §3-A-0(측정 간극, 원 관측 대비 재현율 8~19%)는 **이 세션에서 손대지 못했다** — 여전히 열려 있다. 실제 앱(React 포함) 경로에서 N=200 블록을 만드는 재현 가능한 스크립트가 저장소에 없다(수동/1회성이었던 것으로 보임) — 다음 세션이 그 스크립트부터 만들 필요가 있다.
+4. §c 의 StyleModule 누수는 A6 와 별개 티켓으로 다뤄도 된다 — 처방은 이 배치 규칙상 여기서 설계하지 않는다.
+
+**재현**: `pnpm dev` → `http://localhost:1420/src/widgets/BlockEditor/__tests__/mount_cost_t2.html` → 콘솔에서 **먼저** `document.visibilityState` 확인 → `qa.mountNBarePlusThemeOnly`/`qa.mountNBarePlusKeymapOnly` 직접 호출.
+
+---
+
 ### 3-B. 구조적 조작의 텍스트 왕복
 
 **현상** — `reorderBlocks`(`project/src/entities/block/model/store.ts:266`)는 **어느 블록이 어디로 갔는지 이미 알면서** 텍스트로 `join` → `setBlocksFromContent` 재파싱 → 2-패스 재매칭을 거친다. 병합·분할도 같은 형태다.
