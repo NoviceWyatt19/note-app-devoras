@@ -180,6 +180,19 @@ Step 7  B4 구조 개편 (7-A → 7-B? → 7-C)
 
 ### 3-A-1. 조사 세션 기록 (project-82, 2026-08-31, SESS-20260831-A6)
 
+> **✅ 독립 재현 확인 (project-3d, 2026-08-31)** — 아래 조사 세션의 3대 발견을 계획 세션이 별도로 검증했다. **셋 다 사실이다.**
+>
+> **1. 측정 환경 오염 — 재현했고, 증상이 보고보다 강하다.** Claude Browser 페인에서 직접 잰 값: `document.visibilityState === "hidden"` · `document.hidden === true` · `hasFocus() === false`. 결정적으로 **`requestAnimationFrame` 이 아예 발화하지 않는다** — 300ms 동기 busy-wait 동안 콜백 0회. 처음 시도한 rAF 기반 진단 스크립트는 **45초 타임아웃으로 행이 걸렸다**(rAF 가 영원히 오지 않아 프로미스가 resolve 되지 않음). 즉 이 환경은 "느려지는" 정도가 아니라 **프레임 구동이 정지**한다. 타이밍 측정값은 전부 무효로 보는 것이 맞다.
+> - **`tabs_select` 로 탭을 앞으로 보내도 해소되지 않는다**(확인함). 페인 안에서의 탭 전환일 뿐, **페인 자체가 앱 UI 에서 표시돼야** `visibilityState` 가 바뀐다. 도구로 해결할 수 없고 **사람이 브라우저 페인을 열어야 한다.**
+> - **정정 — 계획 세션의 앞선 안내가 불완전했다.** 핸드오프에 "T2 는 실제로 동작한다, 캐럿 검증 5건을 이 경로로 자동 수행했다"고 적었는데, **기능 검증과 타이밍 측정을 구분하지 않은 것이 잘못**이다. 합성 키 이벤트와 DOM 판독은 숨은 페인에서도 정상 동작하므로 캐럿 검증은 유효하다. 그러나 **성능 측정에는 이 티어를 쓸 수 없다.** 앞으로 T2 를 권할 때 이 구분을 명시할 것.
+>
+> **2. H1 하네스 오염 — 코드로 확정.** `mountNBare` 의 확장은 `[markdown, oneDark, history(), drawSelection()]` 4개뿐인데, `mountNOnlyCodeBlockPlugin` 은 여기에 `lineWrappingCompartment` · `keymap.of([...])` · `codeBlockInteractionPlugin` · **`editorThemeCompartment.of(createEditorTheme(settingsEditor))`** 를 더한다. **"플러그인 단독" 조건이 단독이 아니었다.** H1 을 최우선 가설로 둔 근거(플러그인 생성자가 리스너 하나 다는 게 전부라 초선형을 만들 수 없다)가 그대로 확인됐다.
+>
+> **3. StyleModule 누수 — 라이브러리 소스로 확정.** `@codemirror/view/dist/index.js:8728` 의 `static theme(spec, options)` 는 호출마다 `StyleModule.newName()` 으로 **새 프리픽스와 새 StyleModule 을 만든다.** `BlockEditor.tsx:229` 가 `createEditorTheme(settings.editor)` 를 **EditorView 생성 이펙트 안에서** 호출하므로 **블록 하나당 StyleModule 하나**가 생긴다. `:144` 의 설정 변경 reconfigure 도 같은 경로다. N=200 이면 마운트에 200개, 설정을 한 번 바꿀 때마다 200개가 더 쌓인다. `EditorView.destroy()` 에 제거 경로가 없다.
+> - 다만 조사 세션의 관측대로 **create-destroy 반복에서 배치별 타이밍은 평평했다** — 누수는 실재하나 N=200 동시 마운트 급증의 주범으로 보이지는 않는다. **별도 티켓 대상이며 A6 의 답은 아니다.**
+
+
+
 **판정: 미확정 — 그러나 두 건의 독립 결함을 코드 근거로 확정, 기존 판별 실험 자체의 오염을 확인, 후속 세션을 위한 교정된 하네스와 프로토콜을 남긴다.** H1~H4 중 어느 것도 확정도 기각도 하지 못했다 — 이유는 아래 §a.
 
 **a. 측정 환경 오염 — 이 세션 최대의 발견**
