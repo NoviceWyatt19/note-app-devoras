@@ -1,0 +1,57 @@
+# 🐛 FIX TICKET
+type: "FIX_TICKET"
+id: "BUG-20260831-02"
+# ━━━
+update: "2026-08-31 20:30"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "createEditorTheme() 이 EditorView 마다 새 StyleModule 을 만들고 파괴 시 회수되지 않는다"
+status: "Todo"
+severity: "P1"
+tier: "T2 (브라우저 필요 — 단, <style> 바이트 증가 측정이라 스로틀링 영향 없음)"
+review_ref: "code_review.md §7.5 (R-6)"
+found_by: "project-82 (라이브러리 소스 대조) · project-3d (독립 확인)"
+# ━━━
+problem:
+  root_cause: >
+    `@codemirror/view` 의 `EditorView.theme()` 은 **호출마다** `StyleModule.newName()` 으로 새
+    프리픽스와 새 StyleModule 을 만든다(`node_modules/@codemirror/view/dist/index.js:8728` 확인).
+    `BlockEditor.tsx:229` 가 `createEditorTheme(settings.editor)` 를 **EditorView 생성 이펙트 안**
+    에서 호출하므로 **블록 하나당 StyleModule 하나**가 생성된다.
+  location:
+    - "project/src/widgets/BlockEditor/ui/BlockEditor.tsx:229 — 생성 경로"
+    - "project/src/widgets/BlockEditor/ui/BlockEditor.tsx:144 — 설정 변경 시 reconfigure, 같은 문제"
+    - "project/src/widgets/BlockEditor/ui/BlockEditor.tsx:86 — createEditorTheme 정의"
+  measured:
+    - "인스턴스당 `<style>` **+525자**, 단조 증가"
+    - "`EditorView.destroy()` 후에도 줄어들지 않음 — 제거 경로가 없다"
+    - "누적 360 create-destroy 사이클까지 증가 확인"
+    - "N=200 이면 마운트에 200개, 설정을 한 번 바꿀 때마다 200개 추가"
+  performance_impact: >
+    A6 판별 측정에서 테마를 얹은 조건의 절대 비용이 **약 50% 증가**했다(N=100 에서 614→903ms).
+    다만 **성장 지수는 오히려 낮았다**(1.82 → 1.54) — 즉 **상수 배수이며 A6 초선형의 원인이
+    아니다.** A6 와 별개 과제로 다룬다.
+  contrast: >
+    같은 코드베이스의 `markdownDecorationPlugin` 과 `decorationBaseTheme` 는 **모듈 레벨에서 1회**
+    생성돼 올바르게 공유된다. 한 파일 안에서 한쪽만 어긋나 있다.
+# ━━━
+fix:
+  approach: "테마를 모듈 레벨로 호이스팅해 인스턴스 간 공유한다."
+  complication: >
+    `createEditorTheme(settingsEditor)` 는 **설정 의존**이다(폰트 크기·패밀리 등). 따라서 단순
+    상수화가 안 된다. 두 갈래 —
+    (a) 설정 조합을 키로 하는 캐시(같은 설정이면 같은 StyleModule 재사용),
+    (b) 설정 의존 값을 **CSS 변수**로 빼서 테마 자체를 상수로 만들고 변수만 갱신.
+  recommendation: >
+    (b) 가 근본적이다 — 캐시는 설정 조합 수만큼 모듈이 쌓이는 구조를 남긴다. CSS 변수 방식이면
+    설정 변경 시 `reconfigure` 자체가 불필요해져 `:144` 경로도 함께 소멸한다.
+# ━━━
+dod:
+  - "[ ] N 개 블록 마운트 후 `<style>` 총 바이트가 N 에 비례해 증가하지 않음"
+  - "[ ] create-destroy 반복 후 `<style>` 바이트가 증가하지 않음(누수 해소)"
+  - "[ ] 설정 변경(폰트 크기 등)이 여전히 실시간 반영됨 — 회귀 0건"
+  - "[ ] 마운트 비용 재측정 — 테마 조건의 ~50% 오버헤드가 사라졌는지 확인"
+  - "[ ] `pnpm test:t1` 전량 유지"
+# ━━━
+notes:
+  - "A6-후속(동시 생존 인스턴스 수)과 **독립**이다. 가상화를 넣어도 창 안의 블록들은 이 비용을 그대로 치르므로 어느 쪽을 먼저 하든 이 항목은 해야 한다."
+  - "측정은 타이밍이 아니라 `<style>` 바이트 증가로 하므로, 브라우저 페인이 백그라운드여도 유효하다(§3-A-1 의 스로틀링 제약과 무관)."
