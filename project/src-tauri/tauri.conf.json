@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Devoras",
-  "version": "0.8.50",
+  "version": "0.8.51",
   "identifier": "com.devoras.desktop",
   "build": {
     "frontendDist": "../dist",
@@ -16,7 +16,7 @@
         "title": "Devoras",
         "width": 1280,
         "height": 800,
-        "minWidth": 800,
+        "minWidth": 640,
         "minHeight": 600,
         "resizable": true,
         "fullscreen": false,
