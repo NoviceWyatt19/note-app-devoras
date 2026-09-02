@@ -146,6 +146,46 @@
   color: #94a3b8;
 }
 .rv-content tr:hover td { background: rgba(255, 255, 255, 0.02); }
+/* An empty cell has no text node, so it collapses below normal line-height
+ * (BUG: table row height shrinks for empty cells). `:empty` only matches when
+ * there are truly zero child nodes, so a `&nbsp;`-only `::after` keeps a real
+ * text node out of the actual cell content (copy/paste, raw markdown). */
+.rv-content td:empty::after,
+.rv-content th:empty::after { content: "\00a0"; }
+
+/* Write Mode table widget — per-cell click-to-edit affordance */
+.cm-table-widget .cm-table-cell { cursor: text; }
+.cm-table-widget .cm-table-cell:hover { background: rgba(99, 102, 241, 0.08); }
+/* Keyboard focus lands on the cell itself (tabindex=-1) before editing starts,
+ * so it needs the same unmistakable ring the open editor gets. */
+.cm-table-widget .cm-table-cell:focus,
+.cm-table-widget .cm-table-cell:focus-visible {
+  background: rgba(99, 102, 241, 0.12);
+  outline: 2px solid rgba(99, 102, 241, 0.9);
+  outline-offset: -2px;
+}
+.cm-table-widget .cm-table-cell-editing {
+  background: rgba(99, 102, 241, 0.1);
+  outline: 2px solid rgba(99, 102, 241, 0.6);
+  outline-offset: -2px;
+}
+/* A textarea (not an input) so Shift+Enter shows a real line break while
+ * editing; it is stored back as `<br>` since a GFM row is one line. */
+.cm-table-cell-input {
+  display: block;
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  text-align: inherit;
+  line-height: inherit;
+  resize: none;
+  overflow: hidden;
+}
 
 /* Links */
 .rv-content a { color: #818cf8; text-decoration: none; }
