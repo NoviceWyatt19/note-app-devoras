@@ -1,7 +1,7 @@
 {
   "name": "devoras-design",
   "private": true,
-  "version": "0.8.50",
+  "version": "0.8.51",
   "type": "module",
   "engines": {
     "node": ">=22.6",
@@ -13,6 +13,11 @@
     "tauri:dev": "pnpm tauri dev",
     "tauri:build": "pnpm tauri build",
     "test:t1": "pnpm test:blockkey && pnpm test:path && pnpm test:dirty && pnpm test:closeguard && pnpm test:paneownership && pnpm test:tabstore && pnpm test:activetab && pnpm test:caretstability && pnpm test:symbol && pnpm test:image && pnpm test:ime && pnpm test:sanitizer && pnpm test:diff",
+    "test:t15": "pnpm test:formattoolbar && pnpm test:savedirty && pnpm test:tabswitch && pnpm test:fileexplorer",
+    "test:formattoolbar": "node --import ./scripts/register-dom.mjs src/widgets/BlockEditor/__tests__/format_toolbar_mount_harness.tsx",
+    "test:savedirty": "node --import ./scripts/register-dom.mjs src/pages/WorkspacePage/__tests__/save_dirty_indicator_harness.tsx",
+    "test:tabswitch": "node --import ./scripts/register-dom.mjs src/pages/WorkspacePage/__tests__/tab_panel_switch_harness.tsx",
+    "test:fileexplorer": "node --import ./scripts/register-dom.mjs src/widgets/FileExplorer/__tests__/file_explorer_interaction_harness.tsx",
     "test:blockkey": "node --import ./scripts/register-ts.mjs src/entities/block/__tests__/block_key_stability_harness.ts",
     "test:paneownership": "node --import ./scripts/register-ts.mjs src/entities/document/__tests__/pane_ownership_harness.ts",
     "test:tabstore": "node --import ./scripts/register-ts.mjs src/entities/document/__tests__/tab_store_isolation_harness.ts",
@@ -54,6 +59,8 @@
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.11.4",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.6",
     "@types/dompurify": "^3.2.0",
     "@types/jsdom": "^21.1.7",
     "@types/node": "^20.19.43",
