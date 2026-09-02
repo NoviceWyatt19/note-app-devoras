@@ -1,0 +1,80 @@
+# 🐛 FIX TICKET
+type: "FIX_TICKET"
+id: "BUG-20260902-01"
+# ━━━
+update: "2026-09-02 04:10"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "ERD 문서 파싱 실패 시 빈 문서로 메모리 상태를 덮어쓴다 — 저장 시 파일 유실"
+status: "Todo"
+severity: "P1"
+tier: "T2 (앱 구동 + 손상된 .erd 파일)"
+review_ref: "외부 리뷰 §3.3.2 (claude-history/review/code_review_external_20260831_2221.md) · architecture_direction_review.md §6.2"
+found_by: "외부 리뷰(claude-history/review/code_review_external_20260831_2221.md) · 계획 세션이 코드로 검증"
+independent_of: "GATE-20260902-01 — 어느 아키텍처 결정에도 영향받지 않는다"
+# ━━━
+problem:
+  location: "project/src/widgets/ErdDesigner/ui/ErdDesignerMainView.tsx:16-49"
+  root_cause: >
+    `useEffect` 가 `rawContent` 를 파싱한다. `JSON.parse` 가 던지면 `parseErdDocument` 로 재시도하고,
+    그것도 던지면 `createEmptyErdDocument()` 를 만든 뒤 `needsUpdate = true` 로 표시한다.
+    그리고 **`setRawContent(normalized)` 와 `useDocumentStore.getState().updateContentForTab(tab.id, normalized)`
+    를 호출해 탭의 내용을 빈 문서로 교체하고 dirty 로 만든다.**
+    즉 **읽기 실패가 쓰기로 이어진다** — 파싱할 수 없는 문서를 사용자에게 보여주지 않고 조용히 지운다.
+  code: |
+    } catch (e) {
+      console.error("Failed to parse ERD JSON", e);
+      try {
+        finalDoc = parseErdDocument(rawContent);
+        needsUpdate = true;
+      } catch (err) {
+        finalDoc = createEmptyErdDocument();   // ← 원본을 버린다
+        needsUpdate = true;
+      }
+    }
+    setDocument(finalDoc);
+    if (needsUpdate) {
+      const normalized = JSON.stringify(finalDoc, null, 2);
+      setRawContent(normalized);                                    // ← 탭 상태 덮어쓰기
+      if (tab?.id) useDocumentStore.getState().updateContentForTab(tab.id, normalized);
+    }
+  severity_calibration: >
+    **외부 리뷰는 "영구 유실"이라 적었으나 한 단계 낮다.** `autosaveDelay` 설정이
+    **소비자 없이 존재**하므로(아래 related 참조) 자동 디스크 쓰기가 일어나지 않는다.
+    디스크 유실은 사용자가 `Cmd+S` 를 눌러야 성립한다.
+    **그럼에도 P1 인 이유**: "손으로 고친 `.erd` 를 열었더니 빈 캔버스가 보인다 → 뭔가 잘못됐구나
+    → 습관적으로 저장" 경로가 현실적이고, 그 시점에 원본은 이미 메모리에서 사라져 있어
+    **되돌릴 수단이 없다.** 탭이 dirty 로 표시되므로 사용자는 자기가 뭔가 고친 줄 안다.
+  additional: >
+    빈 내용(`rawContent.trim() === ''`)일 때 빈 문서를 만드는 경로(:20-22)는 **정당하다** —
+    새 파일 초기화다. 문제는 **파싱 실패 경로(:32-40)** 뿐이다. 둘을 구분하지 않은 것이 결함이다.
+# ━━━
+fix:
+  approach: >
+    파싱 실패를 **표시 상태**로 다루고 **쓰기를 하지 않는다.**
+    1. `catch` 경로에서 `needsUpdate` 를 세우지 않는다 — `setRawContent`/`updateContentForTab` 미호출.
+    2. 에러 UI 를 렌더한다: 원본을 잃지 않았음을 알리고, 원문(raw JSON)을 텍스트로 보여주거나
+       "텍스트로 열기" 경로를 제공해 사용자가 직접 고칠 수 있게 한다.
+    3. 빈 문서 생성은 `rawContent` 가 실제로 비었을 때만 유지한다.
+  guard: "`setRawContent` 호출을 '사용자 편집' 또는 '빈 파일 초기화' 두 경우로만 제한한다. 읽기 실패는 절대 쓰기를 유발하지 않는다"
+  note: "`useState<any>` / `onChange: (newDoc: any)` 의 `any` 도 같은 파일에 있으나(외부 리뷰 §3.3.2) 이 티켓 범위가 아니다 — `ErdDocumentV1` 로 좁히는 것은 별도 품질 항목"
+# ━━━
+dod:
+  - "[ ] 고의로 문법을 깨뜨린 `.erd` 를 연다 → 빈 캔버스가 아니라 에러 UI 가 보인다"
+  - "[ ] 그 상태에서 탭이 **dirty 로 표시되지 않는다**"
+  - "[ ] 그 상태에서 `Cmd+S` 를 눌러도 원본 파일이 변경되지 않는다 (또는 저장이 차단된다)"
+  - "[ ] 빈 `.erd` 파일을 새로 열면 기존대로 빈 ERD 문서가 초기화된다 (회귀 0건)"
+  - "[ ] 정상 `.erd` 열기/편집/저장 왕복 정상 (회귀 0건)"
+  - "[ ] `pnpm test:t1` 전량 유지"
+# ━━━
+related:
+  - id: "부수 발견 — autosaveDelay 미배선"
+    detail: >
+      `settings/model/types.ts:4,32` 에 `autosaveDelay` 가 정의되고 `SettingsModal.tsx:113-120` 에서
+      사용자가 슬라이더로 조절할 수 있으나, **이 값을 읽는 코드가 저장소에 없다**(grep 확인).
+      즉 **사용자에게 노출된 설정이 아무 일도 하지 않는다.** 별도 항목이며, 이 티켓의 심각도
+      산정 근거이기도 하다 — **자동 저장이 배선되는 순간 이 결함의 등급이 P0 로 오른다.**
+      → 자동 저장 구현 착수 시 이 티켓을 **선행 조건**으로 둘 것.
+  - id: "settings/store.ts:79 빈 catch"
+    detail: "같은 성격(파싱 실패 → 조용한 기본값 대체)의 다른 사례. `DEFAULT_SETTINGS` 로 덮으며 로그도 남기지 않는다. 별도 티켓 대상이며 처방은 로깅 + 손상 파일 `.bak` 보존"
+  - id: "BUG-20260828-06"
+    detail: "위젯 `toDOM` 예외가 CM 뷰·React 서브트리를 붕괴시키는 건. 외부 리뷰가 제안한 ErrorBoundary 도입은 신규 항목이 아니라 **그 티켓의 완화 수단**이므로 거기로 편입한다"

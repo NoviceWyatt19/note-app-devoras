@@ -1,0 +1,121 @@
+# 🎫 SESSION HANDOFF TICKET
+type: "SESSION_HANDOFF"
+id: "SESS-20260902-PLANNER"
+supersedes: "SESS-20260831-PLANNER (ticket/session/20260831_2050_planner_handoff.yml)"
+# ━━━
+update: "2026-09-02 06:10"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "계획 세션 인수인계 — 아키텍처 게이트 개봉 + 문서 체계 정리 완료"
+baseline: "f9f6716 · v0.8.50 · **코드 무변경** (이 사이클은 문서·티켓만)"
+# ━━━
+your_role:
+  what_you_do: "계획·조사 설계·리뷰·티켓 작성. 구현은 다른 세션이 맡는다. 그 결과를 **독립 검증**한 뒤 문서에 반영한다"
+  what_you_do_not_do: "요청받지 않은 코드 수정. 실행 세션이 쥔 파일 편집"
+  hard_earned_rule: >
+    **구현 세션의 보고를 그대로 믿지 말 것.** 교차 검증이 양방향으로 오류를 잡은 사례가 반복됐다.
+    **커밋·테스트·코드를 직접 확인한 뒤 반영한다.**
+# ━━━
+read_first: "**`DOCUMENTS.md`** (저장소 루트) — 2026-09-02 신설. 문서 지도 + 배치 규칙 + 이동 내역. 여기부터 읽는다"
+# ━━━
+what_this_session_did:
+  inputs: "사용자가 넣어둔 미커밋 문서 2건 — `project/MEMORY_OPTIMIZATION.md`(단일 CM 제안) · `new_view-point.md`(외부 FSD 냉시작 리뷰)"
+  analysis: "두 문서를 **코드로 전수 검증**하고 기존 계획(code_review §9 · DEBUG_STEP_PLAN §0.1 · implementation_plan · function_roadmap)과의 트레이드오프를 판정 → `architecture_direction_review.md`"
+  decisions: "D-1~D-6 사용자 결정 완료 → `GATE-20260902-01` 에 기록, 전 문서에 반영"
+  doc_cleanup: "문서 배치 규칙 확립 + 11건 이동 + 중복 1건 삭제 → `DOCUMENTS.md`"
+# ━━━
+the_core_finding:
+  headline: "**§0.1 아키텍처 게이트의 근거가 무효였다. 게이트를 다시 열었다.**"
+  detail: >
+    §0.1 은 "순수 CodeMirror 코어는 선형이고 38배 싸다 → 블록당 인스턴스 설계는 무죄"로 닫혀 있었다.
+    그런데 §3-A-2 가 귀속을 뒤집었다 — 그 "선형" 관측은 **동시 생존 수를 늘리지 않은 조건**
+    (생성 즉시 파괴)에서 나온 것이었다. 누적 조건은 지수 1.763(N=100, 737ms), 즉시파괴는
+    0.938(92ms). **"생성 행위는 싸다"는 참이지만 "N개를 동시에 살려 두는 설계는 무죄"는 거짓이다.**
+  third_record: >
+    **문서 정리 중 세 번째 기각 기록을 발견했다** — `architecture_stages.md:56` (2026-08-27),
+    "Option A(문서 전체 단일 CM)를 택하지 않은 이유: 중첩 라운드 카드를 평면 라인 목록으로는
+    표현할 수 없다". **측정된 적이 없는 단언이다.** 이 프로젝트가 §3-C 에 스스로 적어둔 규칙
+    ("처방을 측정보다 먼저 쓰지 말 것")을 어긴 사례이며, **SPIKE-20260902-A 가 그 부채를 갚는다.**
+  two_blockers_found:
+    - >
+      **오케스트레이터가 문서 전체를 훑는다** (`orchestrator.ts:27-46`, `:331`). `buildAll` 이
+      `0~doc.length` 를 12개 데코레이터로 스캔하고 **`docChanged` 뿐 아니라 `tr.selection` 에서도**
+      전량 재실행된다. 소스 주석이 스스로 전제를 밝혀 뒀다 — *"Devoras splits blocks into separate
+      CodeMirror instances, doc.length is small enough"*. **단일 CM 이 그 전제를 직접 파괴한다.**
+      구조적 어려움: 뷰포트 빌드는 `ViewPlugin` 을 요구하는데 다중 라인 `Decoration.replace` 는
+      `StateField` 를 요구하고(`LatexDecorator.ts:161-172` KaTeX 펜스), 데코레이터가 커서를 읽으므로
+      (`:164` `cursorInside`) 셀렉션 재빌드를 끌 수도 없다. → **SPIKE-20260902-B**
+    - >
+      **중첩 카드가 실제 중첩 DOM 이다** (`BlockEditor.tsx:398-459` 재귀 `BlockNode`).
+      `Decoration.line()` 은 평면 형제 `.cm-line` 을 만든다. → **SPIKE-20260902-A**
+# ━━━
+confirmed_sequence:
+  - "0. **R-1 React 계층 검증 티어** — `REF-20260902-01` · 착수 승인 (D-3)"
+  - "1. **스파이크 A** 중첩 카드 시각 재현 — `SPIKE-20260902-A` · **안건의 생사를 가른다**"
+  - "2. **스파이크 B** 오케스트레이터 증분화 — `SPIKE-20260902-B` · Blocked (A 대기)"
+  - "3. 판정 → 단일 CM 전환(`single_cm_transition.md`) **또는** E7 가상화+높이 캐시 복귀"
+  a_before_b_rationale: "A 가 실패하면 B 를 잰 비용이 통째로 버려진다. A 는 싸고 판정이 육안으로 즉시 난다. **비싼 쪽을 뒤에 둔다**"
+  independent_now:
+    - "`BUG-20260902-01` ERD 파싱 실패 시 빈 문서 덮어쓰기 차단 (티켓 발행됨)"
+    - "`settings/store.ts:79` 빈 catch — 로깅 + `.bak` 보존 (티켓 미발행)"
+    - "R-3 `crypto.randomUUID()` (티켓 미발행) — ReadView 재정렬 id 가 어느 경로에서도 살아남으므로 유효"
+  on_hold_until_gate3:
+    - "R-2 경로 복사 — 단일 CM 채택 시 100% 매몰 비용"
+    - "메커니즘 확인 실험 — 단일 CM 채택 시 묻지 않는 질문이 된다"
+    - "E7 가상화 + 높이 캐시 — 경쟁 안건"
+  relocated: "R-6 테마 호이스팅 → **Sprint 3(YAML 테마) 병합** (D-4). `createEditorTheme()` 의 설정 의존값이 `fontFamily`·`fontSize` 둘뿐이라 CSS 변수 토큰 시스템이 곧 해법이다"
+# ━━━
+document_layout_now:
+  rule: "루트 = 살아 있는 계획 문서 · `project/` = 앱 소스 트리(**문서 없음**) · `claude-history/` = 아카이브"
+  new_files:
+    - "DOCUMENTS.md — 문서 지도. **새 세션의 진입점**"
+    - "DEBUG_PLAN.md — Step 8 배치 사양 (신규)"
+    - "architecture_direction_review.md — 2026-09-02 방향 판단"
+    - "single_cm_transition.md — 단일 CM 안건 (구 project/MEMORY_OPTIMIZATION.md, 승격·정정)"
+  moved_to_root: "VERIFY_BY_HUMAN.md · architecture_stages.md"
+  archived: "project/DEBUG_PLAN.md(회전) · BUG2026082801_handoff · ARCHITECTURE_SKETCH · FUNCTIONS_RELATIONSHIP · dev_history · HANDOVER · PLAN · new_view-point"
+  deleted: "claude-history/impl/…widget_typography 복사본.md (원본과 바이트 동일)"
+  link_check: "전 문서 상대 링크 검증 통과 — 깨진 링크 0건 (레거시 `file://` 절대경로 8건은 2026-07 세션 티켓의 기존 문제, 손대지 않음)"
+  debug_plan: "`DEBUG_PLAN.md`(루트) — **Step 8 아키텍처 게이트** 배치 사양. 2026-09-02 신규 작성. 8-A(R-1 코드 착지) → 8-B(스파이크 A) → 8-C(스파이크 B) → 8-D(판정·분기)"
+# ━━━
+document_drift_corrected:
+  - "T1 하네스 실제 **13종** (code_review §2 는 '14종', DEBUG_STEP_PLAN §5.1 은 '9 하네스'로 적혀 있었다) — 양쪽 정정"
+  - "`heading_caret_harness.ts` 는 존재하나 `test:t1` 에 **연결돼 있지 않다** — 실행되지 않는 하네스"
+  - "`autosaveDelay` 는 정의·UI 조절 가능하나 **읽는 코드가 없다** — 노출된 설정이 아무 일도 하지 않는다. **자동 저장을 배선하는 순간 BUG-20260902-01 이 P0 로 오른다**"
+  - "`architecture_stages.md:57` 의 'MindView 가 blockStore 에 의존' — **거짓**. `parseMarkdown(rawContent)` 만 쓴다. 정정 주석 삽입"
+# ━━━
+still_awaiting_user:
+  - "`implementation_plan.md` Sprint 4A 사양 중복(1090~ / 1575~ 두 벌). 양쪽에 서로 없는 내용이 있어 기계적 삭제 불가 — 아래쪽에만 「아키텍처 결정: Rust vs JS」가 있다. 경고만 삽입된 상태"
+  - "퀵 캡처(FEAT-20260831-01) 착수 전 미해결 5건 — 만료 노트 처리 · TTL 기준 시각 · 워크스페이스 미선택 시 동작 · 알림 수단 · 이어쓰기 판정 기준"
+  - "마인드뷰 메인 뷰 전환 — 설계 방향 확정('일반 탭 + 사이드 패널은 숏컷'), 착수 대기. 원천 도입 시 D-6 판단이 뒤집힌다"
+# ━━━
+conventions:
+  commit:
+    - "`속성(버전): 설명` — feat/fix/refactor/chore/style/project. `.agents/AGENTS.md` 참조"
+    - "코드 커밋은 패치 버전업 4파일 동시(package.json · Cargo.toml · tauri.conf.json · Cargo.lock)"
+    - "**문서만 바꾼 커밋은 버전을 올리지 않는다**"
+    - "**공유 워킹 트리다.** `git commit` 은 인덱스 전체를 커밋한다. 커밋 직전 `git status --short` 확인, 또는 `git commit -F - -- <경로>`. 실제 사고: `f48b88c`"
+  rotation: "DOCUMENTS.md §3 참조"
+  ticket: "`ticket/{debug,refactor,impl,session,project,request}/[YYYYMMDD_HHMM]_[주제].yml` · 템플릿 `.agents/new_ticket_templates.md`"
+# ━━━
+verification_tiers:
+  T1: "`pnpm test:t1` — **13종** 하네스. 순수 로직만"
+  T1_5: "**신설 예정** — `@testing-library/react` + jsdom. `REF-20260902-01`"
+  T2: "`pnpm dev` + Chromium. `MockFileSystem` 폴백(`shared/api/fs.ts:403`)"
+  T2_critical_caveat: >
+    **기능 검증에는 유효하지만 타이밍 측정에는 무효다.** 브라우저 페인이 백그라운드면
+    `visibilityState: hidden` 이 되어 **rAF 가 아예 발화하지 않는다**. 합성 키 이벤트·DOM 판독은
+    정상이므로 기능 검증은 유효하다. **타이밍을 재려면** 사용자가 브라우저 페인을 표시 →
+    `visibilityState === 'visible'` 과 rAF 60fps 를 **먼저 확인한 뒤** 측정한다.
+    → **SPIKE-20260902-B 는 이 조건이 필수다. A 는 육안 판정이라 무관하다.**
+  T3: "`pnpm tauri:dev` — 실기. 사람 손 필요"
+  measurement_discipline: "조건별 워밍업 1회 폐기 · 3회 반복 중앙값 · 조건 인터리브"
+# ━━━
+lessons_that_cost_time_to_learn:
+  - "**처방을 측정보다 먼저 쓰지 말 것.** Step 6 이 그랬고, `architecture_stages.md:56` 의 Option A 기각도 그랬다 — 후자는 **1년 가까이 안건 하나를 근거 없이 닫아 둔** 사례다"
+  - "**판정의 근거와 판정을 분리해서 읽을 것.** §0.1 은 '생성 비용의 무죄'를 '설계의 무죄'로 확대했다. 같은 형태의 오류가 다른 게이트에도 있을 수 있다"
+  - "**소스 주석이 전제를 밝혀 둔 곳을 찾을 것.** `orchestrator.ts:29` 의 한 줄이 단일 CM 안건의 최대 블로커를 드러냈다 — 제안 문서는 그 파일을 읽지 않았다"
+  - "**계획서에서 빠지는 것과 테스트가 없는 것은 같은 집합이다.** 목록을 세지 말고 grep 으로 전수 확인할 것"
+  - "**불변식은 위치가 곧 사정거리다** · **명령을 상태로 저장하면 반복 발화한다** · **되돌릴 수 없는 단계는 맨 뒤로**"
+# ━━━
+active_sessions: "2026-09-02 05:20 기준 없음. 세션 이름은 재연결마다 바뀌므로 ListAgents 로 확인할 것"
+uncommitted: "이 사이클의 문서·티켓 변경 전량. 코드 변경 0건 — 버전을 올리지 않는다"

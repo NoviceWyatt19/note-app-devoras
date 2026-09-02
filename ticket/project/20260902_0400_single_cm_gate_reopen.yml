@@ -1,0 +1,177 @@
+# 🛠 DECISION GATE TICKET
+type: "DECISION_GATE"
+id: "GATE-20260902-01"
+# ━━━
+update: "2026-09-02 05:10"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "§0.1 아키텍처 게이트 재개봉 — 단일 CodeMirror 전환을 E7 가상화의 경쟁 안건으로 둘 것인가"
+status: "**결정 완료 (2026-09-02) — 게이트 열림.** 스파이크 A → B 판정 대기"
+baseline: "f9f6716 · v0.8.50 · 트리 클린"
+analysis_ref: "architecture_direction_review.md (2026-09-02)"
+raised_by: "계획 세션 (SESS-20260831-PLANNER 인수)"
+# ━━━
+why_now: >
+  `DEBUG_STEP_PLAN.md` §0.1 은 "블록당 CodeMirror 설계는 무죄 — 이 결정은 재개봉되지 않는다"로
+  닫혀 있다. 그 근거는 Step 6 의 "순수 CodeMirror 코어는 선형이고 38배 싸다"였다.
+  **§3-A-2(2026-08-31)가 이 귀속을 뒤집었다** — 데코레이터가 하나도 없는 베어 조건도 **누적**
+  마운트 시 지수 1.763(N=100, 737ms)이고, **생성 횟수는 같고 누적만 없앤** 조건은 0.938(92ms)이다.
+  즉 "생성 행위는 싸다"는 참이지만 "**동시에 N개 살려 두는 설계**는 무죄"는 거짓이다.
+  게이트의 근거가 소멸했으므로 게이트도 무효다.
+# ━━━
+what_changed_the_frame:
+  new_document: "single_cm_transition.md (구 project/MEMORY_OPTIMIZATION.md — D-5 로 승격·정정됨)"
+  proposal: "문서 1개 = CodeMirror 1개. 블록 카드는 Decoration.line 으로 시각화만. rawContent 가 유일한 진실"
+  distinct_from_0_1: >
+    **§0.1 이 기각한 안건이 아니다.** §0.1 이 검토한 것은 "Notion 형태" = **블록 트리를 진실로**
+    삼는 구조였고, 그래서 "마크다운이 디스크의 진실"이라는 전제를 깬다는 반박이 성립했다.
+    이 제안은 정반대로 **rawContent 를 유일한 진실**로 삼으므로 그 전제를 **더 충실히** 만족한다.
+    MindView 가 `blocks` 를 전혀 참조하지 않고 `parseMarkdown(rawContent)` 만 쓴다는 사실이 뒷받침한다.
+    **§0.1 을 근거로 이 안건을 다시 닫으면 안 된다 — 다른 안건이다.**
+  third_rejection_record_found:
+    note: "**2026-09-02 문서 정리 중 발견.** 앞선 분석에도 없던 기록이다"
+    where: "architecture_stages.md:56 (2026-08-27)"
+    quote: >
+      | **Option A(문서 전체 단일 CM) 를 택하지 않은 이유** | H2/H3 를 중첩 라운드 카드로 렌더하는
+      현재 시각 디자인을 **평면 라인 목록으로는 표현할 수 없다** |
+    significance: >
+      즉 이 구조는 **두 번 기각됐다** — 2026-08-27 Option A, 2026-08-30 §0.1. 그러나 두 근거의
+      성격이 다르다: §0.1 은 **측정에 기반했으나 그 측정이 무효화**됐고, Option A 는 **애초에
+      측정된 적이 없는 단언**이다. 이 프로젝트의 규칙("처방을 측정보다 먼저 쓰지 말 것")을 어긴
+      사례이며, **SPIKE-20260902-A 가 그 부채를 갚는다.**
+      단언이 맞는 것으로 나오면 그것도 유효한 결과다 — 안건이 근거를 갖고 종결된다.
+# ━━━
+verified_facts:
+  proposal_is_right_about:
+    - "겨눈 축이 정확하다 — 단일 CM 은 동시 생존 EditorView 수를 N→1 로 **구조적으로 고정**한다"
+    - "높이 맵 관리를 CodeMirror 라이브러리가 진다 — E7 의 필수 동반 항목인 **높이 캐시를 우리가 구현하지 않아도 된다**(BUG-20260828-01 재생산 위험 회피)"
+    - "MindView 는 blocks 에 의존하지 않는다 — 코드로 확인"
+  proposal_is_wrong_about:
+    - >
+      **메모리 전제가 틀렸다.** 문서는 "인스턴스당 ~600KB · 문서당 18MB · 90% 절감"을 근거로 든다.
+      실측은 `ARCHITECTURE_FINDINGS.md:205` — **블록당 42~98KB, 예산(150KB) 이내**. 6~14배 과장이며,
+      **메모리는 이 프로젝트에서 한 번도 실패한 예산이 아니다.** 실패한 것은 오직 시간
+      (N=200 에서 7,024~17,423ms vs 예산 300ms). 제목·§1·§8 프레이밍은 정정 대상.
+    - >
+      **"기존 12개 데코레이터 전부 재사용(그대로 동작)"이 코드와 어긋난다.** `orchestrator.ts:27-46`
+      의 `buildAll` 은 문서 전체(`0 ~ doc.length`)를 12개 데코레이터로 훑고, `:331` 에서
+      **`docChanged` 뿐 아니라 `tr.selection` 에서도 전량 재실행**된다. 소스 주석이 스스로
+      *"Devoras splits blocks into separate CodeMirror instances, doc.length is small enough"* 라고
+      전제를 밝혀 두었다 — **단일 CM 이 그 전제를 직접 파괴한다.**
+    - >
+      **제거 목록이 과장됐다.** ReadView 의 블록 드래그 재정렬이 `flattenTree` ·
+      `resolveBlocksFromContent` · 2-패스 매칭을 계속 쓴다(`ReadView.tsx:302,345,352,358`).
+      "제거"가 아니라 "쓰기 경로에서 소비자 소멸, ReadView 전용으로 축소"가 정확하다.
+      Step 4(A7)의 성과물은 전부 살아남는다.
+  proposal_omits:
+    - >
+      **중첩 카드가 실제 중첩 DOM 이다.** `BlockEditor.tsx:398-459` 의 `BlockNode` 는 재귀이고
+      L2(`p-5 rounded-2xl`) 안에 L3(`p-4 rounded-xl`)가 들어앉는다. `Decoration.line()` 이 만드는
+      것은 평면 형제 `.cm-line` 이다. 문서가 선례로 든 `CodeBlockDecorator` 는 **중첩 없는 단일
+      레벨**이므로 이 패턴을 증명하지 않는다. 문서 §7 의 "위험 중간 / 이미 증명됨"은 근거가 약하다.
+    - >
+      **CM6 구조 제약.** 뷰포트 한정 빌드는 `ViewPlugin`(`view.visibleRanges`)을 요구하는데,
+      다중 라인 `Decoration.replace` 는 `StateField` 를 요구한다. 현행이 `StateField` 인 이유가
+      정확히 그것이고(`orchestrator.ts:317` 주석), 그 다중 라인 replace 는 **실재한다**
+      (`LatexDecorator.ts:161-172`, KaTeX 블록 펜스가 여는 펜스~닫는 펜스를 replace).
+      게다가 데코레이터들이 **커서 위치를 읽으므로**(`LatexDecorator.ts:164` `cursorInside` —
+      마크업 노출/은닉 UX 의 본질) 셀렉션 재빌드를 그냥 끌 수도 없다.
+      → 선행 작업은 "뷰포트로 감싸기"가 아니라 **오케스트레이터 2계층 분리 또는 증분화**라는 설계 과제다.
+    - "T1 하네스 13종 중 최소 5종(blockkey·caretstability·tabstore·diff·vertical_motion)이 현행 아키텍처 불변식을 인코딩한다 — 재작성 대상"
+    - "IME 3중 래치(ImeLatchPlugin·ImeIsolation·useImeInputManager)는 블록당 뷰 전제로 조립됐다. 문서는 '그대로 사용'이라 적었으나 검증된 바 없고 BUG-20260828-05 가 열려 있다"
+    - "R-1(React 테스팅 라이브러리 부재)이 미해결인 시점 — 회귀망이 가장 약할 때 최대 구조 변경을 하는 형태가 된다"
+# ━━━
+what_this_gate_locks:
+  note: "code_review.md §9 의 확정 순서 4항목의 값어치가 이 결정에 전부 걸려 있다"
+  - item: "R-6 테마 호이스팅"
+    e7_path: "필수 — 창 안 블록들이 그대로 치르는 상수 ~50%"
+    single_cm_path: "거의 무의미 — 인스턴스 1개면 StyleModule 도 1개, 누수 자체가 소멸"
+    verdict: "지금 해도 손해 없음. 다만 §9 의 '어차피 해야 한다'는 논거는 단일 CM 경로에서 성립하지 않는다"
+  - item: "R-2 updateBlockContent 경로 복사"
+    e7_path: "필요 — 입력당 비용, 다른 축"
+    single_cm_path: "**100% 폐기** — updateBlockContent 자체가 쓰기 경로에서 소멸"
+    verdict: "**결정 전 착수 금지.** 순수 매몰 비용이 될 수 있다"
+  - item: "메커니즘 확인 실험 (레이아웃 vs CM 뷰 관리 vs DOM 형제 수)"
+    e7_path: "유의미 — 레이아웃 축이면 content-visibility 로 가상화를 회피할 수 있다"
+    single_cm_path: "**결정 가치 소멸** — 어느 메커니즘이든 N→1 이 답이다"
+    verdict: "**결정 전 착수 금지.** 이것은 'E7 을 어떻게 싸게 만들까'를 묻는 실험이다"
+  - item: "E7 가상화 + 높이 캐시"
+    e7_path: "계획의 본체"
+    single_cm_path: "**직접 대체됨** — 라이브러리가 대신 한다"
+    verdict: "**둘 중 하나만 짓는다.** 이것이 결정의 본체"
+# ━━━
+side_finding_r6_sprint3_convergence:
+  fact: "`createEditorTheme()` 의 설정 의존값은 `fontFamily` · `fontSize` **둘뿐**이다 (BlockEditor.tsx:86-105, 확인함)"
+  implication: >
+    R-6 티켓(BUG-20260831-02)이 권고한 근본 처방 "(b) CSS 변수로 빼서 테마를 상수화"는
+    `implementation_plan.md` **Sprint 3** 이 만들려는 CSS 변수 토큰 시스템
+    (`entities/theme/lib/injector.ts`)과 **정확히 같은 것**이다. CSS 변수 2개면 테마가 상수가 된다.
+    R-6 를 독립 배치로 처리하면 Sprint 3 이 같은 것을 다시 짓는다.
+  recommendation: "Sprint 3 토큰 인젝터 위에서 R-6 를 닫는 편이 총량이 적다. 그 경우 BlockEditor.tsx:144 의 reconfigure 경로까지 함께 소멸한다"
+  affects: "code_review.md §9 의 'R-6 를 1번에 둔다' — 재검토 대상"
+# ━━━
+decisions_made:
+  date: "2026-09-02"
+  - id: "D-1"
+    q: "§0.1 게이트를 다시 여는가"
+    decision: "**(a) 연다** — 단일 CM 을 E7 의 경쟁 안건으로 정식 개봉"
+    applied: "DEBUG_STEP_PLAN.md §0.1 에 재개봉 블록 삽입, 원 판정은 <details> 로 보존"
+  - id: "D-2"
+    q: "스파이크를 먼저 재는가 / 순서"
+    decision: "**(a) 잰다. 순서는 A → B.**"
+    rationale: >
+      A 가 실패하면 B 를 잰 비용이 통째로 버려진다. A 는 CSS·데코레이션 실험이라 B(오케스트레이터
+      재설계)보다 싸고 판정이 육안으로 즉시 난다. **비싼 쪽을 뒤에 둔다.**
+      A 가 2026-08-27 Option A 기각 사유를 정면으로 재는 실험이기도 하다.
+    applied: "SPIKE-20260902-A (Todo) · SPIKE-20260902-B (Blocked, A 대기)"
+  - id: "D-3"
+    q: "R-1 (@testing-library/react + jsdom)"
+    decision: "**(a) 단일 CM 결정 이전에 도입** — 게이트 0"
+    rationale: "React 계층 테스트 인프라 자체는 단일 CM 과 독립이다. 어느 경로든 구조 변경이 크므로 회귀망을 먼저 세운다"
+    caveat: >
+      **인프라는 독립이지만 테스트 대상은 아니다.** 블록 경계 동작(포커스 이동·병합) 테스트는
+      단일 CM 채택 시 소멸한다. 따라서 티켓은 first_targets 를 **어느 경로에서도 살아남는 표면**
+      (저장/dirty · viewMode 토글 · 탭·패널 전환 · FileExplorer)으로 한정하고, 블록 경계 테스트는
+      게이트 판정 후로 미룬다.
+    applied: "REF-20260902-01"
+  - id: "D-4"
+    q: "R-6 를 독립 배치로 하는가, Sprint 3 에 묶는가"
+    decision: "**(b) Sprint 3(YAML 테마)에 병합**"
+    applied: "implementation_plan.md Sprint 3 에 편입 블록 삽입 · BUG-20260831-02 티켓에 merged_into_sprint3 추가 · function_roadmap Phase 3.5 표기"
+  - id: "D-5"
+    q: "MEMORY_OPTIMIZATION.md 처리"
+    decision: "**(a) 메모리 전제 정정 후 안건 문서로 승격**"
+    applied: >
+      `single_cm_transition.md` 로 이동. §0 에 정정(실측 42~98KB, 예산 내 / 실패한 예산은 시간뿐) ·
+      §0.1 에 두 번의 기각 기록 · §3 에 ReadView 잔존 주의 · §6 을 스파이크 게이트 순서로 개편 ·
+      §7.1 에 블로커 2건 신설 · §8 결론 개정
+  - id: "D-6 (추가)"
+    q: "문서 배치 정리"
+    decision: "루트 = 살아 있는 계획 문서 / `project/` = 앱 소스 트리(문서 없음) / `claude-history/` = 아카이브"
+    applied: "DOCUMENTS.md 신설(문서 지도 + 배치 규칙 + 이동 내역). 11건 이동, 중복 1건 삭제"
+# ━━━
+if_single_cm_is_adopted:
+  note: "**확정 순서다** (D-2·D-3 반영). single_cm_transition.md §6 에 같은 내용이 게이트 다이어그램으로 있다"
+  - "0. **게이트 0 — R-1** (`REF-20260902-01`). 착수 승인됨"
+  - >
+    1. **스파이크 A — 중첩 카드 시각 재현.** 라인 데코레이션만으로 L2 안의 L3 카드와 관통 테두리가
+    나오는가. 판정: 현행 스크린샷과 육안 동등. **실패하면 안건 전체가 무너지므로 가장 먼저 한다**
+  - >
+    2. **스파이크 B — 오케스트레이터 증분화 설계.** StateField(다중 라인 replace) / ViewPlugin(뷰포트)
+    분리 또는 증분 패치. 판정: N=200 문서에서 키 입력 1회·화살표 1회의 데코레이션 재빌드 비용이
+    N 에 비례하지 않을 것
+  - "3. 그 다음에야 MEMORY_OPTIMIZATION §6 Step 1 프로토타입"
+  fallback: >
+    A 가 실패하면 **B 는 취소**되고 E7 로 복귀한다(두 스파이크는 독립이 아니라 A→B 직렬이다 — D-2).
+    B 가 실패해도 E7 로 복귀한다. 어느 쪽이든 그 판정을 architecture_stages.md:56 과
+    single_cm_transition.md §0.1 양쪽에 기록한다.
+  reusable_pattern: >
+    7-C 를 C-1~C-5 로 쪼개 싱글턴 제거를 C-4 에 둔 것(되돌릴 수 없는 단계를 맨 뒤로)이 그대로
+    재사용 가능하다 — 단일 CM 은 `viewMode === 'write'` 분기 교체로 시작하므로 읽기 모드와
+    기존 쓰기 경로를 남긴 채 병행할 수 있다
+# ━━━
+independent_of_this_gate:
+  note: "어느 결정이든 영향받지 않는다. 즉시 착수 가능 — 상세는 architecture_direction_review.md §7.1"
+  - "I-1 ERD 유실 경로 차단 (ErdDesignerMainView.tsx:16-49)"
+  - "I-2 settings/store.ts:79 빈 catch — 로깅 + .bak 보존"
+  - "I-3 R-3 crypto.randomUUID() 교체 (ReadView 재정렬 id 가 살아남으므로 어느 경로에서도 유효)"
+  - "I-4 문서 드리프트 정정 — T1 하네스 실제 13종 · heading_caret_harness 미연결 · autosaveDelay 미배선"

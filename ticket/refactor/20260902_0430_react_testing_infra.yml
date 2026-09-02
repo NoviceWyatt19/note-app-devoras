@@ -1,0 +1,114 @@
+# 🔧 REFACTOR TICKET
+type: "REFACTOR_TICKET"
+id: "REF-20260902-01"
+# ━━━
+update: "2026-09-02 (8-A 완료)"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "R-1 — React 계층 검증 티어 도입 (@testing-library/react + jsdom)"
+status: "Done — 8-A 완료(v0.8.51). first_targets 4건 · 14 케이스 전량 통과, test:t1 13종 무회귀"
+severity: "P0 (프로세스)"
+review_ref: "code_review.md §2 (R-1) · architecture_direction_review.md §7.3"
+gate_ref: "GATE-20260902-01 — 이 티켓은 게이트 0. 스파이크 A·B 보다 앞선다"
+# ━━━
+why_first: >
+  **단일 CM 결정과 독립이다** — 어느 경로를 택하든 클릭·캐럿·마운트 결과를 자동으로 볼 수 없다는
+  공백은 그대로다. 그리고 두 경로 중 무엇을 하든 **구조 변경 규모가 크다.** 회귀망이 가장 약한
+  시점에 최대 변경을 하지 않기 위해 이것을 먼저 세운다.
+  근거: 이번 사이클의 심각한 결함 3건이 **전부 리팩터 자신이 만든 것이었고 전부 자동 테스트를
+  통과했다**(code_review.md §0).
+# ━━━
+problem:
+  fact: >
+    T1 하네스는 잘 만들어져 있으나 **순수 로직 전용**이다. `package.json` 에 testing-library
+    의존성이 **0건**이다. 따라서 다음은 **어떤 자동 게이트로도 도달할 수 없다** —
+    실제 키 입력 → 캐럿 렌더 결과 · 버튼 클릭(viewMode 토글, 저장 dirty 표시) ·
+    패널/탭 전환의 실제 DOM 결과.
+  evidence:
+    - "캐럿 버그(S1/S2)가 이 공백에서 나왔다 — `focusOffset` 을 스토어 로직만으로 검사하면 정상이다"
+    - "`FormatToolbar` 누락도 같은 공백 — 7-C 계획서 C-3 대상 목록에서 빠졌는데, **계획에서 빠진 소비자와 테스트가 없는 소비자가 정확히 같은 집합이었다**"
+    - "`VERIFY_BY_HUMAN.md` 가 11개 절로 불었다 — 확인이 사람 한 명의 실기에 몰려 있다"
+  what_stays_human: "IME 실조합(합성 이벤트는 IMK 경로를 타지 않는다) · 번들 앱 육안 확인. **전부 자동화하자는 게 아니다.**"
+# ━━━
+scope:
+  setup:
+    - "`@testing-library/react` · `@testing-library/user-event` · `jsdom` 추가 (devDependencies). **vitest 는 추가하지 않는다** — `runner_decision` 참조"
+    - "`scripts/register-dom.mjs` 신설 — `register-ts.mjs` 를 불러온 뒤 jsdom 전역을 얹는다. **React 로드 전에** 완료돼야 한다"
+    - "T1.5 티어로 정의 — `pnpm test:t15`, 실행은 `node --import ./scripts/register-dom.mjs <harness.tsx>`. 기존 `test:t1`(순수 로직)은 **건드리지 않는다**"
+    - "어서션은 기존과 동일하게 `node:test` + `node:assert` 를 쓴다 — testing-library 는 **쿼리와 렌더링만** 담당한다"
+    - >
+      **러너 결정 완료 (2026-09-02, 사용자 위임 → 계획 세션 판정): 현행 러너에 jsdom 을 얹는다.
+      vitest 를 들이지 않는다.** 근거는 아래 `runner_decision`.
+  runner_decision:
+    verdict: "현행 `node --import ./scripts/register-ts.mjs` + jsdom. **vitest 도입하지 않는다**"
+    why: >
+      **`scripts/ts-hook.mjs` 가 이미 필요한 변환을 전부 한다** — 코드로 확인했다.
+      vitest 를 들이는 이유의 대부분(JSX 변환·별칭·CSS 처리)이 이미 해결돼 있어서
+      남는 차이가 "러너를 하나 더 들이느냐"뿐이다.
+    already_handled_by_ts_hook:
+      - "`.tsx` 해석 — `EXTS` 에 포함됨 (`ts-hook.mjs:30`)"
+      - "**JSX 변환 — `jsx: ts.JsxEmit.ReactJSX` 로 이미 설정돼 있다** (`:78`). 컴포넌트 렌더에 필요한 것이 이것뿐이다"
+      - "`@/` 별칭 해석 (`:44-48`)"
+      - "확장자 없는 상대 임포트 (`:52-66`)"
+      - "**CSS/SVG/PNG/폰트 임포트를 빈 모듈로 치환** (`:70-73`) — 컴포넌트가 `import './x.css'` 를 해도 안 죽는다. `ReadView.tsx:19` 가 `highlight.js` CSS 를 임포트하므로 실제로 필요하다"
+      - "`import.meta.env` → 전역 치환 (`:85`)"
+    what_is_actually_left: >
+      **jsdom 전역 부트스트랩 하나뿐이다.** `scripts/register-dom.mjs` 를 새로 만들어
+      `register-ts.mjs` 를 불러온 뒤 `new JSDOM()` 으로 `window`/`document`/`navigator`/
+      `HTMLElement` 등을 globalThis 에 얹는다. React 18 + testing-library 는
+      `globalThis.IS_REACT_ACT_ENVIRONMENT = true` 도 요구한다. **React 가 로드되기 전에**
+      전부 끝나야 하므로 순서가 유일한 함정이다.
+    why_not_vitest:
+      - >
+        **테스트 러너가 둘이 된다.** 기존 13 하네스는 `node:test` + `node:assert` 다
+        (`tab_store_isolation_harness.ts:12-13` 등 전수 동일). vitest 는 `expect` API 라
+        어서션 문법이 갈리고, 명령도 갈리고, 나중에 "기존 하네스도 vitest 로 옮기자"는
+        압력이 생긴다 — 그건 이 티켓의 범위가 아니다
+      - >
+        **의존성 정책과 어긋난다.** `package.json` 의 `_compatibility_notes.held_for_major_migration`
+        에 7건이 명시적으로 보류돼 있다(react 18→19, tailwind 3→4, eslint 8→9 …).
+        이 프로젝트는 **의존성 추가를 신중히 다루는 쪽**으로 서 있고, vitest 는 트리가 크다
+      - "vite 7 ↔ vitest 버전 호환 확인이라는 표면이 새로 생긴다. jsdom 은 러너와 무관한 단일 패키지다"
+      - >
+        **현행 로더는 이미 두 번 디버깅된 물건이다** — BUG-20260828-03(Node 20 플래그 부재),
+        BUG-20260826-01(node_modules CJS 를 ESM 으로 강제해 깨짐). 그 흉터가 주석에 남아 있다.
+        검증된 인프라를 재사용하는 쪽이 새 러너의 미지 표면보다 싸다
+    caveat: >
+      **뒤집힐 수 있는 조건 하나**: jsdom 전역 부트스트랩이 예상보다 까다로워 반나절 넘게
+      잡아먹으면 그때 vitest 를 재고한다. 판정을 뒤집는 것 자체는 싸다(테스트를 아직 많이 안 썼을 때).
+      **다만 그 판단을 하기 전에 이 항목을 다시 읽을 것** — "설정이 귀찮다"와 "구조적으로 안 된다"는 다르다.
+
+  first_targets:
+    note: >
+      **아키텍처 결정에 살아남는 대상부터 쓴다.** 단일 CM 이 채택되면 블록 경계 동작 테스트는
+      버려지므로, 지금은 **어느 경로에서도 유효한 표면**을 덮는다.
+    - "저장 버튼 / dirty 표시 — 탭 스코프 스토어의 사용자 가시 결과"
+    - "viewMode 토글 (Write ↔ Read) — FormatToolbar 마운트 회귀가 났던 지점"
+    - "탭 전환 · 패널 전환의 DOM 결과 — 7-A 가 고친 표면"
+    - "FileExplorer 클릭/컨텍스트 메뉴"
+  deliberately_deferred:
+    - "블록 간 포커스 이동 · 블록 병합 캐럿 — **단일 CM 이 채택되면 소멸하는 동작이다.** 게이트 A·B 판정 후에 쓴다"
+    - "IME 조합 — 원리적으로 사람 몫"
+# ━━━
+dod:
+  - "[x] `pnpm test:t15` 가 CI 없이 로컬에서 단독 실행된다"
+  - "[x] 위 first_targets 4건에 각각 최소 1개 테스트가 있고 통과한다 (FormatToolbar 3 · save/dirty 3 · tab/pane 4 · FileExplorer 4 = 14 케이스)"
+  - "[x] 그중 최소 1건이 **과거 실제 결함을 재현**하도록 작성됐다(FormatToolbar 마운트 또는 dirty 표시) — `format_toolbar_mount_harness.tsx` 가 Provider-밖 호출이 명시적으로 throw 하는지까지 검증"
+  - "[x] `pnpm test:t1` 전량 유지 (기존 티어 무회귀) — 13종 전량 통과 확인"
+  - "[x] `VERIFY_BY_HUMAN.md` 에서 T1.5 로 옮겨간 항목을 표시하고, 남은 것이 왜 사람 몫인지 한 줄씩 적는다 — §9 두 항목 이관 + 남은 항목 사유 요약표 추가"
+# ━━━
+completion_note: >
+  8-A 산출물: `scripts/register-dom.mjs`(jsdom 부트스트랩, register-ts.mjs 재사용) ·
+  4개 하네스(format_toolbar_mount_harness.tsx · save_dirty_indicator_harness.tsx ·
+  tab_panel_switch_harness.tsx · file_explorer_interaction_harness.tsx) ·
+  `test:t15` 및 개별 스크립트 4개. `tsc --noEmit` 클린. `pnpm lint` 는 기존에도
+  106건 실패 상태(내 변경과 무관한 사전 부채) — 새 하네스의 관행(상대 경로 임포트·
+  `as any` 캐스팅)은 기존 13개 T1 하네스와 동일한 패턴이라 새 부채가 아니다.
+  버전업: package.json/Cargo.toml/tauri.conf.json/Cargo.lock → 0.8.51.
+  다음: 8-B(스파이크 A, SPIKE-20260902-A) 착수 가능.
+# ━━━
+notes:
+  - >
+    **좋은 선례가 이미 있다** — `decideCaretAction` 을 순수 함수로 분리해(`shared/lib/editor/caretCoordinator.ts`)
+    하네스가 **실제 코드 경로를 그대로 호출**하게 만든 패턴(code_review.md §7-1). T1.5 를 들이더라도
+    이 패턴을 대체하지 말고 **병행**한다 — 순수 함수로 뽑을 수 있는 것은 계속 뽑는 편이 싸다.
+  - "이 티켓은 `function_roadmap.md` 어느 Phase 에도 없다. 제품 기능이 아니라 **검증 인프라**이므로 로드맵이 아니라 게이트로 다룬다"

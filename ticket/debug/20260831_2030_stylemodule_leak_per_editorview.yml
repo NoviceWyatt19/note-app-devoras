@@ -5,7 +5,7 @@ id: "BUG-20260831-02"
 update: "2026-08-31 20:30"
 project_ref: "PRJ-DEVORAS-MVP"
 subject: "createEditorTheme() 이 EditorView 마다 새 StyleModule 을 만들고 파괴 시 회수되지 않는다"
-status: "Todo"
+status: "Todo — **Sprint 3(YAML 테마)에 병합.** 독립 배치로 진행하지 않는다 (사용자 결정 D-4, 2026-09-02)"
 severity: "P1"
 tier: "T2 (브라우저 필요 — 단, <style> 바이트 증가 측정이라 스로틀링 영향 없음)"
 review_ref: "code_review.md §7.5 (R-6)"
@@ -51,6 +51,22 @@ dod:
   - "[ ] 설정 변경(폰트 크기 등)이 여전히 실시간 반영됨 — 회귀 0건"
   - "[ ] 마운트 비용 재측정 — 테마 조건의 ~50% 오버헤드가 사라졌는지 확인"
   - "[ ] `pnpm test:t1` 전량 유지"
+# ━━━
+merged_into_sprint3:
+  decision: "D-4 (2026-09-02) — 독립 배치 대신 `implementation_plan.md` Sprint 3(YAML 커스텀 테마)에 병합"
+  rationale: >
+    이 티켓의 권고 처방 (b)「설정 의존 값을 CSS 변수로 빼서 테마 자체를 상수화」와
+    Sprint 3 이 만들려는 CSS 변수 디자인 토큰 시스템(`entities/theme/lib/injector.ts`)이
+    **정확히 같은 물건**이다. 독립 배치로 하면 Sprint 3 이 같은 것을 다시 짓는다.
+  key_fact: >
+    `createEditorTheme()` 의 설정 의존값은 **`fontFamily` · `fontSize` 둘뿐**이다
+    (`BlockEditor.tsx:86-105`, 2026-09-02 확인). **CSS 변수 2개면 테마가 상수가 된다.**
+  bonus: "그 경우 `BlockEditor.tsx:144` 의 설정 변경 `reconfigure` 경로 자체가 불필요해져 함께 소멸한다"
+  caveat: >
+    이 티켓의 원래 근거였던 「가상화를 넣어도 창 안에서 이 비용은 그대로 남으므로 어차피 해야 한다」는
+    **E7 경로에서만 참이다.** 단일 CM 이 채택되면 인스턴스가 1개라 StyleModule 도 1개가 되어
+    누수 자체가 소멸한다. 즉 이 항목의 긴급도는 `GATE-20260902-01` 의 판정에 따라 달라진다 —
+    **Sprint 3 에 묶어두면 어느 판정에서도 낭비가 없다.**
 # ━━━
 notes:
   - "A6-후속(동시 생존 인스턴스 수)과 **독립**이다. 가상화를 넣어도 창 안의 블록들은 이 비용을 그대로 치르므로 어느 쪽을 먼저 하든 이 항목은 해야 한다."

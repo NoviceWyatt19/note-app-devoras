@@ -1,5 +1,7 @@
 # Devoras Design - Architecture Stages
 
+> ⚠️ **경로 변경 (2026-09-02)**: `project/architecture_stages.md` → 루트. 문서 배치 규칙은 [`DOCUMENTS.md`](DOCUMENTS.md).
+
 ## 📌 이 문서의 목적
 `function_roadmap.md`가 **"무엇을(What)"** 만들 것인지를 정의한다면, 이 문서는 **"어떤 순서와 방법으로(How)"** 만들되, **각 스테이지에서 다음 스테이지와 최종 스테이지를 위해 반드시 고려해야 할 아키텍처적 요소**를 명시합니다.
 
@@ -41,7 +43,7 @@
 - **[ ]** **Write Mode 타이포그래피 정상화** — `.cm-line *` 리셋 축소 + 헤딩 크기의 라인 레벨 선언
 - **[ ]** **데코레이터 중재 인프라** — `SyntaxDecorator` 에 `priority`/`claims` 선언을 추가하고, 겹치는 `Decoration.replace` 를 오케스트레이터가 중앙에서 거부 (2026-08-27 커스텀 문법 선구현에서 식별 · 상세: `implementation_plan.md` 「스파이크」 §S.4)
 
-> 📌 **상세 실행 계획: [`DEBUG_PLAN.md`](DEBUG_PLAN.md)** (BUG-20260827-13)
+> 📌 **상세 실행 계획**: 당시 `project/DEBUG_PLAN.md` (BUG-20260827-13) — 회전됨. [`claude-history/debug/`](claude-history/debug/) 참조
 
 #### 편집 표면 상시화가 Stage 1 에 들어온 배경
 
@@ -53,8 +55,8 @@
 
 | 항목 | 결정 |
 |------|------|
-| **Option A(문서 전체 단일 CM) 를 택하지 않은 이유** | H2/H3 를 중첩 라운드 카드로 렌더하는 현재 시각 디자인을 평면 라인 목록으로는 표현할 수 없다 |
-| **블록 트리 모델의 존치** | `blockStore` 는 **문서 모델**로 유지한다(MindView·ERD·headingId·ReadView 재정렬이 의존). 폐기하는 것은 블록 트리를 **DOM 분할 방식**으로 쓰는 부분뿐이다 |
+| **Option A(문서 전체 단일 CM) 를 택하지 않은 이유** | H2/H3 를 중첩 라운드 카드로 렌더하는 현재 시각 디자인을 평면 라인 목록으로는 표현할 수 없다 · ⚠️ **2026-09-02 재개봉** — 이 사유는 **측정된 적이 없는 단언**이다. `SPIKE-20260902-A` 가 정확히 이것을 잰다. 안건 문서: [`single_cm_transition.md`](single_cm_transition.md) |
+| **블록 트리 모델의 존치** | `blockStore` 는 **문서 모델**로 유지한다(ERD·headingId·ReadView 재정렬이 의존). 폐기하는 것은 블록 트리를 **DOM 분할 방식**으로 쓰는 부분뿐이다 · ⚠️ **정정(2026-09-02)** — 원문은 MindView 도 의존한다고 적었으나 **사실이 아니다.** `MindView.tsx` 는 `blocks` 를 import 하지 않고 `parseMarkdown(rawContent)` 만 쓴다. 또한 전역 `blockStore` 싱글턴은 Step 7-C(v0.8.49)에서 **소멸**했고 탭 스코프 스토어로 이관됐다 |
 | **타이포그래피가 함께 들어온 이유** | Write Mode 에서 `marked` 렌더러가 사라지면 `.cm-h1` 무력화가 "포커스한 블록만 작아지는" 국소 결함에서 **문서 전체의 시각 결함**으로 승격된다. 선택 항목이 아니라 구성 요소다 |
 | **연기 결정의 철회** | 종전에 "Stage 3/4 스레드 분리 이후"로 미뤘던 후보 C(헤딩 크기 반영)는 **Stage 1 로 편입**한다. 단, 인라인(`Decoration.mark`)이 아니라 **라인 레벨(`Decoration.line`)** 에 선언하여 0.6.1 캐럿 회귀 위험을 구조적으로 낮춘다 |
 

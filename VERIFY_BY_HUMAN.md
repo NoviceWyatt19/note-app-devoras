@@ -1,6 +1,8 @@
 # VERIFY_BY_HUMAN.md
 
-> **배경**: [`DEBUG_PLAN.md`](DEBUG_PLAN.md) §2-B "Step 1 — B2 잔여: 실기 검증 4건(S4·S5·S5·S2)" 중 Claude in Chrome·Tauri MCP로 자동 검증이 가능한지 조사했다. 결과 절반은 자동화됐고, 나머지는 구조적으로 자동화가 불가능해 사람이 직접 확인해야 한다. 이 문서는 **사람이 직접 수행해야 하는 항목만** 모은 목록이다.
+> ⚠️ **경로 변경 (2026-09-02)**: `project/VERIFY_BY_HUMAN.md` → 루트. 배치 규칙은 [`DOCUMENTS.md`](DOCUMENTS.md).
+
+> **배경**: 당시 `project/DEBUG_PLAN.md` §2-B (회전됨 — [`claude-history/debug/DEBUG_PLAN_20260830_141903.md`](claude-history/debug/DEBUG_PLAN_20260830_141903.md) 계열) "Step 1 — B2 잔여: 실기 검증 4건(S4·S5·S5·S2)" 중 Claude in Chrome·Tauri MCP로 자동 검증이 가능한지 조사했다. 결과 절반은 자동화됐고, 나머지는 구조적으로 자동화가 불가능해 사람이 직접 확인해야 한다. 이 문서는 **사람이 직접 수행해야 하는 항목만** 모은 목록이다.
 
 ## 자동 검증 완료 (참고용, 2026-08-30)
 
@@ -9,6 +11,27 @@
 - **S4** `asset://.../.ssh/... ` → 403: 워크스페이스 내부(200) / 밖·deny 아님(403) / deny 목록(403) 3단으로 확인 — Step 1-A(커밋 `b5a3bd1`)의 동적 scope 좁히기가 deny 목록이 아니라 allow 부재로 실제로 막고 있음을 확인.
 - **S2 (콘솔 CSP 위반)**: 위반 로그 0건. DEBUG_PLAN에 적힌 "Tauri MCP Bridge가 `tauri://` 커스텀 프로토콜과 비호환"이라는 이전 결론은 이 플러그인 기반 브리지에는 해당하지 않았음.
   - ⚠️ **주의**: 이 확인은 `pnpm tauri dev`(즉 `devCsp`) 위에서 이뤄졌다. `devCsp`는 Vite HMR을 위해 `script-src 'unsafe-inline'`·추가 `connect-src` 오리진을 허용하는 **더 느슨한** 정책이라, 프로덕션 `csp`에서도 위반 0건이라는 보장은 아니다. §2 항목으로 별도 등재.
+
+## T1.5 도입 이후 갱신 (2026-09-02, REF-20260902-01)
+
+R-1(React 계층 검증 티어, `@testing-library/react` + jsdom, `pnpm test:t15`)이 들어오면서
+아래 §9 의 두 항목이 **자동 검증으로 이관됐다** — 더 이상 사람이 확인할 필요가 없다.
+
+- ✅ **§9 "viewMode 토글 클릭"** → [`format_toolbar_mount_harness.tsx`](project/src/widgets/BlockEditor/__tests__/format_toolbar_mount_harness.tsx). Read/Edit 버튼 클릭이 실제로 화면을 전환하는지, `FormatToolbar` 가 `TabDocumentProvider` 배선이 깨져도 조용히 죽지 않고 throw 하는지까지 검증한다.
+- ✅ **§9 "저장 버튼 dirty 표시"** → [`save_dirty_indicator_harness.tsx`](project/src/pages/WorkspacePage/__tests__/save_dirty_indicator_harness.tsx). 편집 → 저장 버튼 스타일 변화 → Cmd+S 저장 → 두 dirty 표시(저장 버튼 · 탭 바 점)가 함께 꺼지는지까지 실제 DOM 으로 확인한다.
+
+그 외 새 T1.5 대상: 탭/패널 전환의 DOM 결과([`tab_panel_switch_harness.tsx`](project/src/pages/WorkspacePage/__tests__/tab_panel_switch_harness.tsx)), FileExplorer 클릭/컨텍스트 메뉴([`file_explorer_interaction_harness.tsx`](project/src/widgets/FileExplorer/__tests__/file_explorer_interaction_harness.tsx)) — 이 둘은 원래 이 문서에 항목으로 등재된 적이 없었다(§2.1 evidence: "어떤 T1 하네스도 덮지 않는다"가 곧 "사람이 매번 수동으로 확인해 왔다"는 뜻이었다).
+
+**아래 남은 항목이 왜 여전히 사람 몫인지** (T1.5 로도 못 미치는 이유):
+
+| 항목 | 왜 사람 몫인가 |
+|---|---|
+| §1, §2, §4 — release 번들 빌드 확인 | jsdom 은 `pnpm tauri build` 산출물(네이티브 바이너리)을 실행하지 않는다 — 브라우저 DOM 렌더 시뮬레이션이지 Tauri 런타임이 아니다 |
+| §3 — 네트워크 요청 0건(OS 레벨) | jsdom 에 실제 네트워크 스택이 없다 — OS 커넥션 모니터링은 원리적으로 프로세스 밖 관측이 필요하다 |
+| §5 — 드래그앤드롭 + Rust 커맨드 보안 재검증 | 실제 OS 드롭 이벤트(`DragDropEvent::Drop`)와 Tauri IPC 왕복이 필요하다 — jsdom 은 Tauri 백엔드가 없다 |
+| §6, §9(R1/R2/R3), §10, §11(V4) — 한글 IME 연속 입력 | 합성 이벤트는 macOS IMK 조합 경로를 타지 않는다 — T1.5 든 T1 이든 원리적으로 대체 불가(§2.1 what_stays_human) |
+| §7, §9(R5), §10(마인드맵 좌표) — 실제 렌더 육안 비교 | CodeMirror 좌표계(`coordsAtPos`)가 jsdom 에서 정확하지 않다(`Range.getClientRects` 스텁이 항상 빈 배열) — 텍스트/구조 검증은 T1.5 로 가능해졌지만 픽셀 단위 시각 확인은 여전히 아니다 |
+| §9 — MindView 팝업 동적 추적, 전역 마인드맵 탭 | `@xyflow/react` 캔버스 렌더가 jsdom 에서 신뢰할 수 없다(ResizeObserver 부재로 레이아웃이 전부 0) — 렌더 자체보다 좌표·줌 상호작용이 핵심이라 사람 확인이 더 저렴하다 |
 
 ## 사람이 직접 확인해야 하는 항목
 
@@ -98,13 +121,11 @@ mindmap-global·erd·markdown 세 분기를 감싸는 자리 하나). C-1·C-2 �
   잘못된 것이다.
 - **R3 — 한글 연속 입력**: `handleBlockUpdate`/`getFreshBlocks()` 가 탭 스코프 스토어를 통과하는
   첫 실측 지점. 조합 끊김·증식 없는지, 헤딩 개수가 바뀌는 편집 직후 캐럿 위치까지.
-- **viewMode 토글 클릭 (D-5 test_gap, 새 케이스)**: 문서를 열고 `FormatToolbar` 의 Read/Edit
-  버튼을 클릭 — 화면이 실제로 전환되는지. `FormatToolbar` 는 이제 `useEffectiveTabStore` 의
-  `viewMode`/`toggleViewMode` 를 쓴다 — 탭 스코프 스토어의 viewMode 가 실제로 화면에 반영되는지
-  확인하는 유일한 실기 지점(자동 하네스는 훅을 못 부른다).
-- **저장 버튼 dirty 표시 (D-5 test_gap, 새 케이스)**: 문서를 편집 → 상단 저장 버튼이 dirty
-  스타일로 바뀌는지 → Cmd+S 저장 → dirty 스타일이 꺼지는지. `WorkspacePage` 상단 툴바는 이제
-  `useActiveTabStoreView()`(레지스트리 기반 동적 해석)로 isDirty 를 읽는다.
+- ✅ **viewMode 토글 클릭 (D-5 test_gap)** — **2026-09-02 T1.5 로 이관됨**, 더 이상 사람 확인 불필요.
+  `format_toolbar_mount_harness.tsx` 가 Read/Edit 클릭 시 실제 화면 전환과, Provider 배선이
+  깨졌을 때 조용히 죽지 않고 throw 하는지까지 검증한다. (아래 "T1.5 도입 이후 갱신" 참고)
+- ✅ **저장 버튼 dirty 표시 (D-5 test_gap)** — **2026-09-02 T1.5 로 이관됨**, 더 이상 사람 확인 불필요.
+  `save_dirty_indicator_harness.tsx` 가 편집→dirty 스타일→저장→dirty 해제 전 과정을 DOM 으로 검증한다.
 - **MindView 팝업 — 활성 탭을 동적으로 따라가는지 (D-2)**: 마크다운 문서 A 를 열고 팝업(우측
   마인드뷰)을 연다 → 정상 표시되는지. 팝업을 켜 둔 채 다른 탭(문서 B)으로 전환 → 팝업 내용이
   B 로 바뀌는지(스냅샷 고정이 아니라 계속 따라가는 것이 명세). ERD 탭으로 전환 → 팝업이 빈 상태로

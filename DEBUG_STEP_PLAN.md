@@ -1,7 +1,7 @@
 # DEBUG_STEP_PLAN.md — 단계별 결함 해소 계획
 
-> **최종 갱신**: 2026-08-30 | **대상 버전**: `v0.8.43` | **브랜치**: `main`
-> **입력 문서**: [`code_review.md`](code_review.md) · [`ARCHITECTURE_FINDINGS.md`](ARCHITECTURE_FINDINGS.md) · [`implementation_plan.md`](implementation_plan.md) · [`project/architecture_stages.md`](project/architecture_stages.md) · [`advanced_rendering_optimization.md`](advanced_rendering_optimization.md) · [`function_roadmap.md`](function_roadmap.md) · [`project/DEBUG_PLAN.md`](project/DEBUG_PLAN.md)
+> **최종 갱신**: 2026-09-02 | **대상 버전**: `v0.8.50` (`f9f6716`) | **브랜치**: `main`
+> **입력 문서**: [`code_review.md`](code_review.md) · [`ARCHITECTURE_FINDINGS.md`](ARCHITECTURE_FINDINGS.md) · [`implementation_plan.md`](implementation_plan.md) · [`architecture_stages.md`](architecture_stages.md) · [`advanced_rendering_optimization.md`](advanced_rendering_optimization.md) · [`function_roadmap.md`](function_roadmap.md) · [`claude-history/debug/DEBUG_PLAN_20260831_204000.md`](claude-history/debug/DEBUG_PLAN_20260831_204000.md)
 > **경로 표기**: 모든 경로는 저장소 루트 기준.
 > **성격**: **지금 해결할 것의 실행 순서와 게이트.** 완료분은 §1에 요약만 두고 상세는 아카이브 계획서로 넘긴다.
 > **작성 근거**: 본 문서의 모든 "잔존/해소" 판정은 2026-08-30 시점 **실제 코드 대조**로 확인했다. 문서 기술과 코드가 어긋난 항목은 §6에 정정 대상으로 모았다.
@@ -12,9 +12,11 @@
 
 | 문서 | 담당 질문 |
 |---|---|
-| [`code_review.md`](code_review.md) | **무엇이** 결함인가 (P0~P2 카탈로그, 배치 B0~B4) |
+| [`code_review.md`](code_review.md) | **무엇이** 결함인가. §9 에 확정 순서(2026-09-02 개정) |
+| [`DOCUMENTS.md`](DOCUMENTS.md) | **어느 문서를 봐야 하는가** — 문서 지도·배치 규칙·아카이브 내역 |
+| [`architecture_direction_review.md`](architecture_direction_review.md) | 2026-09-02 방향 판단 — 단일 CM vs E7 트레이드오프 |
 | [`ARCHITECTURE_FINDINGS.md`](ARCHITECTURE_FINDINGS.md) | **왜 반복되는가** (구조적 원인 A1~A7) |
-| [`project/DEBUG_PLAN.md`](project/DEBUG_PLAN.md) | 지금 실행 중인 **단일 배치의 상세 사양** (현재 B2) |
+| [`DEBUG_PLAN.md`](DEBUG_PLAN.md) | 지금 실행 중인 **단일 배치의 상세 사양** — 현재 **Step 8 아키텍처 게이트**. 직전 배치(BUG-20260831-01)는 [`claude-history/debug/DEBUG_PLAN_20260831_204000.md`](claude-history/debug/DEBUG_PLAN_20260831_204000.md) 로 회전됨 |
 | **본 문서** | 배치들의 **순서·의존·게이트** (인덱스) |
 
 ### 0.1 아키텍처 방향 결정 (2026-08-30)
@@ -26,9 +28,44 @@
 - 마크다운 파일이 디스크의 진실이라는 전제는 MindView·ERD·`headingId`·Rust 전역 검색(Sprint 4A)이 모두 의존하므로, 블록 트리를 진실로 바꾸는 것은 리팩터링이 아니라 **제품 교체**다.
 - 단, **A6는 자체 예산을 20~58배 초과**한 측정 실패다. 따라서 §2 Step 6의 프로파일 결과를 **스택 재검토의 공식 결정 게이트**로 둔다.
 
-> **✅ 게이트 통과 (2026-08-30, v0.8.43) — 이 결정은 재개봉되지 않는다.**
+> ## ⚠️ 게이트 재개봉됨 (2026-09-02, `GATE-20260902-01`) — 아래 「통과」 판정은 **무효**다
+>
+> **무효 사유**: 아래 판정의 근거는 "순수 CodeMirror 코어는 선형이고 38배 싸다 → 블록당 인스턴스
+> 설계는 무죄"였다. 그런데 **§3-A-2 가 그 귀속을 뒤집었다** — 데코레이터가 하나도 없는 베어 조건도
+> **누적** 마운트 시 지수 1.763(N=100, 737ms)이고, 생성 횟수는 같고 **누적만 없앤** 조건은
+> 0.938(선형, 92ms)이다. 즉 "순수 CM 은 선형"이라는 관측은 **동시 생존 수를 늘리지 않은 조건**에서
+> 나온 것이었다.
+>
+> **두 명제를 분리해야 한다**:
+> - "`EditorView` **생성 행위**는 싸다" → **여전히 참**
+> - "따라서 **블록당 인스턴스 설계**는 무죄다" → **거짓.** 그 설계의 정의가 "N개를 동시에 살려 둔다"이고
+>   초선형이 정확히 거기서 나온다
+>
+> **재개봉된 안건은 §0.1 이 기각한 「Notion 형태」가 아니다.** 그것은 블록 트리를 진실로 삼는 구조였다.
+> 새 안건은 **「단일 CM + `rawContent` 단일 진실」**([`single_cm_transition.md`](single_cm_transition.md))이며,
+> §0.1 이 지키려던 "마크다운이 디스크의 진실"이라는 전제를 **더 충실히** 만족한다
+> (MindView 가 `blocks` 를 전혀 참조하지 않고 `parseMarkdown(rawContent)` 만 쓴다는 사실이 뒷받침한다).
+> **§0.1 을 근거로 새 안건을 다시 닫지 말 것 — 다른 안건이다.**
+>
+> **다만 §0.1 의 첫 번째 논거는 여전히 유효하다**: A1~A7 중 4건(A1 이중 진실 · A4 검증 티어 ·
+> A5 불변식 계열)은 에디터 스택과 무관하므로 스택을 바꿔도 따라온다. **단일 CM 은 만병통치가 아니다.**
+>
+> **또 하나의 기각 기록** — [`architecture_stages.md`](architecture_stages.md)`:56` 이 2026-08-27 에
+> 같은 구조를 **"Option A"** 로 이미 기각했다. 사유는 *"중첩 라운드 카드를 평면 라인 목록으로는
+> 표현할 수 없다"* 인데, **측정된 적이 없는 단언**이다. `SPIKE-20260902-A` 가 그것을 잰다.
+>
+> **현재 진행**: 게이트 0(R-1) → 스파이크 A → 스파이크 B → 판정. 상세는
+> [`code_review.md`](code_review.md) §9.1 · [`ticket/project/20260902_0400_single_cm_gate_reopen.yml`](ticket/project/20260902_0400_single_cm_gate_reopen.yml).
+
+<details>
+<summary>무효화된 원 판정 (2026-08-30, v0.8.43) — 기록 보존</summary>
+
+> **✅ 게이트 통과 — 이 결정은 재개봉되지 않는다.**
 > Step 6 의 3-way 판별 실험 결과, **순수 CodeMirror 코어는 선형이고 38배 싸다**(N=200 에서 35.7ms vs 1,363ms). 초선형의 원인은 `EditorView` 생성이 아니라 **Devoras 자체 데코레이터 확장 계층**(`markdownDecorationPlugin` + `codeBlockInteractionPlugin` 의 상호작용)으로 특정됐다.
-> 즉 **「블록당 CodeMirror 인스턴스」라는 설계 자체는 무죄**이며, 위 옵션 1(현행 구조 유지) 결정은 **측정으로 뒷받침된 상태**가 됐다. 상세는 §1 의 Step 6 행과 [`project/DEBUG_PLAN.md`](project/DEBUG_PLAN.md) §4-2.
+> 즉 **「블록당 CodeMirror 인스턴스」라는 설계 자체는 무죄**이며, 위 옵션 1(현행 구조 유지) 결정은 **측정으로 뒷받침된 상태**가 됐다. 상세는 §1 의 Step 6 행과 [`claude-history/debug/DEBUG_PLAN_20260831_204000.md`](claude-history/debug/DEBUG_PLAN_20260831_204000.md) §4-2.
+
+
+</details>
 
 ---
 
@@ -47,9 +84,13 @@
 | B1 데이터 보호 | BUG-04·06·07 종결. **검증이 결함 2건을 추가로 드러냄**(`saveFile` 기준선 미갱신, `openTab` 스냅샷 미커밋) | [`DEBUG_PLAN_20260829_063211.md`](claude-history/debug/DEBUG_PLAN_20260829_063211.md) |
 | B2 보안 (L1·L4-deny·L3·L2) | 새니타이즈·CSP·Rust 경로 검증·민감 경로 deny 착지 (v0.8.28~0.8.31) | [`DEBUG_PLAN_20260830_141903.md`](claude-history/debug/DEBUG_PLAN_20260830_141903.md) |
 | **Step 1~3** (B2 잔여 · B3 입력 · A5 불변식) | **L4-scope 종결** — `allow: ["**"]` → `allow: []` + 런타임 동적 허용(v0.8.35). **B3 종결** — 4건 중 2건은 착수 전 이미 소멸, `onUpdate` 이중 호출(v0.8.33)·병합 regex/포커스(v0.8.34) 수정. **A5** R3 불변식 착지 | [`DEBUG_PLAN_20260830_185251.md`](claude-history/debug/DEBUG_PLAN_20260830_185251.md) |
-| **Step 4** A7 헤딩 정체성 | **종결 (v0.8.39~0.8.41).** 진단이 한 번 틀렸다 정정된 사례 — id 는 애초에 불투명 토큰이었고 결함은 **매칭 키**에 있었다. 2-패스 매칭(콘텐츠 키 + 위치 폴백)으로 **제목 편집·재정렬 양쪽 안정성 동시 확보**. 후속 수정 2건(부모 리네임 시 자식 미보존, 리네임+재정렬 동시 시 id 스왑)은 **최초 구현의 테스트가 통과시킨 밖에서** 발견 | [`project/DEBUG_PLAN.md`](project/DEBUG_PLAN.md) §2 (현행) |
+| **Step 4** A7 헤딩 정체성 | **종결 (v0.8.39~0.8.41).** 진단이 한 번 틀렸다 정정된 사례 — id 는 애초에 불투명 토큰이었고 결함은 **매칭 키**에 있었다. 2-패스 매칭(콘텐츠 키 + 위치 폴백)으로 **제목 편집·재정렬 양쪽 안정성 동시 확보**. 후속 수정 2건(부모 리네임 시 자식 미보존, 리네임+재정렬 동시 시 id 스왑)은 **최초 구현의 테스트가 통과시킨 밖에서** 발견 | [`claude-history/debug/DEBUG_PLAN_20260831_204000.md`](claude-history/debug/DEBUG_PLAN_20260831_204000.md) §2 (현행) |
 | **Step 5** A1/A2 조정자 | **종결 (v0.8.42).** 두 이펙트(캐럿 복원=layout, 내용 동기화=passive) → 조정자 1개. 문서 전체 치환 → `computeMinimalChange` 최소 diff. **IME 이중 가드가 캐럿 복원 경로에 빠져 있던 것**을 통합 중 발견·보완 | 〃 §3 |
-| **Step 6** A6 판정 게이트 | **판정 완료 (v0.8.43) — 세 번째 갈래.** 아키텍처 무죄(순수 CM 선형·38배 저렴), 배치·`content-visibility` 도 답 아님(`display:none` 격리에서도 초선형), 범인은 **데코레이터 확장 계층의 플러그인 간 상호작용**(각 ≈1.2 → 결합 ≈1.97). §0.1 재개봉 불필요, Step 7 현행 전제로 진행. **신규 후속 티켓 발생** | 〃 §4-2 |
+| **Step 6** A6 판정 게이트 | **판정 완료 (v0.8.43) — 세 번째 갈래.** 아키텍처 무죄(순수 CM 선형·38배 저렴), 배치·`content-visibility` 도 답 아님(`display:none` 격리에서도 초선형), 범인은 **데코레이터 확장 계층의 플러그인 간 상호작용**(각 ≈1.2 → 결합 ≈1.97). §0.1 재개봉 불필요, Step 7 현행 전제로 진행. **신규 후속 티켓 발생** · ⚠️ **이 판정은 2026-08-31 §3-A-2 에서 귀속 오류로 뒤집혔다** — 범인은 데코레이터가 아니라 동시 생존 인스턴스 수다 | 〃 §4-2 |
+| **Step 7** B4 구조 개편 | **종결.** 7-A(패널 문서 해석 분리) → 7-B **건너뜀**(7-C 가 구조적으로 소멸시키므로) → 7-C 탭 스코프 스토어 C-1~C-5 (v0.8.45~0.8.48). **전역 `blockStore` 싱글턴과 `ownerTabId` 스캐폴딩 소멸.** C-4 를 「되돌리기 지점」으로 둔 분할이 실패 시 전량 롤백을 막았다. C-5 에서 `serialize()`/`hydrate()` 계약 확정 | [`DEBUG_PLAN_20260831_191946.md`](claude-history/debug/DEBUG_PLAN_20260831_191946.md) §5 |
+| **BUG-20260831-01** 캐럿 이탈 | **종결 (v0.8.48).** Step 5 조정자가 **명령을 상태로 읽어** 타이핑 시 캐럿이 이탈했다. 원인은 `focusOffset`. 실기 검증 5건 자동 완료(88391ae). ⚠️ 수정 코드가 문서 커밋 `f48b88c` 에 **흡수된 사고** — 정정 기록 `81971a2` | [`DEBUG_PLAN_20260831_204000.md`](claude-history/debug/DEBUG_PLAN_20260831_204000.md) |
+| **A6-후속 1차 조사** | **판정 뒤집힘 (v0.8.50).** 측정 환경 오염(백그라운드 탭에서 rAF 미발화) 발견 · H1 하네스 오염 확정 · StyleModule 누수 확정 · **초선형의 원인은 동시 생존 `EditorView` 수**로 재귀속 | §3-A-1 · §3-A-2 (본 문서) |
+| **문서 체계 정리** | **완료 (2026-09-02).** 배치 규칙 확립(루트=계획 / `project/`=소스 / `claude-history/`=아카이브) · 11건 이동 · 중복 1건 삭제 · 드리프트 4건 정정 · 상대 링크 전수 검증 | [`DOCUMENTS.md`](DOCUMENTS.md) |
 
 ### 1.1 완료분 중 이후 작업이 의존하는 사실 3가지
 
@@ -61,53 +102,60 @@
 
 ## 2. 지금 해결할 것
 
-> **Step 1~6 은 종결됐다** (v0.8.32~0.8.43). 상세는 §1 표의 아카이브 링크를 따른다. 남은 것은 **Step 7 하나**다.
+> **Step 1~7 은 전부 종결됐다** (v0.8.32~0.8.49). 상세는 §1 표의 아카이브 링크를 따른다.
+> 남은 것은 **Step 8 — 아키텍처 게이트** 하나다.
 
 ```
-Step 7  B4 구조 개편 (7-A → 7-B? → 7-C)
-        ├─ 선행 게이트: Step 6 A6 판정 ✅ 통과 (아키텍처 무죄 → 설계 전제 불변)
-        └─ 병행 가능(파일 비중첩): A6-후속(동시 생존 인스턴스 수) · P1-9 · B2 실기 검증
+Step 8  아키텍처 게이트 (GATE-20260902-01)
+        │
+        ├─ 8-A  R-1 검증 티어 (REF-20260902-01)          ← 게이트와 독립. 되돌리기 쉬움
+        ├─ 8-B  스파이크 A — 중첩 카드 시각 재현          ← 안건의 생사를 가른다
+        ├─ 8-C  스파이크 B — 오케스트레이터 증분화        ← 8-B 통과 시에만
+        └─ 8-D  판정 & 분기 → 단일 CM 전환  또는  E7 복귀  ← 되돌릴 수 없는 단계
+        │
+        └─ 병행 가능(파일 비중첩): I-1 ERD · I-2 settings catch · I-3 R-3 uuid · P1-9 · B2 실기 검증
 ```
 
-**Step 6 판정이 Step 7 에 주는 조건**:
-- 7-A·7-C 는 **그대로 진행**한다. 판정이 「블록당 인스턴스」 설계를 무죄로 결론냈으므로 설계 전제가 바뀌지 않는다.
-- 가상화(E7)의 조건은 "선형 회복 후 재평가" → **"데코레이터 계층 수정 후 재평가"** 로 바뀌었다. 그 수정 없이 가상화만 넣으면 뷰포트 안의 블록들끼리 여전히 같은 상호작용 비용을 치른다.
+**상세 사양**: [`DEBUG_PLAN.md`](DEBUG_PLAN.md) — 이 배치의 실행 문서다.
 
----
+### 2.1 이 배치가 왜 생겼는가
 
-### Step 7 — B4 구조 개편
+Step 6 의 A6 판정이 **§3-A-2 에서 귀속 오류로 뒤집혔다.** 초선형의 원인은 데코레이터 계층이 아니라 **동시 생존 `EditorView` 인스턴스 수**다. 그 결과 §0.1 의 "블록당 인스턴스 설계는 무죄" 게이트가 근거를 잃었고, **2026-09-02 사용자 결정으로 재개봉**됐다.
 
-> **원 정의**: [`DEBUG_PLAN_20260827_025711.md`](claude-history/debug/DEBUG_PLAN_20260827_025711.md) §2 — `REF-01(1단계) → REF-02 → REF-01(2단계)` · 선행 `B1, B3`
+동시 생존 수를 줄이는 수단이 **둘로 경쟁한다**:
 
-#### 7-A. P0-3 Stage A-2 — 분할 패널 표시 불일치
+| | **E7 가상화 + 높이 캐시** | **단일 CM 전환** |
+|---|---|---|
+| 동시 생존 수 | 창 크기로 **상한** | **1 로 고정** |
+| 높이 맵 | **우리가 구현** (BUG-20260828-01 재생산 위험) | **CodeMirror 소유** |
+| 데코레이터 계층 | 손 안 댐 | **선행 재설계 필요** (8-C) |
+| 카드 UI | 그대로 | **재현 필요** (8-B) |
+| 되돌리기 | 쉬움 | 어려움 |
 
-**[파일 & 라인]** `project/src/pages/WorkspacePage/WorkspacePage.tsx:359` · `project/src/widgets/BlockEditor/ui/BlockEditor.tsx:393`
+**둘 다 짓지 않는다.** 8-B·8-C 가 단일 CM 의 가격표를 재고, 8-D 가 고른다.
 
-**[현재 상태 — code_review 기술보다 진전됨]** `WorkspacePage.tsx:359` 는 이미 `<BlockEditor key={activeTab.id} paneId={pane.id} />` 로 **`paneId` 를 주입한다**(Option B 의 레지스트리 키잉 목적). 그러나 `BlockEditor.tsx:393` 은 여전히 `useDocumentStore(s => s.getCurrentFile())` = **활성 패널의 탭**으로 자기 문서를 유추한다. 즉 **배관은 깔렸고 문서 해석만 남았다.**
+### 2.2 이전 판정이 §2 에 남겼던 조건 — **전부 무효**
 
-**[남은 증상]** 두 번째 패널이 자기 `activeTabId` 와 무관하게 활성 패널의 문서를 그린다(탭 바 제목과 본문 불일치). 비활성 패널에 타이핑하면 `ownerTabId` 가드에 걸려 입력이 **조용히 무시**된다(오염 대신 무반응).
+| 이전 판의 문장 | 상태 |
+|---|---|
+| "선행 게이트: Step 6 A6 판정 ✅ 통과 (아키텍처 무죄 → 설계 전제 불변)" | **무효** — §3-A-2 가 귀속을 뒤집었다 |
+| "가상화(E7)의 조건은 **데코레이터 계층 수정 후 재평가**" | **무효** — 데코레이터는 상수 배수일 뿐 증가율의 원인이 아니다. E7 의 조건은 이제 **8-B·8-C 판정**이다 |
+| "7-A·7-C 는 그대로 진행한다" | **종결됨** — v0.8.48 착지 |
 
-**[조치 방안]** `PaneContainer` 가 `<BlockEditor tab={activeTab} isActivePane={pane.id === activePaneId} />` 를 주입하고, **비활성 패널은 `readOnly` 렌더**(내용은 `tab.cache?.rawContent ?? ''`). 전역 `blockStore` 를 편집하는 인스턴스를 상시 1개로 제한하는 것이 목적이다.
-- 가드: 패널 포커스 전환(`setActivePane`) 시 이전 활성 패널을 먼저 `_snapshotActiveTab()` 한 뒤 소유권 이전.
-- 가드: 동일 파일을 두 패널에 열면 캐시가 갈라지므로 Stage A 에서는 **중복 오픈 시 기존 패널로 포커스 이동**으로 회피.
+### 2.3 순서를 이렇게 잡은 근거
 
-#### 7-B. REF-02 / P1-3 — 경계 전환 시 `blockStore` 잔존
+- **8-A 를 맨 앞에**: 회귀망이 가장 약한 시점에 최대 구조 변경을 하지 않는다. 이번 사이클의 심각한 결함 3건이 **전부 리팩터 자신이 만든 것이었고 전부 자동 테스트를 통과했다**(`code_review.md` §0). 그리고 R-1 은 **어느 분기에서도 값어치가 남는다.**
+- **8-B → 8-C 순서**: A 가 실패하면 B 를 잰 비용이 통째로 버려진다. A 는 CSS·데코레이션 실험이라 B(오케스트레이터 재설계)보다 싸고 판정이 육안으로 즉시 난다. **비싼 쪽을 뒤에 둔다.**
+- **8-D 를 맨 뒤에**: 「되돌릴 수 없는 단계는 맨 뒤로」. 7-C 를 C-1~C-5 로 쪼개 싱글턴 제거를 C-4 에 둔 것이 실패 시 전량 롤백을 막은 선례를 그대로 재사용한다.
 
-**[파일 & 라인]** `project/src/entities/workspace/model/store.ts:40, 59` · `project/src/entities/document/model/store.ts:311`
+### 2.4 이 배치에서 **하지 않을 것**
 
-**[현재 상태]** `openWorkspace` / `openWorkspaceByPath` 는 `resetDocumentState()` 만 호출한다. **`resetBlocks` 는 소스 트리에 존재하지 않는다.** `useBlockStore.blocks` 는 이전 워크스페이스 문서의 전체 트리를 유지하며, (a) 앱 생명주기 동안 회수되지 않는 메모리이고 (b) 다음 문서 로드 시 `existingByKey` ID 매칭의 입력이 되어 **문서 간 블록 identity 가 누수**된다. `viewMode` 도 리셋 대상에서 빠져 있다.
-
-**[조치 방안]** `blockStore` 에 `resetBlocks: () => set({ blocks: [], activeBlockId: null, focusOffset: 0, ownerTabId: null })` 를 추가하고 `resetDocumentState` 에서 함께 호출(`viewMode: 'write'` 포함).
-
-> **주의**: REF-01 2단계(탭 스코프 스토어)를 곧바로 진행할 계획이면 **REF-02 는 구조적으로 소멸**하므로 건너뛰어도 무방하다.
-
-#### 7-C. REF-01 2단계 / P0-3 Stage B — 탭 스코프 스토어
-
-`rawContent / blocks / nodes / isDirty / viewMode` 를 `PaneContainer` 내부에서 생성하는 React Context 기반 **탭 스코프 스토어**(`createTabStore(tabId)`)로 이관한다. `ownerTabId` 스캐폴딩은 여기서 소멸한다.
-
-> ⚠️ **반드시 함께 처리할 것**: [`advanced_rendering_optimization.md`](advanced_rendering_optimization.md) **Phase 1(상태 스냅샷)** 과 **동일 지점**이다. 분리해서 진행하면 스냅샷 인터페이스를 **두 번 설계**하게 된다. `serialize()` / `hydrate()` 를 Phase 2 TTL 언마운터의 계약으로 확정할 것.
->
-> 부수 효과: 이 계약이 확정되면 그것이 곧 `architecture_stages.md` **Stage 2 Thin Client** IPC 경계(`getBlockTree(tabId)`, `updateBlock(tabId, blockId, content)`)의 초안이 된다. **스레드/프로세스 분리는 여기서부터 싸진다.**
+| 항목 | 이유 |
+|---|---|
+| **R-2** `updateBlockContent` 경로 복사 | 단일 CM 채택 시 `updateBlockContent` 자체가 쓰기 경로에서 소멸 → **100% 매몰 비용.** 8-D 판정 후 재개 |
+| **메커니즘 확인 실험** (레이아웃 vs CM 뷰 관리 vs DOM 형제 수) | "E7 을 어떻게 싸게 만들까"를 묻는 실험이라, 단일 CM 이 채택되면 **묻지 않는 질문**이 된다. 8-D 판정 후 재개 |
+| **R-6** 테마 호이스팅 | **Sprint 3(YAML 테마)에 병합됨** — `createEditorTheme()` 의 설정 의존값이 `fontFamily`·`fontSize` 둘뿐이라 CSS 변수 토큰 시스템이 곧 해법이다 (사용자 결정 D-4) |
+| **`protectedRegions` N² 부채**(Open Q #5) 단독 착수 | 8-C 와 **같은 지점**이다. 8-C 가 그 기회를 겸하되 **범위를 넓히지 않는다** — 8-C 의 질문은 비용이지 결합도가 아니다 |
 
 ---
 
@@ -320,7 +368,7 @@ Step 7  B4 구조 개편 (7-A → 7-B? → 7-C)
 | ID | 내용 | 상태 | 비고 |
 |---|---|---|---|
 | BUG-20260828-04 | `---` 라인 ArrowUp 스킵 | ◻ 보류(고립) | A3 수정 후에도 남은 잔여. 재현 조건이 좁다 |
-| **A6-후속** | **마운트 비용 초선형 — 동시 생존 `EditorView` 인스턴스 수** | ◻ **Todo — 우선도 높음** | **원인 확정(2026-08-31, §3-A-2).** 데코레이터가 **하나도 없는** 베어 조건도 누적 마운트 시 지수 1.76 이고(N=100 에서 737ms), 생성 횟수는 같고 **누적만 없앤** 조건은 0.938(선형, 92ms) — 8배 차이. **Step 6 의 "데코레이터 계층이 범인" 판정은 귀속 오류였다**(하네스 오염, §3-A-1). 데코레이터·테마는 상수 배수일 뿐이다(테마 ≈ +50%). **대상은 "동시 생존 수를 줄이는 것"이며 가상화(E7)+높이 캐시가 정면 수단이다.** 미확정: 그 비용이 레이아웃/스타일 재계산인지, CodeMirror 뷰 관리인지, DOM 형제 수인지. 재현: `mount_cost_t2_harness.ts` (**포어그라운드 탭 필수** — §3-A-1) |
+| **A6-후속** | **마운트 비용 초선형 — 동시 생존 `EditorView` 인스턴스 수** | ◻ **Todo — 우선도 높음** | **원인 확정(2026-08-31, §3-A-2).** 데코레이터가 **하나도 없는** 베어 조건도 누적 마운트 시 지수 1.76 이고(N=100 에서 737ms), 생성 횟수는 같고 **누적만 없앤** 조건은 0.938(선형, 92ms) — 8배 차이. **Step 6 의 "데코레이터 계층이 범인" 판정은 귀속 오류였다**(하네스 오염, §3-A-1). 데코레이터·테마는 상수 배수일 뿐이다(테마 ≈ +50%). **대상은 "동시 생존 수를 줄이는 것"이다.** 수단은 두 갈래이며 **2026-09-02 에 게이트로 열렸다**(`GATE-20260902-01`) — (a) 가상화(E7)+높이 캐시, (b) **단일 CM 전환**([`single_cm_transition.md`](single_cm_transition.md), N→1 로 고정하고 높이 맵을 라이브러리에 넘긴다). 순서: 게이트 0(R-1) → 스파이크 A → 스파이크 B → 판정. 상세 [`code_review.md`](code_review.md) §9.1. 미확정: 그 비용이 레이아웃/스타일 재계산인지, CodeMirror 뷰 관리인지, DOM 형제 수인지. 재현: `mount_cost_t2_harness.ts` (**포어그라운드 탭 필수** — §3-A-1) |
 | BUG-20260828-05 | 한글 IME — 앱 실행/포커스 전환 직후 첫 조합 간헐 실패 | ◻ Todo | Step 2-A·Step 5 가 같은 코드 경로(입력 이벤트·조정자)를 정리했다. **재현 재시도 가치 있음** — 이미 소멸했을 가능성 |
 | BUG-20260828-06 | 위젯 `toDOM` 예외가 CodeMirror 뷰·React 서브트리를 붕괴시킴 | ◻ Todo | 데코레이터 중재 인프라(§S.4)와 인접 |
 | P1-9 | `.cm-line *` 전역 리셋이 Write Mode 위젯 타이포그래피 무력화 | ◻ B5(독립 배치) | 사용자에게 즉시 보이는 표시 결함. 언제든 착수 가능. 실행 사양서: [`IMPL_PLAN_20260826_2349_widget_typography.md`](claude-history/impl/IMPL_PLAN_20260826_2349_widget_typography.md) |
@@ -337,7 +385,7 @@ Step 7  B4 구조 개편 (7-A → 7-B? → 7-C)
 
 | 티어 | 수단 | 실행 |
 |---|---|---|
-| **T1** 순수 로직 | Node 24 + `scripts/ts-hook.mjs`(`@/` 별칭·확장자 해석) | `pnpm test:t1` (**9 하네스** — Step 5 에서 `test:diff` 추가) |
+| **T1** 순수 로직 | Node 24 + `scripts/ts-hook.mjs`(`@/` 별칭·확장자 해석) | `pnpm test:t1` (**13 하네스** — `package.json:15` 실측. 이 문서의 이전 판은 "9"로 적었다. 별도로 `heading_caret_harness.ts` 는 존재하나 `test:t1` 에 **연결돼 있지 않다**) |
 | **T2** 레이아웃 | `MockFileSystem` 덕에 앱이 Chromium 에서 그대로 구동 | `pnpm dev` + playwright |
 | **T3** 실기 | 설정 변경 없이 콘솔 한 줄 | `pnpm tauri:dev` → `tauri_t3_harness.ts` |
 
@@ -384,7 +432,7 @@ fix(0.8.33): 입력당 onUpdate 이중 호출 제거 (BUG-20260826-09)
 
 ---
 
-## 6. 문서 드리프트 — **정정 완료 (2026-08-30)**
+## 6. 문서 드리프트
 
 > 이전 판이 열거한 `code_review.md` 드리프트 5건은 **본 갱신에서 전부 반영됐다.** 아래는 처리 결과 기록이며, 새로 발견되는 드리프트만 이 표에 추가한다.
 
@@ -399,10 +447,27 @@ fix(0.8.33): 입력당 onUpdate 이중 호출 제거 (BUG-20260826-09)
 | `code_review.md` | A1·A2·A5·A6·A7 항목 부재 | ✅ 「Step 1~6 사이클」 절 신설 |
 | `implementation_plan.md` | §4A.2~4A.8 이 **두 벌 존재**(1090~1568행 / 1571~1854행) | ⚠️ **미처리 — 사용자 판단 필요.** 어느 쪽이 유효 사양인지 확인 후 정리 |
 
+### 6.1 2026-09-02 신규 발견·정정
+
+| 문서 | 항목 | 처리 |
+|---|---|---|
+| 본 문서 §5.1 | T1 "**9 하네스**" | ✅ **13종**으로 정정 (`package.json:15` 실측) |
+| `code_review.md` §2 | T1 "**14종**" | ✅ 같은 근거로 정정 — `code_review.md` §10 |
+| `package.json` | `heading_caret_harness.ts` 가 `test:t1` 에 **미연결** | ⚠️ **미처리** — 실행되지 않는 하네스다. 살릴지 지울지 판단 필요 |
+| `settings/model/types.ts` | `autosaveDelay` 가 정의·UI 노출되나 **읽는 코드가 없다** | ⚠️ **미처리** — 노출된 설정이 아무 일도 하지 않는다. **자동 저장 배선 시 `BUG-20260902-01` 이 P0 로 오른다** |
+| `architecture_stages.md:57` | "MindView 가 `blockStore` 에 의존" | ✅ **거짓** — `parseMarkdown(rawContent)` 만 쓴다. 정정 주석 삽입 |
+| `architecture_stages.md:56` | Option A 기각 사유가 **미측정 단언** | ✅ 재개봉 주석 삽입 — `SPIKE-20260902-A` 가 잰다 |
+| `claude-history/arch/` 2건 | `ARCHITECTURE_SKETCH` · `FUNCTIONS_RELATIONSHIP` 이 **제거된 전역 `blockStore` 싱글턴**을 기술 | ✅ 아카이브. **대체 다이어그램은 아직 없다** — 필요 시 신규 작성 |
+
 ---
 
 ## 7. 다음 갱신 시점
 
-**Step 7 종료 시** 본 문서의 Step 7 을 §1 로 내린다. 그 시점에 §2 는 비므로, 다음 배치(A6-후속 · P1-9 · 잔여 P2)를 §2 로 승격할지 판단한다.
+**8-D 판정 시** 본 문서의 Step 8 을 §1 로 내리고, 판정 결과에 따라 §2 를 다시 채운다.
 
-상세는 `project/DEBUG_PLAN.md` → `claude-history/debug/` 아카이브 경로를 따른다. **문서 전용 갱신은 버전을 올리지 않는다**(`.agents/AGENTS.md` 「버전업 예외」).
+- **단일 CM 채택 시** → §2 는 `single_cm_transition.md` §6 의 Step 1~3(전환 단계)이 된다
+- **E7 복귀 시** → §2 는 「E7 가상화 + 높이 캐시」가 되고, §2.4 에서 보류한 **R-2 와 메커니즘 확인 실험이 그 앞으로 복귀**한다
+
+**중간 갱신 시점 2개** — 8-B 판정 직후(안건 생사), 8-C 판정 직후(가격표 확정). 어느 쪽이든 판정을 [`single_cm_transition.md`](single_cm_transition.md) §0.1 과 [`architecture_stages.md`](architecture_stages.md)`:56` **양쪽에** 반영한다.
+
+배치 상세는 [`DEBUG_PLAN.md`](DEBUG_PLAN.md), 교체 시 회전 규칙은 [`DOCUMENTS.md`](DOCUMENTS.md) §3. **문서 전용 갱신은 버전을 올리지 않는다**(`.agents/AGENTS.md` 「버전업 예외」).

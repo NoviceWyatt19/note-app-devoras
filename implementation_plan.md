@@ -5,7 +5,7 @@
 > **기준 문서**: `function_roadmap.md`, `architecture_stages.md`, `FUNCTIONS_RELATIONSHIP.md`, Phase 3.5 기획서 5건
 > **선행 완료**: Tier 1 버그 전량 수정, Tier 2 구조 정비 (parser 분리, splitPane 방향, O(N) 최적화, ERD useEffect 제거)
 >
-> ⚠️ **2026-08-27 갱신** — `project/DEBUG_PLAN.md` 의 **편집 표면 상시화(Option B)** 로 CodeMirror 인스턴스가 "패널당 1개"에서 **"블록당 1개"** 로 바뀝니다. 이 전제에 의존하는 **§2.5(Compartment)**, **§4A.5(파일 내 검색)**, **§4A.6(EditorViewRegistry)** 에 정정 주석을 삽입했습니다. 해당 절을 구현하기 전에 주석을 먼저 읽으세요.
+> ⚠️ **2026-08-27 갱신** — `claude-history/debug/DEBUG_PLAN_20260831_204000.md` 의 **편집 표면 상시화(Option B)** 로 CodeMirror 인스턴스가 "패널당 1개"에서 **"블록당 1개"** 로 바뀝니다. 이 전제에 의존하는 **§2.5(Compartment)**, **§4A.5(파일 내 검색)**, **§4A.6(EditorViewRegistry)** 에 정정 주석을 삽입했습니다. 해당 절을 구현하기 전에 주석을 먼저 읽으세요.
 >
 > ⚠️ **2026-08-27 추가 갱신** — 커스텀 문법(`->`/`=>`) 선구현 스파이크를 진행하며 Stage 5 「커스텀 심볼 파싱 격리」 가정이 반증되었습니다. 새 절 **「스파이크: 커스텀 문법 선구현 및 파생 과제」** 를 추가했고, `SyntaxDecorator` 중재 인프라가 신규 파생 과제로 열렸습니다 (`Open Questions` #5, #6).
 >
@@ -656,6 +656,25 @@ useEffect(() => {
 
 > **참조**: `functions/6_theme_yaml_custom.md` · 난이도: ★★☆ · 예상 소요: 3~4일
 > **선행 조건**: Sprint 2 (설정 스토어에 `activeThemeFile` 저장)
+
+> ### ➕ 편입 (2026-09-02, 사용자 결정 D-4) — **R-6 / `BUG-20260831-02` StyleModule 누수**
+>
+> `@codemirror/view` 의 `EditorView.theme()` 은 **호출마다** 새 `StyleModule` 을 만들고
+> `EditorView.destroy()` 에 제거 경로가 없다. `BlockEditor.tsx:229` 가 이를 **EditorView 생성 이펙트
+> 안**에서 호출하므로 **블록 하나당 StyleModule 하나**가 생겨 단조 증가한다(인스턴스당 `<style>` +525자,
+> 파괴 후에도 감소 없음, 360 사이클까지 확인). 마운트 절대 비용도 **약 50%** 올린다.
+>
+> **이 Sprint 가 그 해법을 이미 짓는다.** `createEditorTheme()` 의 설정 의존값은
+> **`fontFamily` · `fontSize` 둘뿐**이므로(`BlockEditor.tsx:86-105`), 아래 §3.4 의 CSS 변수 토큰에
+> 그 둘을 포함시키면 **테마 자체가 모듈 레벨 상수가 된다.** 부수 효과로 `BlockEditor.tsx:144` 의
+> 설정 변경 `reconfigure` 경로까지 불필요해진다.
+>
+> **DoD 에 추가할 것**:
+> - [ ] N 개 블록 마운트 후 `<style>` 총 바이트가 N 에 비례해 증가하지 않는다
+> - [ ] create-destroy 반복 후 `<style>` 바이트가 증가하지 않는다
+> - [ ] 폰트 크기·패밀리 변경이 여전히 실시간 반영된다 (회귀 0건)
+>
+> 티켓: [`ticket/debug/20260831_2030_stylemodule_leak_per_editorview.yml`](ticket/debug/20260831_2030_stylemodule_leak_per_editorview.yml)
 
 ### 3.1 목표
 
@@ -2033,7 +2052,7 @@ moveTabToPane: (sourcePaneId: string, targetPaneId: string, tabId: string) => {
 ## 스파이크: 커스텀 문법 선구현 및 파생 과제
 
 > **수행일**: 2026-08-27 · **상태**: 선구현 완료, 파생 과제 미착수
-> **참조**: `project/architecture_stages.md` Stage 5 「선구현 검증 결과」 · `function_roadmap.md` Phase 6
+> **참조**: `architecture_stages.md` Stage 5 「선구현 검증 결과」 · `function_roadmap.md` Phase 6
 
 ### S.1 배경과 목적
 

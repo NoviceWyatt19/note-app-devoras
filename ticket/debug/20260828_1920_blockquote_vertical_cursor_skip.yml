@@ -8,7 +8,7 @@ subject: "수직 방향키(ArrowUp/Down) 이동 시 줄 건너뜀·스킵 — �
 status: "Done — 근본 원인 확정 및 수정 완료, T2 실측 검증 통과 (2026-08-28 21:40). 실기(T3) 1회 확인만 남음"
 severity: "P1"
 tier: "T2 (레이아웃 개입 → T0/T1 금지. 스크롤은 무관하므로 §2 규칙 3 에 따라 T2 로 판정하고 T3 는 1회 확인)"
-plan_ref: "project/DEBUG_PLAN.md §10.4, §10.6, §10.7, §5.3 R10"
+plan_ref: "claude-history/debug/DEBUG_PLAN_20260831_204000.md §10.4, §10.6, §10.7, §5.3 R10"
 reported_by: "사용자 실사용 보고 (2026-08-28)"
 # ━━━
 bug_report:
