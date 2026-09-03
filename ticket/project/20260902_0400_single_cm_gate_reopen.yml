@@ -2,10 +2,10 @@
 type: "DECISION_GATE"
 id: "GATE-20260902-01"
 # ━━━
-update: "2026-09-02 05:10"
+update: "2026-09-02 (스파이크 A·B 판정 완료)"
 project_ref: "PRJ-DEVORAS-MVP"
 subject: "§0.1 아키텍처 게이트 재개봉 — 단일 CodeMirror 전환을 E7 가상화의 경쟁 안건으로 둘 것인가"
-status: "**결정 완료 (2026-09-02) — 게이트 열림.** 스파이크 A → B 판정 대기"
+status: "**스파이크 A·B 모두 통과 (2026-09-02).** §5.1 판정표대로 '단일 CM 전환 착수'가 나온다 — **8-D 는 되돌릴 수 없는 단계라 사용자 확인 대기 중, 아직 착수하지 않았다**"
 baseline: "f9f6716 · v0.8.50 · 트리 클린"
 analysis_ref: "architecture_direction_review.md (2026-09-02)"
 raised_by: "계획 세션 (SESS-20260831-PLANNER 인수)"

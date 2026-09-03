@@ -2,10 +2,10 @@
 type: "SPIKE"
 id: "SPIKE-20260902-A"
 # ━━━
-update: "2026-09-02 04:40"
+update: "2026-09-02 (판정 완료)"
 project_ref: "PRJ-DEVORAS-MVP"
 subject: "게이트 A — 라인 데코레이션만으로 중첩 블록 카드를 재현할 수 있는가"
-status: "Todo"
+status: "Done — 통과 (2026-09-02). 8-C(SPIKE-20260902-B) 진행"
 tier: "T2 (브라우저 필요 — 육안 판정. 타이밍 측정 아니므로 스로틀링 무관)"
 gate_ref: "GATE-20260902-01 · single_cm_transition.md §6 게이트 A"
 blocks: "SPIKE-20260902-B · 단일 CM 전환 안건 전체"
@@ -61,13 +61,32 @@ judgment:
   fail: "관통 테두리나 중첩 배경이 성립하지 않는다 → **안건 종결.** E7 가상화로 복귀하고, `architecture_stages.md:56` 의 2026-08-27 판단이 옳았음을 측정으로 확정해 기록한다"
 # ━━━
 dod:
-  - "[ ] 정적 CSS 프로토타입 결과 (성립/불성립)"
-  - "[ ] 성립 시 `EditorView` + `Decoration.line()` 재현 결과"
-  - "[ ] 현행 렌더와의 나란히 스크린샷 비교 이미지"
-  - "[ ] 기존 데코레이터(코드펜스·KaTeX)와의 시각 충돌 유무"
-  - "[ ] 판정을 `single_cm_transition.md` §0.1 표와 `architecture_stages.md:56` 양쪽에 반영"
+  - "[x] 정적 CSS 프로토타입 결과 (성립/불성립) — 성립"
+  - "[x] 성립 시 `EditorView` + `Decoration.line()` 재현 결과 — 성립"
+  - "[x] 현행 렌더와의 나란히 스크린샷 비교 이미지 — 육안 동등"
+  - "[x] 기존 데코레이터(코드펜스·KaTeX)와의 시각 충돌 유무 — 없음"
+  - "[x] 판정을 `single_cm_transition.md` §0.1 표와 `architecture_stages.md:56` 양쪽에 반영 — 완료"
 # ━━━
 out_of_scope:
   - "성능 측정 — 이 스파이크는 **시각 재현 가능성만** 묻는다"
   - "오케스트레이터 증분화 — 스파이크 B"
   - "실제 `SingleDocEditor` 구현 — 게이트 통과 후"
+# ━━━
+result:
+  verdict: "통과 (pass) — §the_question 의 그림이 정적 CSS 프로토타입과 실제 EditorView 양쪽에서 성립했다"
+  artifacts:
+    - "project/src/widgets/BlockEditor/__tests__/spike_a_nested_card_static.html — 정적 CSS 프로토타입, CodeMirror 없음"
+    - "project/src/widgets/BlockEditor/__tests__/spike_a_nested_card_cm.ts(.html) — 실제 EditorView + Decoration.line(), 실제 프로덕션 데코레이터(HeadingDecorator/CodeBlockDecorator/LatexDecorator) 합성"
+  technique: >
+    L2 는 라인 자신의 배경(코드블록 데코레이터와 동일한 좌우 투명 border +
+    background-clip:padding-box + inset box-shadow 헤어라인). L3 는 같은 줄 위에
+    `::before` 가상요소로 얹는 안쪽 프레임 — 서로 다른 블록을 구조적으로 감싸는 게
+    아니라 한 줄 자신의 페인트 레이어이므로 "평면 형제" 제약을 어기지 않는다.
+    3중 중첩(L2⊃L3⊃codefence)·KaTeX 중첩도 시각 충돌 없이 합성됐다.
+  pitfalls_found_and_fixed:
+    - "EditorView.baseTheme() 로 카드 클래스를 등록하면 기존 HeadingDecorator 의 decorationBaseTheme(같은 baseTheme 계층) shorthand padding 규칙에 소스 순서와 무관하게 진다 — EditorView.theme()(비-base) 로 옮겨 해결(CM6 가 theme() 에 baseTheme 보다 높은 우선순위를 줌)"
+    - ".cm-line 텍스트는 감싸는 span 없는 순수 텍스트 노드라 z-index 로 끌어올릴 수 없다 — ::before 를 z-index:0 으로 두면 텍스트(스택레벨5)보다 나중에 그려져 덮어버린다. .card-l3 라인 자신에 position:relative+z-index:0 으로 로컬 스태킹 컨텍스트를 만들고 ::before 를 그 안에서 z-index:-1 로 등록해 해결"
+  docs_updated:
+    - "single_cm_transition.md §0.1 표 + §0.2 신설"
+    - "architecture_stages.md:58 Option A 사유 취소선 처리 + 판정 반영"
+    - "DEBUG_PLAN.md §3.6 DoD 체크 + 8-B 판정 기록"

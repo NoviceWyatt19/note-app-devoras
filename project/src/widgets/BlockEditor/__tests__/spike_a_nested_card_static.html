@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <title>SPIKE-20260902-A — 정적 CSS 프로토타입 (평면 .cm-line 형제, 중첩 없음)</title>
+    <style>
+      /*
+       * 목적: `Decoration.line()` 만으로 L2 카드 안에 L3 카드가 "들어앉고",
+       * L2 의 좌/우 테두리가 L3 구간을 관통해 연속되는 그림이 성립하는지 확인한다.
+       *
+       * 제약: 아래 .cm-line 들은 전부 #cm-content 의 **평면 형제**다 — 실제
+       * CodeMirror 문서 구조와 동일하게, 어떤 .cm-line 도 다른 .cm-line 을
+       * DOM 상으로 감싸지 않는다. ::before 가상 요소는 "다른 블록을 구조적으로
+       * 감싸는 것"이 아니라 같은 줄 하나의 페인트 레이어이므로 이 제약을 어기지 않는다
+       * (Decoration.line() 의 class/attributes 계약 안에서 실제로 구현 가능).
+       *
+       * 값 출처: BlockEditor.tsx:410-421 getLevelStyles, tailwind.config.js
+       *   L2: p-5(20px) rounded-2xl(16px) bg-[#141520] border-darkBorder/40 shadow-md
+       *   L3: p-4(16px) rounded-xl(12px) bg-[#1d1f30] border-darkBorder/40
+       *   darkBorder = #272a37, darkBg = #0d0e12
+       */
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        background: #0d0e12;
+        color: #e2e8f0;
+        font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+        font-size: 15px;
+        line-height: 1.6;
+      }
+      #page {
+        max-width: 760px;
+        margin: 0 auto;
+        padding: 48px 24px;
+      }
+      h1.doc-title { font-size: 13px; color: #94a3b8; margin-bottom: 24px; font-family: ui-monospace, monospace; }
+
+      /* ── L1 (참고용, 이 스파이크의 관심사 아님) ───────────────────────── */
+      .l1-line { padding: 2px 0; font-weight: 800; font-size: 1.6em; color: #e2e8f0; }
+      .l1-body { padding: 2px 0; color: #cbd5e1; }
+      .gap-line { padding: 2px 0; height: 1em; }
+
+      /* ── #cm-content: 모든 .cm-line 의 유일한 부모, 평면 형제 목록 ────── */
+      #cm-content { position: relative; }
+      .cm-line { position: relative; padding: 2px 0; }
+
+      /*
+       * L2 밴드 — 코드블록 데코레이터(orchestrator.ts:184)와 동일한 기법:
+       * 좌우 투명 border + background-clip:padding-box 로 "보이는 카드 폭"을
+       * .cm-line 자체 폭보다 좁게 인셋하고, box-shadow inset 으로 헤어라인을 그린다.
+       * L2GUTTER = 카드 바깥에서 보이는 투명 여백(페이지 배경이 비친다).
+       */
+      :root {
+        --l2-gutter: 4px;
+        --l2-radius: 16px; /* rounded-2xl */
+        --l2-bg: #141520;
+        --l2-border: rgba(39, 42, 55, 0.55);
+
+        --l3-inset: 24px; /* L2 안쪽에서 L3 가 시작되는 위치 (L2 의 p-5 에 해당) */
+        --l3-radius: 12px; /* rounded-xl */
+        --l3-bg: #1d1f30;
+        --l3-border: rgba(39, 42, 55, 0.75);
+      }
+
+      .card-l2 {
+        background-color: var(--l2-bg);
+        background-clip: padding-box;
+        border-left: var(--l2-gutter) solid transparent;
+        border-right: var(--l2-gutter) solid transparent;
+        box-shadow:
+          inset 1px 0 0 var(--l2-border),
+          inset -1px 0 0 var(--l2-border);
+        padding-left: 20px; /* p-5 */
+        padding-right: 20px;
+      }
+      .card-l2-top {
+        border-top-left-radius: var(--l2-radius);
+        border-top-right-radius: var(--l2-radius);
+        padding-top: 20px;
+        box-shadow:
+          inset 1px 0 0 var(--l2-border),
+          inset -1px 0 0 var(--l2-border),
+          inset 0 1px 0 var(--l2-border),
+          0 4px 12px rgba(0, 0, 0, 0.25); /* shadow-md 근사 */
+      }
+      .card-l2-bottom {
+        border-bottom-left-radius: var(--l2-radius);
+        border-bottom-right-radius: var(--l2-radius);
+        padding-bottom: 20px;
+        box-shadow:
+          inset 1px 0 0 var(--l2-border),
+          inset -1px 0 0 var(--l2-border),
+          inset 0 -1px 0 var(--l2-border),
+          0 4px 12px rgba(0, 0, 0, 0.25);
+      }
+      /* L2 heading 줄 자체(카드 첫 줄)는 위 두 클래스가 동시에 안 걸릴 수 있어 별도 처리 */
+      .card-l2-heading { font-weight: 700; font-size: 1.15em; color: #f87171; }
+
+      /*
+       * L3 밴드 — **같은 줄 위에 얹히는 안쪽 페인트 레이어**. 진짜 CodeMirror
+       * 구현이라면 이 자리에 Decoration.line() 의 class 조합(cm-card-l2 + cm-card-l3)
+       * 또는 line attributes 로 이 ::before 를 그리는 CSS 규칙을 매칭시킨다.
+       * L2 의 border-box(카드 바깥 프레임)는 그대로 유지한 채, 그 안쪽에
+       * L3 전용 배경/테두리/둥근모서리를 별도 레이어로 겹쳐 그린다 — 이것이
+       * "L2 테두리가 L3 구간을 관통해 연속되는가"의 실제 CSS 구현 후보다.
+       */
+      .card-l3::before {
+        content: '';
+        position: absolute;
+        left: var(--l3-inset);
+        right: var(--l3-inset);
+        top: 0;
+        bottom: 0;
+        background-color: var(--l3-bg);
+        box-shadow:
+          inset 1px 0 0 var(--l3-border),
+          inset -1px 0 0 var(--l3-border);
+        z-index: 0;
+      }
+      .card-l3-top::before {
+        border-top-left-radius: var(--l3-radius);
+        border-top-right-radius: var(--l3-radius);
+        box-shadow:
+          inset 1px 0 0 var(--l3-border),
+          inset -1px 0 0 var(--l3-border),
+          inset 0 1px 0 var(--l3-border);
+      }
+      .card-l3-bottom::before {
+        border-bottom-left-radius: var(--l3-radius);
+        border-bottom-right-radius: var(--l3-radius);
+        box-shadow:
+          inset 1px 0 0 var(--l3-border),
+          inset -1px 0 0 var(--l3-border),
+          inset 0 -1px 0 var(--l3-border);
+      }
+      .card-l3 {
+        padding-left: calc(20px + var(--l3-inset) - var(--l2-gutter) + 16px);
+        padding-right: calc(20px + var(--l3-inset) - var(--l2-gutter) + 16px);
+      }
+      /* 텍스트 콘텐츠가 ::before 레이어 위에 오도록 */
+      .cm-line > .line-text { position: relative; z-index: 1; }
+      .card-l3-heading > .line-text { font-weight: 700; color: #f87171; }
+      .card-l2-heading, .card-l3-heading { }
+
+      /*
+       * 코드펜스/KaTeX 데코레이터(orchestrator.ts:184-239)와 동일 값 재사용 —
+       * L3 안에 중첩됐을 때 시각 충돌(이중 테두리, 배경 끊김, 모서리 어긋남)이
+       * 있는지 확인한다. L3 의 --l3-inset 기준선 위에 코드블록 자신의 1rem
+       * 투명 거터를 추가로 얹는다.
+       */
+      .cm-code-block-line {
+        background-color: #1a1b26;
+        background-clip: padding-box;
+        border-left: 1rem solid transparent;
+        border-right: 1rem solid transparent;
+        box-shadow: inset 1px 0 0 rgba(255,255,255,0.05), inset -1px 0 0 rgba(255,255,255,0.05);
+      }
+      .cm-code-block-top {
+        border-top-left-radius: 0.75rem;
+        border-top-right-radius: 0.75rem;
+        padding-top: 1rem;
+        box-shadow: inset 1px 0 0 rgba(255,255,255,0.05), inset -1px 0 0 rgba(255,255,255,0.05), inset 0 1px 0 rgba(255,255,255,0.05);
+      }
+      .cm-code-block-bottom {
+        border-bottom-left-radius: 0.75rem;
+        border-bottom-right-radius: 0.75rem;
+        padding-bottom: 1rem;
+        box-shadow: inset 1px 0 0 rgba(255,255,255,0.05), inset -1px 0 0 rgba(255,255,255,0.05), inset 0 -1px 0 rgba(255,255,255,0.05);
+      }
+      .code-text { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.88em; color: #a5b4fc; }
+
+      .cm-math-widget-block {
+        display: block;
+        text-align: center;
+        padding: 0.75em 1em;
+        background-color: rgba(168,85,247,0.05);
+        border-radius: 6px;
+      }
+
+      .verdict {
+        margin-top: 48px;
+        padding: 16px;
+        border: 1px dashed #6366f1;
+        border-radius: 8px;
+        font-family: ui-monospace, monospace;
+        font-size: 12px;
+        color: #a5b4fc;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="page">
+      <h1 class="doc-title"># spike-a-test — 정적 프로토타입 (CodeMirror 없음, 평면 .cm-line 형제만)</h1>
+
+      <div class="l1-line">스파이크 A 검증 문서</div>
+      <div class="l1-body">본문 1번째 줄입니다</div>
+      <div class="l1-body">본문 2번째 줄입니다</div>
+      <div class="l1-body">본문 3번째 줄입니다</div>
+      <div class="gap-line"></div>
+
+      <div id="cm-content">
+        <!-- ── H2 노드 1 (L2, L3 없음 구간) ─────────────────────────── -->
+        <div class="cm-line card-l2 card-l2-top card-l2-heading"><span class="line-text">## H2 노드 1</span></div>
+        <div class="cm-line card-l2"><span class="line-text">본문 A번째 줄입니다</span></div>
+        <div class="cm-line card-l2"><span class="line-text">본문 B번째 줄입니다</span></div>
+        <div class="cm-line card-l2"><span class="line-text">본문 C번째 줄입니다</span></div>
+        <div class="cm-line card-l2" style="height: 1rem"></div>
+
+        <!-- ── H3 1-1 (L2 + L3, 관통 테스트 1) ──────────────────────── -->
+        <div class="cm-line card-l2 card-l3 card-l3-top card-l3-heading"><span class="line-text">### H3 1-1</span></div>
+        <div class="cm-line card-l2 card-l3"><span class="line-text">서브 본문 A입니다</span></div>
+        <div class="cm-line card-l2 card-l3"><span class="line-text">서브 본문 B입니다</span></div>
+        <div class="cm-line card-l2 card-l3 card-l3-bottom"><span class="line-text">서브 본문 C입니다</span></div>
+        <div class="cm-line card-l2" style="height: 1rem"></div>
+
+        <!-- ── H3 1-2 (L2 + L3, 관통 테스트 2 + 코드펜스 3중 중첩) ──────── -->
+        <div class="cm-line card-l2 card-l3 card-l3-top card-l3-heading"><span class="line-text">### H3 1-2</span></div>
+        <div class="cm-line card-l2 card-l3"><span class="line-text">서브 본문 A입니다</span></div>
+        <div class="cm-line card-l2 card-l3"><span class="line-text">서브 본문 B입니다</span></div>
+        <!-- 코드펜스: L2 ⊃ L3 ⊃ codefence 3중 중첩 — L3 의 padding 기준 위에
+             코드펜스 자신의 1rem 거터를 추가로 쌓는다 -->
+        <div class="cm-line card-l2 card-l3 cm-code-block-line cm-code-block-top">
+          <span class="line-text code-text">function hello() {</span>
+        </div>
+        <div class="cm-line card-l2 card-l3 cm-code-block-line">
+          <span class="line-text code-text">&nbsp;&nbsp;return 42;</span>
+        </div>
+        <div class="cm-line card-l2 card-l3 cm-code-block-line cm-code-block-bottom card-l3-bottom">
+          <span class="line-text code-text">}</span>
+        </div>
+      </div>
+
+      <div class="gap-line" style="height: 2rem"></div>
+
+      <!-- ── H2 노드 2 — KaTeX 블록이 L3 안에 중첩됐을 때 ─────────────── -->
+      <div id="cm-content-2">
+        <div class="cm-line card-l2 card-l2-top card-l2-heading"><span class="line-text">## H2 노드 2</span></div>
+        <div class="cm-line card-l2"><span class="line-text">본문 X번째 줄입니다</span></div>
+        <div class="cm-line card-l2"><span class="line-text">본문 Y번째 줄입니다</span></div>
+        <div class="cm-line card-l2" style="height: 1rem"></div>
+
+        <div class="cm-line card-l2 card-l3 card-l3-top card-l3-heading"><span class="line-text">### H3 2-1</span></div>
+        <div class="cm-line card-l2 card-l3"><span class="line-text">서브 본문 X입니다</span></div>
+        <div class="cm-line card-l2 card-l3 card-l2-bottom card-l3-bottom" style="padding-top: 0.5em; padding-bottom: 1.5em;">
+          <span class="line-text cm-math-widget-block">E = mc²</span>
+        </div>
+      </div>
+
+      <div class="verdict">
+        판정 메모는 이 파일이 아니라 대화/문서(single_cm_transition.md §0.1,
+        architecture_stages.md:56)에 기록한다. 이 페이지는 순수 시각 프로토타입.
+      </div>
+    </div>
+  </body>
+</html>

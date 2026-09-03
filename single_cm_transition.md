@@ -32,10 +32,25 @@
 
 | 시점 | 기각 기록 | 근거 | 현재 상태 |
 |---|---|---|---|
-| 2026-08-27 | `architecture_stages.md:56` — **"Option A(문서 전체 단일 CM)"** | *"H2/H3 를 중첩 라운드 카드로 렌더하는 현재 시각 디자인을 평면 라인 목록으로는 표현할 수 없다"* | **측정된 적 없는 단언.** → **스파이크 A 가 정확히 이것을 잰다** |
+| 2026-08-27 | `architecture_stages.md:56` — **"Option A(문서 전체 단일 CM)"** | *"H2/H3 를 중첩 라운드 카드로 렌더하는 현재 시각 디자인을 평면 라인 목록으로는 표현할 수 없다"* | ✅ **측정 완료(2026-09-02, `SPIKE-20260902-A`) — 단언이 틀렸다는 것이 확인됐다.** §0.2 참고 |
 | 2026-08-30 | `DEBUG_STEP_PLAN.md` §0.1 — "재개봉되지 않는다" | "순수 CM 은 선형이고 38배 싸다 → 블록당 인스턴스 설계는 무죄" | **무효.** §3-A-2 가 귀속을 뒤집었다 — 그 관측은 **동시 생존 수를 늘리지 않은 조건**에서 나왔다 |
 
-**§0.1 은 근거가 소멸했고, Option A 는 근거가 검증된 적이 없다.** 그래서 **스파이크 A 가 이 안건의 생사를 가른다** — 2026-08-27 의 단언이 맞으면 안건은 그때 판단이 옳았던 것으로 종결된다.
+**§0.1 은 근거가 소멸했고, Option A 도 이제 근거가 무너졌다.** 안건은 8-C(오케스트레이터 증분화, `SPIKE-20260902-B`)로 진행한다 — 8-C 가 실패해야만 E7 로 확정된다(8-B 단독으로는 안건을 확정 짓지 못한다, §5.1).
+
+### 0.2 SPIKE-20260902-A 판정 (2026-09-02) — 통과
+
+**질문**: `Decoration.line()` 만으로 L2 카드 안에 L3 카드가 들어앉고, L2 의 좌/우 테두리가 L3 구간을 관통해 연속되는 그림이 나오는가.
+
+**결과: 통과.** 두 단계 모두 성립했다.
+
+1. **정적 CSS 프로토타입** (`project/src/widgets/BlockEditor/__tests__/spike_a_nested_card_static.html`, CodeMirror 없음) — 평면 형제 `.cm-line` 시뮬레이션에 "L2 는 라인 자신의 배경(코드블록 데코레이터와 동일한 좌우 투명 border + `background-clip:padding-box` + inset box-shadow 헤어라인 기법), L3 는 `::before` 가상요소로 그 위에 얹는 안쪽 프레임"으로 구현. 나란히 배치한 코드펜스(3중 중첩: L2⊃L3⊃codefence)·KaTeX 블록도 시각 충돌 없이 성립.
+2. **실제 `EditorView` + `Decoration.line()`** (`spike_a_nested_card_cm.ts`) — 실제 프로덕션 데코레이터(`HeadingDecorator`·`CodeBlockDecorator`·`LatexDecorator`)와 실제 `orchestrator.createDecorationPlugin()` 을 그대로 가져다 합성. 같은 결과 재현됨(스크린샷·`getComputedStyle` 실측으로 확인).
+
+**진행 중 발견한 실제 구현 함정 2건(8-D 채택 시 반영 필요, 둘 다 이 스파이크에서 해결됨)**:
+- `EditorView.baseTheme()` 로 새 카드 클래스를 등록하면 기존 `HeadingDecorator` 의 `decorationBaseTheme`(같은 baseTheme 계층)의 shorthand `padding` 규칙에 **소스 순서와 무관하게 진다**(실측: `padding-top` 이 16px 대신 8px 로 깨짐). → **`EditorView.theme()`(비-base) 로 등록하면 해결** — CM6 가 의도적으로 theme() 에 baseTheme 보다 높은 우선순위를 준다.
+- CodeMirror 는 `.cm-line` 텍스트를 감싸는 span 없이 **순수 텍스트 노드**로 렌더한다. L3 의 안쪽 프레임을 `::before` + `z-index` 로 얹을 때, `z-index:0`(위치 지정 + 스택레벨 0) 은 CSS 페인트 순서상 텍스트(인라인 콘텐츠, 스택레벨 5)보다 **나중에** 그려져 텍스트를 완전히 덮어버린다(실측: DOM 엔 있는데 화면엔 안 보임). → **`.card-l3` 라인 자신에 `position:relative + z-index:0` 을 줘서 로컬 스태킹 컨텍스트를 만들고, `::before` 를 그 안에서 `z-index:-1` 로 등록**하면 해결 — 로컬 컨텍스트의 음수 z-index 는 배경보다 위, 텍스트보다 아래에 그려진다.
+
+**판정 기준 대조(§3.5)**: "현행 `BlockNode` 렌더와 육안 동등" — 실기 앱에서 캡처한 참조 스크린샷과 나란히 비교한 결과, 카드 중첩·연속 테두리·모서리 둥글기·헤딩 배지 칩 스타일이 동등하게 성립했다. **완전 판정(통과)**이며 "부분" 사례가 아니므로 §3.5 의 사용자 확인 요구는 발동하지 않는다.
 
 > 한편 §0.1 이 기각한 "Notion 형태"는 **이 안건이 아니다.** 그것은 블록 트리를 진실로 삼는 구조였고, 이 안건은 정반대로 `rawContent` 를 유일 진실로 삼는다 — §0.1 이 지키려던 "마크다운이 디스크의 진실"이라는 전제를 **더 충실히** 만족한다. **§0.1 을 근거로 이 안건을 다시 닫지 말 것.**
 
@@ -334,14 +349,42 @@ Step 1~3  아래 전환 단계 (A·B 통과 후에만)
 
 | # | 블로커 | 근거 | 게이트 |
 |---|---|---|---|
-| ① | **중첩 카드가 실제 중첩 DOM 이다** — `BlockNode`(`BlockEditor.tsx:398-459`)는 재귀이고 L2(`p-5 rounded-2xl`) 안에 L3(`p-4 rounded-xl`)가 들어앉는다. `Decoration.line()` 이 만드는 것은 **평면 형제 `.cm-line`** 이다. 원본이 선례로 든 `CodeBlockDecorator` 는 **중첩 없는 단일 레벨**이라 이 패턴을 증명하지 않는다 | 코드 확인 | **스파이크 A** |
-| ② | **오케스트레이터가 문서 전체를 훑는다** — `orchestrator.ts:27-46` 의 `buildAll` 은 `0 ~ doc.length` 를 12개 데코레이터로 스캔하고 `:331` 에서 **`docChanged` 뿐 아니라 `tr.selection` 에서도** 전량 재실행된다. 소스 주석이 스스로 *"Devoras splits blocks into separate CodeMirror instances, doc.length is small enough"* 라고 전제를 밝혀 뒀다 — **단일 CM 이 그 전제를 직접 파괴한다** | 코드 확인 | **스파이크 B** |
+| ① | ~~**중첩 카드가 실제 중첩 DOM 이다**~~ — `BlockNode`(`BlockEditor.tsx:398-459`)는 재귀이고 L2(`p-5 rounded-2xl`) 안에 L3(`p-4 rounded-xl`)가 들어앉는다. `Decoration.line()` 이 만드는 것은 **평면 형제 `.cm-line`** 이다. 원본이 선례로 든 `CodeBlockDecorator` 는 **중첩 없는 단일 레벨**이라 이 패턴을 증명하지 않는다 | 코드 확인 | ✅ **스파이크 A 통과(2026-09-02)** — §0.2 |
+| ② | ~~**오케스트레이터가 문서 전체를 훑는다**~~ — `orchestrator.ts:27-46` 의 `buildAll` 은 `0 ~ doc.length` 를 13개 데코레이터로 스캔하고 `:331` 에서 **`docChanged` 뿐 아니라 `tr.selection` 에서도** 전량 재실행된다. 소스 주석이 스스로 *"Devoras splits blocks into separate CodeMirror instances, doc.length is small enough"* 라고 전제를 밝혀 뒀다 — **단일 CM 이 그 전제를 직접 파괴한다** | 코드 확인 | ✅ **스파이크 B 통과(2026-09-02)** — §7.1-B |
 
 **②의 구조적 어려움** — 뷰포트 한정 빌드는 `ViewPlugin`(`view.visibleRanges`)을 요구하는데 **다중 라인 `Decoration.replace` 는 `StateField` 를 요구한다.** 현행이 `StateField` 인 이유가 정확히 그것이고(`orchestrator.ts:317` 주석), 그 다중 라인 replace 는 실재한다(`LatexDecorator.ts:161-172`, KaTeX 블록 펜스). 게다가 데코레이터들이 **커서 위치를 읽으므로**(`LatexDecorator.ts:164` `cursorInside` — 마크업 노출/은닉 UX 의 본질) 셀렉션 재빌드를 그냥 끌 수도 없다.
 
 > **방치하면 마운트의 O(N^1.76) 을 입력당 O(N)×12 로 바꾸는 거래가 된다.** 원본 §4.1 의 예제 코드가 정확히 이 함정에 빠져 있다(`scanBlockRanges(doc)` 로 문서 전체 스캔). R-2 를 없애면서 같은 형태를 데코레이터 계층에 새로 만드는 셈이다.
 >
 > 이것은 `Open Q #5`(`protectedRegions` N² 부채)와 **같은 지점**이다 — 단일 CM 은 그 부채를 문서 전체 규모로 확대한다. 스파이크 B 는 두 문제를 함께 푸는 기회이기도 하다.
+
+### 7.1-B SPIKE-20260902-B 판정 (2026-09-02) — 통과
+
+**채택안**: B-1(2계층 분리: 구조 3종은 `StateField` 전체 재빌드, 나머지 10종은 `view.visibleRanges` 로 제한한 `ViewPlugin`) + 구조 레이어에 **트리거 게이트**(문법 트리거 문자 `` ` `` `$` `|` 가 삽입/삭제되지 않고, 편집·커서 위치가 기존 구조 데코레이션 근처가 아니면 전체 재빌드를 건너뛰고 `value.map(tr.changes)` 만 수행). 세 후보 중 순수 B-1 을 먼저 측정했더니 구조 레이어(코드블록·표·KaTeX 3종)가 여전히 매 트랜잭션 전체 문서를 스캔해 N 에 선형 비례했다(§4.1 의 우려가 실측으로 확인됨) — 그래서 B-2 의 정신(변경 구간만 재빌드)을 구조 레이어에 **가볍게** 적용해 B-1+α 로 마무리했다. 순수 B-2/B-3(데코레이터 자체를 범위 인식으로 재작성)는 시도하지 않았다 — `CodeBlockDecorator`/`TableDecorator` 가 `createDecorations(state)` 시그니처로 `from`/`to` 를 아예 받지 않는 걸 코드로 확인했고(`LatexDecorator` 만 실제로 범위를 존중), 그 둘을 범위 인식으로 다시 쓰는 건 스파이크 범위를 넘는 진짜 구현 작업이다.
+
+**핵심 근거(코드 감사, 실행 전)**: 실제 데코레이터 13종을 전부 열어 보니 **10종은 이미 `pos = from; while (pos <= to)` 로 `[from,to)` 만 스캔**한다(`CustomSymbolDecorator.ts:59` 주석이 스스로 "블록당 CM 이라 [from,to) 가 짧다"고 전제를 밝혀 둠). 나머지 3종(CodeBlock·Table·Latex)만 다중 라인 매칭 쌍이 필요해 전체 스캔이 필요하다. 이 경계가 정확히 B-1 이 요구하는 경계와 일치했다.
+
+**측정** (N=50/100/200, 4회 반복 중 워밍업 1 폐기 + 3회 중앙값, N 조건 인터리브):
+
+| 조건 | N=50 | N=100 | N=200 | 판정 |
+|---|---|---|---|---|
+| 키 입력(일반 문단, **far-from-structural** — 실제 편집 대다수) split | 6.0ms | 5.5ms | 4.5ms | **평평** |
+| 키 입력, 현행(베이스라인) | 9.6ms | 16.1ms | 35.6ms | 선형 |
+| 화살표(셀렉션), far split | 1.2ms | 1.2ms | 1.2ms | **완전 평평** |
+| 화살표, 베이스라인 | 4.0ms | 13.6ms | 44.5ms | 선형 |
+| 키 입력(펜스/표/KaTeX 인접 **near-structural** — 최악 조건) split | 7.0ms | 8.3ms | 9.0ms | 완만한 증가(4배 N 에 1.3배) |
+| 화살표, near split | 2.4ms | 4.8ms | 9.5ms | 증가하나 베이스라인보다 훨씬 완만 |
+
+**환경 흔들림 없는 검증(§8c 제안)** — hidden 브라우저 탭에서는 `visibleRanges` 가 뷰포트 CSS 가 안 먹으면 문서 전체로 퍼져 뷰포트 레이어가 "일을 안 해서 빠른" 착시를 만들 수 있다. 그래서 ms 옆에 정수 카운터(스캔한 문자 수)를 같이 쟀다: **뷰포트 레이어는 N 과 무관하게 정확히 6780~6790자로 고정**(뷰포트 폭이 고정이면 당연한 결과 — 환경과 무관하게 참). **구조 레이어는 far 모드에서 0자(게이트가 완전히 건너뜀), near 모드에서 N 에 정확히 선형 비례**(18375→36240→73440, 3 데코레이터 × doc.length). 뷰포트 유효성 가드(`visibleSpanChars/docLengthChars` 비율이 N 이 커질수록 뚜렷이 줄어드는지)도 매 실행마다 자동 확인했다 — 통과.
+
+**정확성(DoD)**: `debugStructuralDecorations()` 로 데코레이션 셋을 직접 조회해 확인(DOM 가상화와 무관, 렌더 여부에 기대지 않음).
+- KaTeX 펜스 다중 라인 replace: `$$\nE = mc^2\n$$` 전체가 하나의 `replace` 데코레이션으로 유지됨 — ✅
+- 표 다중 라인 replace: 헤더~바디 전체가 하나의 `replace` 데코레이션으로 유지됨(§8c 가 짚은 "다중 라인 replace 는 2 종" 확인) — ✅
+- 커서 진입 시 위젯 해제(`cursorInside`): 커서를 KaTeX 스팬 안으로 옮기면 그 데코레이션만 사라지고(원문 노출), 밖으로 옮기면 복원됨을 데코레이션 개수 비교로 직접 확인 — ✅
+
+**결론**: N=200 까지 실제 편집의 압도적 다수(문법 트리거 문자에서 먼 일반 문단 편집)는 **완전히 평평**하다. 유일한 잔존 N-의존성은 펜스/표/KaTeX 블록에 직접 인접한 편집·커서 이동뿐이고, 그마저도 절대값이 작다(N=200 에서 9ms, 16ms 프레임 예산 이내) — 이는 CodeBlock/Table 데코레이터 자체를 범위 인식으로 재작성(진짜 B-2/B-3)하면 더 줄일 수 있는, 8-D 채택 시의 **후속 작업**이지 이 게이트의 차단 사유가 아니다. §5.1 표대로 **8-D 로 진행**.
+
+**산출물**: `project/src/widgets/BlockEditor/__tests__/spike_b_orchestrator_incremental.{ts,html}` — `window.spikeB.run(ns, reps, mode)`, `window.spikeB.debugStructuralDecorations(n)`, `window.spikeB.getSplitView(n)`.
 
 ### 7.2 그 밖의 위험 (원본 표 + 재평가)
 

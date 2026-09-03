@@ -2,10 +2,10 @@
 type: "SPIKE"
 id: "SPIKE-20260902-B"
 # ━━━
-update: "2026-09-02 04:50"
+update: "2026-09-02 (판정 완료)"
 project_ref: "PRJ-DEVORAS-MVP"
 subject: "게이트 B — 오케스트레이터를 증분·뷰포트화할 수 있는가 (다중 라인 replace 를 유지한 채)"
-status: "Blocked — SPIKE-20260902-A 통과 후 착수"
+status: "Done — 통과 (2026-09-02). 8-D(단일 CM 착수 여부) 사용자 확인 대기"
 tier: "T2 (**포어그라운드 탭 필수** — 타이밍 측정. DEBUG_STEP_PLAN §3-A-1 참조)"
 gate_ref: "GATE-20260902-01 · single_cm_transition.md §6 게이트 B · §7.1 ②"
 depends_on: "SPIKE-20260902-A — A 가 실패하면 이 스파이크는 **취소**된다"
@@ -70,12 +70,51 @@ judgment:
     **먼저 확인**한다. §3-A-1 이 이것을 안 해서 세션 하나를 통째로 날렸다.
 # ━━━
 dod:
-  - "[ ] 세 후보 중 채택안과 그 근거"
-  - "[ ] N=50/100/200 에서 키 입력 1회 재빌드 비용 (중앙값, 인터리브)"
-  - "[ ] 같은 N 에서 화살표 1회(셀렉션) 재빌드 비용"
-  - "[ ] 커서 진입 시 위젯 해제(`cursorInside`) 동작이 유지되는지 육안 확인"
-  - "[ ] KaTeX 블록 펜스의 다중 라인 replace 가 유지되는지 확인"
-  - "[ ] 판정을 `single_cm_transition.md` §7.1 ② 에 반영"
+  - "[x] 세 후보 중 채택안과 그 근거 — B-1 + 구조 레이어 트리거 게이트(순수 B-1 은 부족해 확장)"
+  - "[x] N=50/100/200 에서 키 입력 1회 재빌드 비용 (중앙값, 인터리브) — far 모드 6.0/5.5/4.5ms(평평), near 모드 7.0/8.3/9.0ms"
+  - "[x] 같은 N 에서 화살표 1회(셀렉션) 재빌드 비용 — far 모드 1.2/1.2/1.2ms(완전 평평)"
+  - "[x] 커서 진입 시 위젯 해제(`cursorInside`) 동작이 유지되는지 확인 — 데코레이션 셋 직접 조회로 확인(육안 대신 더 엄격한 방법)"
+  - "[x] KaTeX 블록 펜스의 다중 라인 replace 가 유지되는지 확인 — 유지됨"
+  - "[x] 표 위젯(TableDecorator.ts:412)의 다중 라인 replace 가 유지되는지 확인 — 유지됨 (§8c 지적으로 추가된 항목)"
+  - "[x] 뷰포트 유효성 가드 — visibleRanges span 이 N 과 무관하게 고정폭인지 매 실행 자동 확인 (§8c 제안)"
+  - "[x] 판정을 `single_cm_transition.md` §7.1 ② 에 반영 — §7.1-B 신설"
+# ━━━
+result:
+  verdict: "통과 (pass)"
+  adopted_design: >
+    B-1(구조 3종 StateField 전체 재빌드 / 나머지 10종 viewport ViewPlugin) + 구조 레이어에
+    트리거 게이트 추가(문법 트리거 문자 부재 + 기존 구조 데코레이션 비근접 시 전체 재빌드를
+    건너뛰고 value.map(tr.changes) 만 수행). 순수 B-1 측정 결과 구조 레이어가 여전히 N 에
+    선형 비례해(3 데코레이터 × doc.length) 판정 기준을 온전히 만족하지 못했고, 그래서 B-2 의
+    정신(변경 구간만 재빌드)을 구조 레이어에 가볍게 적용해 통과 기준을 채웠다. CodeBlockDecorator/
+    TableDecorator 를 실제로 범위 인식으로 재작성하는 진짜 B-2/B-3 는 시도하지 않았다 —
+    두 데코레이터가 `createDecorations(state)` 시그니처로 from/to 를 아예 안 받는다는 걸 코드로
+    확인했고, 그 재작성은 스파이크 범위를 넘는 프로덕션 구현 작업이다(8-D 채택 시 후속 과제로 기록).
+  key_numbers:
+    far_from_structural_mode: "keystroke split 6.0/5.5/4.5ms(N=50/100/200, 평평) vs baseline 9.6/16.1/35.6ms(선형); selection split 1.2/1.2/1.2ms(완전 평평) vs baseline 4.0/13.6/44.5ms"
+    near_structural_mode: "keystroke split 7.0/8.3/9.0ms(완만한 증가, 4배 N 에 1.3배) vs baseline 7.0/15.1/27.2ms; N=200 에서도 9ms 로 16ms 프레임 예산 이내"
+    deterministic_chars: "viewport 레이어 6780~6790자 고정(N 무관, 뷰포트 폭이 고정이므로 당연). 구조 레이어는 far 모드 0자(게이트 통과), near 모드 N 에 선형(18375→36240→73440)"
+  environment_note: >
+    Browser pane 이 hidden 상태(§3-A-1 재현)라 rAF 가 발화하지 않아 최초 settle() 이 45초
+    타임아웃났다 — rAF/setTimeout(50ms) 경합으로 대체해 해결(순수 JS 계산 시간 측정이라
+    페인트 프레임 동기화가 불필요했음). project-8c 세션과 교차검증 — 뷰포트 유효성 가드를
+    추가로 요청받아 반영했고, 실제로 첫 실행에서 컨테이너 높이 CSS 캐스케이드 버그(뷰포트가
+    전체 문서로 펴짐)를 잡아냈다.
+  cross_verification: >
+    project-8c 가 §4.6(DEBUG_PLAN.md)에서 코드 대조 교차검증 — 성능 판정 유지, 정확성 결함 1건
+    발견: `STRUCTURAL_TRIGGER_RE = /[`$|]/` 가 틸드 펜스(`~~~`, CodeBlockDecorator.ts:7 의
+    FENCE_OPEN_RE 가 이미 지원)를 놓쳐서, 기존 구조 데코레이션에서 200자 넘게 떨어진 곳에
+    `~~~` 를 입력하면 게이트가 스킵해 새 펜스가 조용히 데코레이트되지 않는 정확성 결함이었다.
+    `/[`$|~]/` 로 수정하고 far/near 모드 재측정해 수치가 유지됨을 확인(far 4.9/4.6/5.1ms ·
+    near 6.9/7.1/8.0ms, N=50/100/200 — 판정 불변). `~~~...~~~` 닫힌 펜스를 먼 위치에 삽입해
+    데코레이션이 실제로 신설되는지(7→9)도 직접 확인. 부차 지적(삭제 범위 끝점 `toA` 미검사)도
+    함께 반영함.
+  followups_for_8d_if_adopted:
+    - "CodeBlockDecorator/TableDecorator 를 진짜 범위 인식(from/to 존중)으로 재작성하면 near-structural 케이스의 잔존 N-비례성도 제거 가능 — 지금은 필수 아님(절대값이 프레임 예산 이내)"
+    - "protectedRegions N² 부채(Open Q #5)는 이 스파이크의 범위 밖으로 명시적으로 남겨 둠"
+    - "이 스파이크의 트리거 게이트(§8c 가 지적한 '~' 포함, toA 검사 포함)를 프로덕션 구현 사양에 그대로 반영할 것 — 스파이크에서 검증한 그 형태 그대로"
+  artifacts:
+    - "project/src/widgets/BlockEditor/__tests__/spike_b_orchestrator_incremental.ts(.html) — window.spikeB.run(ns, reps, mode) · debugStructuralDecorations(n) · getSplitView(n)"
 # ━━━
 notes:
   - >

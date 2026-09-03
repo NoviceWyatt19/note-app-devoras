@@ -55,7 +55,7 @@
 
 | 항목 | 결정 |
 |------|------|
-| **Option A(문서 전체 단일 CM) 를 택하지 않은 이유** | H2/H3 를 중첩 라운드 카드로 렌더하는 현재 시각 디자인을 평면 라인 목록으로는 표현할 수 없다 · ⚠️ **2026-09-02 재개봉** — 이 사유는 **측정된 적이 없는 단언**이다. `SPIKE-20260902-A` 가 정확히 이것을 잰다. 안건 문서: [`single_cm_transition.md`](single_cm_transition.md) |
+| **Option A(문서 전체 단일 CM) 를 택하지 않은 이유** | ~~H2/H3 를 중첩 라운드 카드로 렌더하는 현재 시각 디자인을 평면 라인 목록으로는 표현할 수 없다~~ · ✅ **2026-09-02 SPIKE-20260902-A 판정: 통과 — 이 단언은 틀렸다.** `Decoration.line()` 의 클래스 조합 + 로컬 스태킹 컨텍스트를 쓴 `::before` 레이어로 L2⊃L3 관통 테두리가 정적 CSS 프로토타입과 실제 `EditorView` 양쪽에서 재현됐다(기존 `HeadingDecorator`/`CodeBlockDecorator`/`LatexDecorator`와 합성해도 충돌 없음). 이 사유는 더 이상 안건을 막지 않는다 — 8-C(오케스트레이터 증분화)로 진행. 상세: 안건 문서 [`single_cm_transition.md`](single_cm_transition.md) §0.1, 스파이크 산출물: `project/src/widgets/BlockEditor/__tests__/spike_a_nested_card_{static.html,cm.ts}` |
 | **블록 트리 모델의 존치** | `blockStore` 는 **문서 모델**로 유지한다(ERD·headingId·ReadView 재정렬이 의존). 폐기하는 것은 블록 트리를 **DOM 분할 방식**으로 쓰는 부분뿐이다 · ⚠️ **정정(2026-09-02)** — 원문은 MindView 도 의존한다고 적었으나 **사실이 아니다.** `MindView.tsx` 는 `blocks` 를 import 하지 않고 `parseMarkdown(rawContent)` 만 쓴다. 또한 전역 `blockStore` 싱글턴은 Step 7-C(v0.8.49)에서 **소멸**했고 탭 스코프 스토어로 이관됐다 |
 | **타이포그래피가 함께 들어온 이유** | Write Mode 에서 `marked` 렌더러가 사라지면 `.cm-h1` 무력화가 "포커스한 블록만 작아지는" 국소 결함에서 **문서 전체의 시각 결함**으로 승격된다. 선택 항목이 아니라 구성 요소다 |
 | **연기 결정의 철회** | 종전에 "Stage 3/4 스레드 분리 이후"로 미뤘던 후보 C(헤딩 크기 반영)는 **Stage 1 로 편입**한다. 단, 인라인(`Decoration.mark`)이 아니라 **라인 레벨(`Decoration.line`)** 에 선언하여 0.6.1 캐럿 회귀 위험을 구조적으로 낮춘다 |
