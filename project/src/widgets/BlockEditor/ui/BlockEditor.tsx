@@ -21,6 +21,8 @@ import { oneDark } from '@codemirror/theme-one-dark';
 import { FileEdit } from 'lucide-react';
 import { FormatToolbar } from './FormatToolbar';
 import { ReadView, renderBlockToHtml } from './ReadView';
+import { SingleDocEditor } from './SingleDocEditor';
+import { isSingleDocEditorEnabled } from '../singleDocEditorFlag';
 
 
 
@@ -704,9 +706,13 @@ export const BlockEditor: React.FC<{ paneId?: string; tab?: TabItem; isActivePan
     );
   }
 
-  const maxWidthStyle = settings.editor.contentMaxWidth > 0 
-    ? { maxWidth: `${settings.editor.contentMaxWidth}px`, margin: '0 auto' } 
+  const maxWidthStyle = settings.editor.contentMaxWidth > 0
+    ? { maxWidth: `${settings.editor.contentMaxWidth}px`, margin: '0 auto' }
     : {};
+
+  // Step 1(single_cm_transition.md §6) 배타 플래그 — 반드시 아래 두 분기 중
+  // 하나만 렌더한다. singleDocEditorFlag.ts 주석 참고.
+  const singleDocEditorEnabled = isSingleDocEditorEnabled();
 
   return (
     <div
@@ -722,6 +728,18 @@ export const BlockEditor: React.FC<{ paneId?: string; tab?: TabItem; isActivePan
       {viewMode === 'read' ? (
         <div className="w-full flex-1">
           <ReadView tab={tab} />
+        </div>
+      ) : singleDocEditorEnabled ? (
+        // Step 1 (single_cm_transition.md §6) — 배타 플래그. blocks.map(...) 분기와
+        // 함께 렌더하지 않는다(singleDocEditorFlag.ts 주석 참고 — 병행 마운트 시
+        // EditorView 두 벌이 살아나 전환이 없애려는 비용이 되살아난다).
+        <div className="w-full min-w-0 px-4 sm:px-6 lg:px-8 pb-24 flex-1 flex flex-col">
+          <div className="flex-1 w-full" style={maxWidthStyle}>
+            {/* currentFile(=tab?.fileEntry) 가 non-null 인 시점까지 이미 위에서
+                걸러졌으므로(§"문서가 선택되지 않았습니다" 조기 반환) tab 은 항상 있다 —
+                ReadView 도 같은 불변식을 tab?: 로 느슨하게 받아들이는 지점이다. */}
+            <SingleDocEditor paneId={paneId} tab={tab!} />
+          </div>
         </div>
       ) : (
         <div className="w-full min-w-0 px-4 sm:px-6 lg:px-8 py-6 pb-24 flex-1 flex flex-col">

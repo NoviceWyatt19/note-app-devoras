@@ -490,7 +490,145 @@ Step 3  정리
 
 **그리고 높이 캐시가 필수 동반이 된다** — 높이 캐시 없는 가상화는 BUG-20260828-01(수직 이동 줄 스킵) 계열을 재생산한다. 윈도 ±2 화면, 캐럿 근처 마운트/언마운트 금지.
 
+### 5.4 Step 1 완료 (2026-09-03, `project-ac`, v0.9.1)
+
+**산출물** — 전부 신규 파일. 기존 쓰기 경로(`BlockNode`/`CodeMirrorBlock`)는 한 줄도 안 건드렸다:
+
+| 파일 | 역할 |
+|---|---|
+| `src/widgets/BlockEditor/singleDocEditorFlag.ts` | 배타 플래그. 기본값 `false`(원복 상태), `localStorage['devoras:singleDocEditor']` 로 재빌드 없이 오버라이드 |
+| `src/widgets/BlockEditor/ui/SingleDocEditor.tsx` | 단일 `EditorView` 프로토타입 본체 |
+| `src/shared/lib/editor/decorators/singleDocOrchestrator.ts` | 스파이크 B 채택안(B-1+트리거 게이트)의 프로덕션판. `STRUCTURAL_TRIGGER_RE` 에 `#` 추가(아래 참고) |
+| `src/shared/lib/editor/decorators/impl/BlockCardDecorator.ts` | 스파이크 A 채택 기법(L2⊃L3, `EditorView.theme()` + 로컬 스태킹 컨텍스트)의 프로덕션판 |
+| `src/shared/lib/editor/__tests__/structural_trigger_coverage_harness.ts` | §5.0.5 T1 게이트 — `pnpm test:structuraltrigger`, `test:t1` 에 편입 |
+
+**기존 파일 변경**(최소): `BlockEditor.tsx` write 분기에 배타 조건 추가 · `CodeBlockDecorator.ts`/`LatexDecorator.ts` 는 구분자 정규식에 `export` 만 추가(§5.0.5 하네스가 import 하기 위함, 동작 변경 없음).
+
+**Step 1 진행 중 발견한 함정(둘 다 해결함, §5.0.4 검증 시 참고)**:
+1. **`BlockCardDecorator` 를 구조 레이어에 걸고 처음엔 트리거 문자를 안 늘렸다** — 카드는 다중 라인 replace 가 아니라 "헤딩 구간 전체에 라인 클래스"라서 CodeBlock/Table/Latex 와 트리거 성격이 다르다. 근접 검사(`isNearAnyDecoration`)가 카드 **내부** 편집은 잡아주지만(모든 줄에 제로폭 데코레이션이 있어 200자 여유 안에 항상 걸림), 기존 카드에서 **멀리 떨어진 곳에 새 헤딩을 만드는** 경우는 트리거 문자 없이는 못 잡는다 — `STRUCTURAL_TRIGGER_RE` 에 `#` 추가로 해결.
+2. 그 외 스파이크 A·B 에서 이미 잡아 둔 함정들(baseTheme vs theme() 우선순위, `.cm-line` 텍스트 z-index 레이어링, `.cm-editor{height:100%}` 캐스케이드)은 프로덕션 코드에서도 동일하게 적용해 재발하지 않았다.
+
+**실기 검증(T2, Chromium, 실제 타이핑 — 합성 dispatch 아님)**: 워크스페이스의 `README.md` 를 열어 플래그를 켠 상태에서 확인.
+- 단일 `.cm-editor` 확인(`document.querySelectorAll('.cm-editor').length === 1`), 플래그를 끄면 같은 문서가 블록 수만큼(4개) 별도 `.cm-editor` 로 돌아옴 — **배타 선택 실측 확인**
+- H1 구분선 · H2⊃H3 중첩 카드 실제 렌더 확인
+- 기존 H2 카드 안에 실시간 타이핑으로 코드펜스·표·KaTeX·신규 H3 를 추가 → 전부 정상 렌더되고 **H2 카드 배경이 새 콘텐츠까지 끊김 없이 확장**됨을 스크롤 확인
+- 편집 → 저장 버튼·탭 바 점 dirty 표시 → Cmd+S 저장 → 디스크 반영 + dirty 해제
+- **Read 모드 전환 시 ReadView(구 블록 파이프라인, 미변경)가 편집 내용을 정확히 반영** — `setContent()` 를 통한 `tabStore.blocks` 갱신이 여전히 정상 작동함을 확인(§5.0 결정 2: blocks 파이프라인은 안 건드림)
+- 콘솔에 새 에러 없음(기존 T2 환경 아티팩트만 — App.tsx metadata·RecentStore invoke)
+
+**검증 티어**: `tsc --noEmit` 클린 · `pnpm test:t1`(14 하네스, 신설 게이트 포함) 무회귀 · `pnpm test:t15`(4 하네스) 무회귀 · `pnpm build` 성공.
+
+**아직 안 한 것(§5.0.4 게이트 항목 중)**: 마운트 비용 N=200 실측(예산 300ms) · `vertical_motion` 카드 케이스 추가 · IME 실기 2축(T3, 사람 손) · 카드 시각 육안 대조 스크린샷 · ReadView 재정렬 무회귀 확인. Step 1 DoD("플래그로 원복 가능한 상태")는 위 실기 검증으로 충족됐다고 판단하지만, **Step 2 진입은 §5.0.4 7건 전부가 별도로 필요**하다 — project-8c 검증 요청.
+
 ---
+
+### 5.5 Step 1 교차 검증 (계획 세션, 2026-09-02) — **통과, 개선 1건**
+
+`project-ac` 의 Step 1 보고를 코드로 대조하고 게이트를 독립 실행했다.
+
+#### 확인된 것 ✅
+
+| 항목 | 결과 |
+|---|---|
+| 버전 4파일 동시 | `package.json`·`Cargo.toml`·`tauri.conf.json`·`Cargo.lock` 전부 **0.9.1** ✓ |
+| **플래그 배타성** | `BlockEditor.tsx:728-745` 가 `read → singleDoc → blocks.map` 삼항 연쇄 — **한쪽만 렌더**한다 ✓. `singleDocEditorFlag.ts` 기본값 `false`, **제거 기한이 주석에 명시**됨(§5.0.4 통과 + Step 2 완료 시점) ✓ |
+| `#` 트리거 추가 | `STRUCTURAL_TRIGGER_RE = /[`$|~#]/` ✓ |
+| **`#` 로 충분한가** | `HEADING_RE = /^(#{1,6})\s+/` — **ATX 전용**이다. setext 헤딩(`제목\n===`)은 지원하지 않으므로 `#` 하나로 덮인다. `headingId.ts` 의 `parseHeadingLine` 도 동일하게 ATX 전용이라 **두 경로가 일치**한다 ✓ |
+| 기존 파일 변경 | `CodeBlockDecorator`·`LatexDecorator` 는 **`export` 추가와 주석뿐** — 동작 무변경 확인 ✓ |
+| 게이트 (독립 실행) | `tsc --noEmit` 0 · `test:t1` **88/88**(하네스 14종, +2 신규) · `test:t15` **14/14** ✓ |
+| Step 1 범위 준수 | `tabStore.blocks`·`resolveBlocksFromContent` 미변경 ✓ |
+
+#### 🟡 개선 — 커버리지 하네스를 완전 기계화할 수 있다
+
+하네스가 자기 한계를 정직하게 적어 뒀다:
+
+> **새 구조 데코레이터를 추가하면 이 하네스에도 표본을 추가해야 한다** — 안 하면 통과해 버리므로
+
+즉 **표본 목록 자체가 여전히 사람이 지키는 결합점**이다. 그런데 이건 닫을 수 있다:
+
+- `structuralDecorators` 가 `SingleDocEditor.tsx:64` 의 **모듈 지역 `const`** 다
+- 이걸 `singleDocOrchestrator.ts`(또는 작은 `singleDocDecorators.ts`)로 옮겨 **export** 하면, 하네스가 목록을 직접 순회해 **표본 없는 구조 데코레이터가 있으면 실패**시킬 수 있다(`SyntaxDecorator.name` 으로 대조)
+
+**BlockCardDecorator 사례가 정확히 이 형태였다** — 새 구조 데코레이터가 추가되면서 새 트리거 문자(`#`)를 요구했고, `project-ac` 가 **사람으로서 알아채서** 막았다. §5.0.5 의 취지는 그걸 기계에 넘기는 것이다. **Step 2 전에 닫을 것을 권한다** — 비용이 작고, 지금 안 닫으면 다음 데코레이터에서 같은 일이 반복된다.
+
+#### §5.0.4 잔여 — **거의 전부 사람 손이 필요하다**
+
+| 항목 | 티어 | 왜 |
+|---|---|---|
+| 마운트 비용 N=200 (300ms 예산) | **T2 타이밍** | 포어그라운드 페인 필수 — §3-A-1 |
+| `vertical_motion` 카드 케이스 | **T2 레이아웃** | 하네스 헤더가 명시: *"뷰포트가 0×0 이 아닌 상태여야 한다"* — 배경 탭이면 `heightOracle` 이 기본값 14px 에 머물러 측정 전체가 무의미해진다 |
+| 카드 시각 동등 | T2 육안 | |
+| **IME 2축** (§5.0.2) | **T3 / 사람** | 합성 이벤트는 IMK 경로를 타지 않는다 — 원리적으로 자동화 불가 |
+| ReadView 재정렬 무회귀 | T1 + T2 | 스토어 경로(`reorderBlocks`)는 Step 1 에서 미변경이라 **T1 로 "SingleDocEditor 편집 후에도 `blocks` 가 재정렬 가능한 상태로 유지되는가"** 를 먼저 덮을 수 있다. 드래그 자체는 T2 |
+
+> **Step 2 는 되돌릴 수 없는 단계다.** 위 5건이 서기 전에는 진입하지 않는다.
+
+### 5.6 §5.5 개선 반영 (2026-09-03, `project-ac`, v0.9.1)
+
+**커버리지 하네스 완전 기계화** — `structuralDecorators`/`viewportDecorators` 를
+`singleDocDecorators.ts` 로 옮겨 export 했다. `structural_trigger_coverage_harness.ts`
+가 이제 그 배열을 **직접 순회**하며 `SyntaxDecorator.name` 으로 표본 존재를 확인한다
+— 표본이 없으면 새 테스트("구조 데코레이터마다 트리거 표본이 등록돼 있다")가
+실패한다. `SingleDocEditor.tsx` 는 이 export 를 가져다 쓰기만 한다(로컬 배열 제거).
+
+**§5.0.4 "ReadView 재정렬 무회귀"의 T1 몫 완료** —
+`readview_reorder_after_singledoc_edit_harness.ts`(신설, `test:t1` 에 편입, 3 테스트):
+SingleDocEditor 의 편집 패턴(블록별 diff 가 아니라 디바운스된 **전체 문서**
+`setContent`)을 흉내낸 뒤 `reorderBlocks` 가 여전히 올바른 순서·id 보존을 만드는지,
+재정렬 이후 이어지는 단일 CM 편집도 무사한지(왕복), 중첩 헤딩 그룹 재정렬도
+되는지 확인한다. 전부 첫 시도에 통과 — 2-패스 매칭이 "큰 diff" 패턴에서도
+깨지지 않는다는 뜻이다. 드래그 제스처 자체(T2)는 여전히 사람 손.
+
+게이트 재확인: `tsc --noEmit` 0 · `test:t1` **15 하네스**(신규 2건 반영) · `test:t15`
+4 하네스 · `pnpm build` 성공. §5.0.4 잔여는 이제 4건(전부 T2/T3, 사람 손) — 표 갱신:
+
+| 항목 | 티어 |
+|---|---|
+| 마운트 비용 N=200 (300ms 예산) | T2 타이밍 |
+| `vertical_motion` 카드 케이스 | T2 레이아웃 |
+| 카드 시각 동등 | T2 육안 |
+| IME 2축 | T3 / 사람 |
+| ~~ReadView 재정렬 무회귀~~ | ~~T1 + T2~~ → **T1 몫 완료**, 드래그 제스처(T2)만 잔존 |
+
+### 5.7 커버리지 게이트 — **실제로 발화하는지 실증** (계획 세션, 2026-09-03)
+
+코드를 읽어 "맞아 보인다"로 끝내지 않고 **음성 테스트**로 확인했다. 이 프로젝트 이력의 상당수가
+**게이트가 게이트 역할을 하지 않은** 사례(Step 6 판정 · 숨은 페인 측정 · 오염된 하네스)이므로,
+"실패시켜야 할 때 실패하는가"를 직접 재는 편이 옳다.
+
+**방법**: `singleDocDecorators.ts` 의 `structuralDecorators` 에 **표본이 없는 5번째 데코레이터**
+(`HorizontalRuleDecorator`)를 주입하고 `pnpm test:structuraltrigger` 실행 → 원상 복구.
+
+**결과 — 발화 확인**:
+
+```
+✖ 구조 데코레이터마다 트리거 표본이 등록돼 있다 — 새 데코레이터를 추가하면 이 테스트가 실패해야 정상
+  AssertionError: 구조 데코레이터 "hr" 에 트리거 표본이 없다
+                  — samplesByDecoratorName 에 항목을 추가할 것
+ℹ pass 2 · fail 1
+```
+
+복원 후 `diff` 무차이 확인. **§5.0.5 의 결합점이 이제 문서가 아니라 기계로 지켜진다** —
+`~~~` 결함과 `#` 결함이 났던 경로가 닫혔다.
+
+> **의미**: 두 결함 모두 **사람이 정규식을 읽어서** 잡혔다. 세 번째는 하네스가 잡는다.
+
+### 5.8 Step 1 최종 상태 (2026-09-03)
+
+| 게이트 | 결과 |
+|---|---|
+| `tsc --noEmit` | 0 ✓ |
+| `pnpm test:t1` | **92/92** (하네스 15종 — 커버리지 게이트 + 재정렬 게이트 신규) ✓ |
+| `pnpm test:t15` | 14/14 ✓ |
+| 커버리지 게이트 음성 테스트 | **발화 확인** (§5.7) ✓ |
+
+`readview_reorder_after_singledoc_edit_harness.ts` 3종이 덮는 것 — 단일 CM 의
+**전체 문서 `setContent`** 패턴 이후 (a) 재정렬이 올바른 순서를 만드는가 (b) 재정렬→편집→재정렬
+왕복 (c) 중첩 헤딩이 그룹째 이동하는가. **첫 실행에서 전부 통과한 것 자체가 신호다** —
+2-패스 매칭은 diff 가 "블록 하나 변경"이 아니라 "문서 전체 변경"으로 와도 상관하지 않는다.
+`setContent` 만 부르는 Step 1 의 접근이 이론이 아니라 실제로 성립한다.
+
+> **자동 검증으로 닫을 수 있는 항목은 전부 닫혔다.** §5.0.4 잔여 4건은 **전부 사람 손**이다 — §5.5 표.
 
 ## 6. 위험 및 주의
 
@@ -550,8 +688,8 @@ Step 3  정리
 - [x] **8-B** — 판정(통과/부분/실패) + 스크린샷 비교 + 양쪽 문서 반영 — **통과** (2026-09-02)
 - [x] **8-C** — (8-B 통과 시) 채택 설계 + N=50/100/200 측정치 + 판정 — **통과** (2026-09-02, B-1+구조 트리거 게이트)
 - [x] **8-D 판정** — 단일 CM 전환 채택 (2026-09-02) · 착수 전 확정 6건 완료(§5.0)
-- [ ] **8-D Step 1** — `SingleDocEditor` 프로토타입, 플래그로 원복 가능한 상태
-- [ ] **§5.0.4 진입 게이트 7건** 통과 후 Step 2 진입 판정
+- [x] **8-D Step 1** — `SingleDocEditor` 프로토타입, 플래그로 원복 가능한 상태 (2026-09-03, v0.9.1) — §5.4 산출물 참고
+- [ ] **§5.0.4 진입 게이트 7건** 통과 후 Step 2 진입 판정 — project-8c 검증 대기
 - [ ] **8-D Step 2·3** — 데이터 흐름 단순화 + 정리
 - [ ] 분기 결정이 `DEBUG_STEP_PLAN.md` §2 에 반영됨 — **사용자 확인 대기** (되돌릴 수 없는 단계, §1.2)
 - [ ] 본 문서가 `claude-history/debug/` 로 회전되고 새 `DEBUG_PLAN.md` 가 다음 배치로 작성됨

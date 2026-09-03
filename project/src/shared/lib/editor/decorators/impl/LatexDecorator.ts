@@ -8,14 +8,17 @@ import { SyntaxDecorator } from '../types';
 // Regex patterns
 // ---------------------------------------------------------------------------
 
+// export: structural_trigger_coverage_harness.ts(T1, DEBUG_PLAN §5.0.5)가 이
+// 구분자들을 singleDocOrchestrator.ts 의 STRUCTURAL_TRIGGER_RE 와 대조한다.
+
 // Display math on a single line:  $$formula$$  (no `$` or newlines inside)
-const DISPLAY_SINGLE_RE = /\$\$([^$\n]+?)\$\$/g;
+export const DISPLAY_SINGLE_RE = /\$\$([^$\n]+?)\$\$/g;
 
 // Inline math:  $formula$  — must NOT be adjacent `$$`
-const INLINE_RE = /(?<!\$)\$([^$\n]+?)\$(?!\$)/g;
+export const INLINE_RE = /(?<!\$)\$([^$\n]+?)\$(?!\$)/g;
 
 // Fence-style display math: line that is exactly `$$` (with optional trailing whitespace)
-const DISPLAY_FENCE_RE = /^\$\$\s*$/;
+export const DISPLAY_FENCE_RE = /^\$\$\s*$/;
 
 
 // ---------------------------------------------------------------------------

@@ -4,7 +4,10 @@ import { SyntaxDecorator } from '../types';
 import { parseCodeFenceInfo } from '@/shared/lib/markdown/codeFenceInfo';
 
 // Matches opening/closing code fences: ``` or ~~~
-const FENCE_OPEN_RE = /^(`{3,}|~{3,})/;
+// export: structural_trigger_coverage_harness.ts(T1, DEBUG_PLAN §5.0.5)가 이
+// 구분자를 singleDocOrchestrator.ts 의 STRUCTURAL_TRIGGER_RE 와 기계적으로
+// 대조한다 — 여기 문자를 늘려도 그 하네스가 놓치지 않는다.
+export const FENCE_OPEN_RE = /^(`{3,}|~{3,})/;
 
 // Inline code: `code`  (single-line, non-empty content)
 // [^`\n] explicitly excludes newlines — Strict Regex per BUG-20260810-05
