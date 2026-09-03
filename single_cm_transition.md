@@ -128,6 +128,8 @@ CodeMirror 6는 **자체적으로 뷰포트 기반 렌더링**을 합니다:
 >
 > 정확한 표현은 **"제거"가 아니라 "쓰기 경로에서 소비자 소멸, ReadView 전용으로 축소"** 다.
 >
+> **⚠️ 갱신 (2026-09-02, 8-D 결정)**: ReadView 드래그 재정렬은 **유지하되 2-패스 매칭을 단순 헤딩 분할기로 교체**하기로 확정됐다(`DEBUG_PLAN.md` §5.0.1a). 따라서 위 주의 중 **`deriveBlockKey`/2-패스 매칭은 실제로 소멸**한다 — `resolveBlocksFromContent`·`buildTreeFromChunks`·`flattenTree` 는 분할기 형태로 **축소되어 잔존**한다. 분할기 id 는 `buildHeadingId()` 파생이어야 한다(위치 기반 금지 — PDF 페이지네이션이 영속 키를 요구한다).
+>
 > **진짜로 소멸하는 것**(확인함): `CodeMirrorBlock` · 블록 간 포커스 이동 · 블록 병합 · `focusToken`/A1-A2 조정자 · `updateBlockContent`(→ **R-2 가 통째로 소멸**) · `editorViewRegistry` 의 blockId 축 · `handleBlockUpdate` 헤딩 수 비교.
 
 ### 제거할 수 있는 것들 *(원본 표 — 위 주의와 함께 읽을 것)*
