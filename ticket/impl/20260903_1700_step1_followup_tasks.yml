@@ -33,12 +33,12 @@ tasks:
       §5.0.4 게이트가 마운트와 키 입력 1회만 쟀고 **대량 편집을 안 쟀다** — 게이트 설계의 구멍이다.
     how: >
       **처방을 먼저 쓰지 말 것(§3-C).** 가장 싼 판별부터:
-      (1) H1 격리 — `SingleDocEditor.tsx:111-113` 의 디바운스 `syncContent` 에서 `setContent()` 만
+      (1) H1 격리 — `src/widgets/BlockEditor/ui/SingleDocEditor.tsx:111-112` 의 디바운스 `syncContent` 에서 `setContent()` 만
           일시 무력화(`setRawContent` 대체 또는 no-op)하고 같은 붙여넣기 재측정.
       (2) 회복 없으면 카드 테마만 뺀 조건(H3, CLS 3.80 이 단서).
       (3) 그래도 미해결이면 Performance 프로파일 녹화로 함수 단위 귀속.
     hypothesis_h1: >
-      `tabStore.ts:88-90` 의 `setContent` 가 매번 `resolveBlocksFromContent`(2-패스, 문서 전체) +
+      `src/entities/document/model/tabStore.ts:88-91` 의 `setContent` 가 매번 `resolveBlocksFromContent`(2-패스, 문서 전체) +
       `parseMarkdown`(문서 전체) 를 돌린다. **단일 CM 경로는 지금 새 오케스트레이터와 구 블록
       파이프라인 비용을 둘 다 낸다.** Step 1 이 의도적으로 `tabStore.blocks` 를 안 건드린 결과다.
     critical: >
