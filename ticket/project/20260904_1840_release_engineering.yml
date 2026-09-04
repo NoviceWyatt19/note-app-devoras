@@ -1,0 +1,91 @@
+# 🛠 DECISION GATE TICKET
+type: "DECISION_GATE"
+id: "REL-20260904-01"
+# ━━━
+update: "2026-09-04 18:40"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "출시 엔지니어링 — macOS 개인 배포 우선, Homebrew 등록 목표"
+status: "Todo — **이 저장소에 출시 인프라가 하나도 없다**"
+decided_by: "사용자 (2026-09-04, PM-20260904-01 D3)"
+# ━━━
+current_state:
+  note: "2026-09-04 실측. 계획 문서 7종 중 어디에도 이 항목이 없다"
+  - "코드 서명·공증 설정 없음 — `src-tauri/tauri.conf.json` 에 `bundle.macOS` 키 자체가 없고 `targets: \"all\"` 뿐"
+  - "업데이터 없음 — `tauri-plugin-updater` 미도입"
+  - "CI 없음 — 저장소에 `.github/` 디렉터리가 존재하지 않는다. `test:t1`(15종)·`test:t15`(4종)·`lint` 가 사람이 기억할 때만 돈다"
+  - "릴리스 채널·버전 정책 없음 — `0.9.1` 이 무엇을 향하는지 정의된 문서가 없다"
+  - "릴리스 번들이 검증된 적 없음 — `VERIFY_BY_HUMAN.md` §1·§2·§4 미수행"
+# ━━━
+target:
+  now: "**macOS 개인 배포**"
+  later: "**Homebrew 등록**"
+# ━━━
+what_homebrew_changes:
+  lowers_cost:
+    - item: "자체 업데이터 우선순위 하락"
+      why: "Homebrew 경로에서는 `brew upgrade` 가 업데이트 수단이다. `tauri-plugin-updater` 도입을 **출시 전 필수에서 제외**한다 — 개인 배포 단계에서는 재다운로드로 충분하다"
+  raises_cost:
+    - item: "**버전 태그 + 안정적 다운로드 URL + 체크섬이 전제**"
+      why: "cask 는 버전별 고정 URL 과 sha256 을 가리킨다. 즉 **GitHub Releases 파이프라인이 Homebrew 보다 먼저다.** 수동 빌드·수동 배포로는 cask 를 유지할 수 없다"
+    - item: "**서명 문제가 되돌아온다**"
+      why: >
+        Homebrew Cask 는 다운로드한 앱에 기본적으로 격리(quarantine) 속성을 붙인다.
+        서명 안 된 앱은 그 상태에서 Gatekeeper 에 막히고, 사용자가 `--no-quarantine` 을 붙이거나
+        수동으로 해제해야 한다. **개인 배포 단계에서는 감수 가능하지만, Homebrew 를 진짜 목표로 두면
+        Developer ID 서명 + 공증이 사실상 전제가 된다.**
+    - item: "**등록 경로 선택**"
+      why: >
+        `homebrew-cask` 본체는 인지도 기준(notability)이 있어 초기 프로젝트는 거절될 수 있다.
+        **자체 tap(`<user>/homebrew-devoras`)으로 시작하면 그 기준이 없다.** 본체 승격은 나중 문제다.
+        → **자체 tap 을 먼저 만든다.**
+# ━━━
+plan:
+  - id: "E1 — 먼저"
+    what: "GitHub Releases 파이프라인"
+    detail: >
+      태그(`v0.9.x`) → `pnpm tauri build` → `.dmg` 업로드 → sha256 기록.
+      **Homebrew 와 개인 배포 양쪽의 공통 전제다.** 수동으로 한 번 돌려 본 뒤 CI 로 옮긴다
+  - id: "E2"
+    what: "CI — `test:t1` + `test:t15` + `lint` + `tsc --noEmit`"
+    detail: >
+      `.github/workflows/` 신설. **빌드보다 검증이 먼저다** — 이 프로젝트의 심각한 결함 3건이
+      전부 리팩터 자신이 만든 것이었고 전부 자동 테스트를 통과했다(`code_review.md` §0).
+      하네스가 사람 기억에 의존하는 상태를 먼저 끊는다
+  - id: "E3"
+    what: "macOS 개인 배포 — 서명 정책 결정"
+    options:
+      a: "**서명 없음(ad-hoc)** — 비용 0. 사용자가 우클릭→열기 또는 격리 속성 해제 필요. README 에 안내 문구 필수. **개인 배포 단계 권장**"
+      b: "**Developer ID + 공증** — Apple Developer Program 연 $99. 첫 실행이 깨끗하고 Homebrew 경로에서도 문제가 없다. **Homebrew 등록 시점에 필요**"
+    decided: >
+      **(a) 무서명 확정 (2026-09-04, PM-20260904-01 D5 — 계정 확인 불가로 보류).**
+      README 에 첫 실행 안내(우클릭→열기)를 넣는다. 계정 확인이 되면 (b) 와 E6 를 함께 재판단한다.
+  - id: "E4"
+    what: "릴리스 번들 실기 검증 (`VERIFY_BY_HUMAN.md` §1·§2·§4)"
+    detail: >
+      **§1 에 미재현 보고가 있다** — 「빌드 앱 첫 실행 시 이미지 미렌더링, dev 를 한 번 거치면 정상」.
+      사실이면 **새 사용자 전원이 깨진 앱을 본다.** 2026-08-30 이후 방치.
+      E1 로 실제 산출물이 나오는 순간 최우선으로 확인한다. 프로덕션 `csp` 재확인(§4)도 같은 묶음
+  - id: "E5"
+    what: "버전 정책 확정"
+    decided: >
+      **0.9.x 유지 · 기존 규약(`.agents/AGENTS.md` §2) 그대로 (2026-09-04, D7).**
+      코드 커밋 = 패치 버전업 4파일 동시 · 문서 전용은 버전 미상승 · 코드가 한 줄이라도 섞이면 예외 아님.
+      **1.0 승격은 사용자 직접 명령 사항이며 이번 스코프에서 판단하지 않는다.**
+    ci_note: "E2 의 CI 에 **버전업 4파일 동기 검사**를 넣을 것 — 규약을 사람 기억이 아니라 기계가 지키게 한다"
+  - id: "E6 — 나중"
+    what: "자체 Homebrew tap"
+    status: "**보류 (D5)** — 무서명 상태로 cask 를 올리면 격리 속성 때문에 사용자가 `--no-quarantine` 을 써야 한다. 개인 배포로 먼저 검증하고 서명 판단이 선 뒤에 착수"
+    detail: "`homebrew-devoras` 저장소 + cask 정의. E1 이 안정적으로 도는 것이 전제. cask 유지 자동화(`livecheck`)까지 보고 판단"
+# ━━━
+not_now:
+  - "`tauri-plugin-updater` — Homebrew 가 업데이트 경로가 되므로 우선순위 하락. 개인 배포 단계에서는 재다운로드로 충분"
+  - "Windows 빌드 — 사용자 결정: 당장 macOS 단독"
+  - "`homebrew-cask` 본체 등록 — 자체 tap 이 먼저"
+# ━━━
+user_decisions_needed:
+  - "**보류 중** — Apple Developer Program 계정 보유 여부 (확인되면 E3(b) + E6 재개)"
+  - "배포 저장소 공개 여부 — 원격은 `git@github.com:NoviceWyatt19/note-app-devoras.git`. Homebrew tap 은 공개 URL 이 전제다"
+resolved:
+  - "E3 → (a) 무서명 확정 (D5)"
+  - "E5 → 0.9.x 유지, 기존 규약 유지 (D7)"
+  - "E6 → 보류 (D5)"

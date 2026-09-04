@@ -1,0 +1,68 @@
+# ✨ FEATURE TICKET
+type: "FEATURE"
+id: "FEAT-20260904-01"
+# ━━━
+update: "2026-09-04 18:30"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "자동 저장 — 슬라이더 제거, off/low/high 3단계로 재설계하고 실제 배선"
+status: "Todo"
+severity: "P1 (데이터 유실 인접 — 현재 앱이 저장한다고 말하고 하지 않는다)"
+decided_by: "사용자 (2026-09-04, PM-20260904-01 D2)"
+blocked_by: "**BUG-20260902-01 (ERD 빈 문서 덮어쓰기) — 하드 게이트. 착지·검증 전 머지 금지**"
+# ━━━
+problem:
+  what: "설정 UI 가 「자동 저장 지연 시간」 슬라이더를 노출하는데 그 값을 읽는 코드가 없다"
+  evidence:
+    - "`project/src/widgets/SettingsModal/ui/SettingsModal.tsx:113-120` — 슬라이더 렌더 + `updateEditor({ autosaveDelay })`"
+    - "`project/src/entities/settings/model/types.ts:4,32` — `autosaveDelay: number` 정의, 기본값 3000"
+    - "**소비자 0건** — `grep -rn autosaveDelay src` 결과가 위 두 파일뿐이다"
+  why_p1: >
+    표시 결함이 아니다. 사용자가 **저장됐다고 믿는 상태**를 앱이 만든다.
+    Cmd+S 를 누르지 않은 편집분은 전부 유실된다. 어느 Step·어느 계획 문서에도 등재된 적이 없다.
+# ━━━
+why_erd_must_come_first:
+  ticket: "BUG-20260902-01 (`ticket/debug/20260902_0410_erd_empty_doc_overwrite.yml`)"
+  reason: >
+    그 티켓의 `severity_calibration` 이 **「`autosaveDelay` 가 소비자 없이 존재하므로 자동 디스크
+    쓰기가 일어나지 않는다 → 디스크 유실은 Cmd+S 를 눌러야 성립 → P1」** 로 등급을 계산했다.
+    **이 티켓이 그 전제를 깬다.** 자동 저장이 배선되면 손상된 `.erd` 를 여는 것만으로
+    원본이 디스크에서 사라진다 — 사용자 조작 없이. **P1 → P0.**
+    따라서 순서를 뒤집으면 안 된다.
+# ━━━
+design:
+  ui: "슬라이더 제거. `off` / `low` / `high` 3단 선택(세그먼트 또는 라디오)"
+  semantics: "**단계는 「저장 빈도」다** — `low` 가 낮은 빈도(긴 지연), `high` 가 높은 빈도(짧은 지연)"
+  proposed_values:
+    off: "자동 저장 안 함. Cmd+S 만"
+    low: "5,000ms 유휴 후 저장"
+    high: "1,500ms 유휴 후 저장"
+    note: "**구체값은 착수 시 확정.** 위는 제안이다. 기존 기본값 3000 을 어디에 매핑할지도 함께 정할 것"
+  default: "**`high` — 사용자 결정 (2026-09-04, PM-20260904-01 D6).**"
+  default_consequence: >
+    기본값이 켜져 있고 지연이 짧으므로 **사용자가 아무것도 하지 않아도 디스크에 쓰인다.**
+    이것이 `BUG-20260902-01` 을 P1 → **P0** 로 올린다 — 손상된 `.erd` 를 여는 것만으로
+    원본이 사라진다. 그 티켓이 착지·검증되기 전에는 이 티켓을 머지하지 않는다.
+  safety_net:
+    required: true
+    rule: >
+      **직전 내용이 비어 있지 않은데 새 내용이 비었거나 파싱 실패 산출물이면 자동 저장을 건너뛴다.**
+      R1 과 별개로 넣는다 — 앞으로 생길 모든 「읽기 실패 → 쓰기」 경로를 한 겹 막는 방어 심층화다.
+    note: "건너뛴 경우 dirty 를 유지하고 로그를 남긴다. 조용히 넘어가지 않는다"
+  migration: "기존 저장된 `autosaveDelay: number` 를 3단계로 마이그레이션. 값이 없거나 파싱 실패면 `off`"
+# ━━━
+wiring_requirements:
+  - "저장 트리거는 **유휴 기준 디바운스** — 타이핑 중에는 발화하지 않는다"
+  - "dirty 표시(저장 버튼 · 탭 바 점)와 **반드시 함께 갱신** — `save_dirty_indicator_harness.tsx` 가 이미 이 불변식을 검증한다. 자동 저장이 dirty 를 끄지 않으면 그 하네스가 잡는다"
+  - "저장 실패 시 **조용히 넘어가지 말 것** — `settings/store.ts:79` 의 빈 `catch` 와 같은 결함을 재생산하지 않는다(I-2 와 같은 성격)"
+  - "탭 전환·탭 닫기·앱 종료 시점의 처리 확정 필요 — 대기 중인 디바운스를 flush 할 것인가 버릴 것인가"
+  - "ERD 탭에도 적용되는가 — `entities/erd/model/settings.ts:4` 에 **별도의 `autoSave: boolean` 이 이미 있다**(기본값 true). 두 설정의 관계를 정할 것. 방치하면 설정이 두 벌 되는 A1 계열 결함이 된다"
+# ━━━
+dod:
+  - "슬라이더 제거, 3단 선택 UI 착지"
+  - "`off` 가 아닐 때 실제로 디스크에 쓰인다 — T3(실기) 또는 T1.5 로 확인"
+  - "자동 저장 후 dirty 표시 2종이 함께 꺼진다"
+  - "저장 실패가 로깅된다"
+  - "ERD `autoSave` 와의 관계가 문서화됐다"
+  - "안전장치 동작 — 비었/파싱 실패 산출물이 자동 저장되지 않는다"
+  - "`dirty_baseline_harness.ts` · `tab_close_guard_harness.ts` 무회귀 — 자동 저장이 dirty 의미를 바꾼다"
+  - "`pnpm test:t1`(15종) · `test:t15`(4종) 무회귀"
