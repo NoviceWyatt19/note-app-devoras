@@ -1,6 +1,6 @@
 # 문서 지도 — 어떤 질문에 어느 문서가 답하는가
 
-> **갱신**: 2026-09-03 | **기준선**: v0.9.1 · 현재 배치 **Step 8-D Step 1** (Step 2 차단됨 — `DEBUG_PLAN.md` §5.12)
+> **갱신**: 2026-09-04 | **기준선**: v0.9.1 · **Step 8-D 게이트 동결 (`PM-20260904-01`)** — 진행은 §2 의 출시 레인 R1~R7
 > **이 문서의 역할**: 문서가 많다. **읽기 전에 어디를 볼지 정하는 데** 쓴다.
 > 새 세션은 이 문서 → 해당 문서 순으로 진입한다.
 
@@ -66,6 +66,9 @@
 | `SPIKE-20260902-B` | 오케스트레이터 증분화 (A 통과 후) | [`ticket/impl/20260902_0450_spike_b_orchestrator_incremental.yml`](ticket/impl/20260902_0450_spike_b_orchestrator_incremental.yml) |
 | `BUG-20260902-01` | ERD 파싱 실패 시 빈 문서 덮어쓰기 (게이트 무관, 즉시) | [`ticket/debug/20260902_0410_erd_empty_doc_overwrite.yml`](ticket/debug/20260902_0410_erd_empty_doc_overwrite.yml) |
 | `TASK-20260903-01` | **8-D Step 1 후속 4건** — INP 폭주 판별 · 하네스 규율 · 카드 픽스처 · 게이트 보강 | [`ticket/impl/20260903_1700_step1_followup_tasks.yml`](ticket/impl/20260903_1700_step1_followup_tasks.yml) |
+| 🔴 `PM-20260904-01` | **8-D INP 포렌식 보류 · 출시 레인 재배치** — 플래그 off 경로 조사 중단, 데이터 유실 2건·출시 엔지니어링 우선 | [`ticket/project/20260904_1800_release_lane_hold.yml`](ticket/project/20260904_1800_release_lane_hold.yml) |
+| `REL-20260904-01` | **출시 엔지니어링** — macOS 개인 배포 → Homebrew. CI·서명·릴리스 파이프라인 전무 | [`ticket/project/20260904_1840_release_engineering.yml`](ticket/project/20260904_1840_release_engineering.yml) |
+| `FEAT-20260904-01` | **자동 저장 off/low/high 배선** — 현재 슬라이더에 소비자가 없다. `BUG-20260902-01` 선행 필수 | [`ticket/impl/20260904_1830_autosave_levels.yml`](ticket/impl/20260904_1830_autosave_levels.yml) |
 
 **사용자 판단 대기 (기존)**: `implementation_plan.md` Sprint 4A 사양 중복 · 퀵 캡처 미해결 5건 · 마인드뷰 메인 뷰 전환.
 
@@ -109,15 +112,39 @@
 
 ---
 
-## 4. 알려진 문서 드리프트 (미정정)
+## 4. 알려진 문서 드리프트
+
+> **갱신 2026-09-04 (계획 세션 코드 대조).** 「실제」 열은 전부 소스에서 직접 확인한 것이다.
+
+### 4.1 정정 완료 (2026-09-04)
+
+| 위치 | 문서 기술 | 실제 |
+|---|---|---|
+| `implementation_plan.md` Sprint 3 | 「Base64 이미지 폐기」가 **할 일**로 남아 있었다 | **이미 완료.** `ImageDecorator.ts:62-68` 과 `ReadView.tsx:112-124` 가 로컬 경로를 `convertFileSrc`(Tauri `asset://`)로 변환한다. 남은 base64 는 `ImageDecorator.ts:36` 의 **1×1 투명 플레이스홀더 GIF** 하나뿐이며 이미지 저장 방식과 무관하다 |
+| `function_roadmap.md` 다중 탭·스플릿 뷰 | **미구현**으로 기술 | **가로 분할은 동작하고 UI 로도 노출돼 있다.** `store.ts:429 splitPane` · `WorkspacePage.tsx:329` 분할 버튼 |
+| `DEBUG_STEP_PLAN.md` §2 | 8-D 를 「지금 해결할 것」으로 기술 | **동결**(`PM-20260904-01`). §2 배너로 정정, 출시 레인 R1~R7 로 전환 |
+| `code_review.md` §9 | 순서가 아키텍처 게이트 기준 | **출시 스코프 기준으로 재작성**(§9.0). 이전 판은 §9.1'·§9.2' 로 보존 |
+
+### 4.2 계획 세션 정정 — **세로 분할은 "미구현"이 아니라 "미노출"이다**
+
+PM 보고는 「세로 분할만 잔여」였으나, 코드 대조 결과 **잔여 범위가 그보다 작다.**
+
+| 계층 | 상태 |
+|---|---|
+| 스토어 | ✅ `store.ts:37` 타입 · `:104` 기본값 · `:448` `layoutDirection` 설정 |
+| 레이아웃 | ✅ `WorkspacePage.tsx:224` 가 `flex-col`/`flex-row` 로 분기 · `:271` 테두리 분기 |
+| **UI 진입점** | ❌ **없음.** `WorkspacePage.tsx:329` 의 분할 버튼이 `splitPane(pane.id, 'horizontal')` 로 **방향을 하드코딩**한다 |
+
+즉 남은 일은 기능 구현이 아니라 **방향 선택 진입점 하나**다(버튼 분리 또는 컨텍스트 메뉴).
+로드맵의 크기 추정을 이에 맞춰 내려야 한다.
+
+### 4.3 미정정 (남음)
 
 | 위치 | 내용 | 상태 |
 |---|---|---|
 | `implementation_plan.md` §4A.2~4A.8 | **사양이 두 벌 존재**(1090~ / 1575~). 양쪽에 서로 없는 내용이 있어 기계적 삭제 불가 — 아래쪽에만 「아키텍처 결정: Rust vs JS」가 있다 | 경고만 삽입됨. **사용자 판단 대기** |
-| `code_review.md` §2 | T1 하네스 "14종" | §10 이 정정 (실제 13종) |
+| `code_review.md` §2 | T1 하네스 "14종" | 같은 문서 §10 이 정정(실제 13종). 원문은 기록 보존을 위해 유지 |
 | `functions/*.md` | 기능 기획서들이 Step 1~7 구조 변경 이전 기술일 가능성 | **미점검** |
-
----
 
 ## 5. 규약
 
