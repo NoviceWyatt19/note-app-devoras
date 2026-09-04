@@ -138,7 +138,49 @@ PM 보고는 「세로 분할만 잔여」였으나, 코드 대조 결과 **잔�
 즉 남은 일은 기능 구현이 아니라 **방향 선택 진입점 하나**다(버튼 분리 또는 컨텍스트 메뉴).
 로드맵의 크기 추정을 이에 맞춰 내려야 한다.
 
-### 4.3 미정정 (남음)
+### 4.3 기능 사양서 코드 대조 — **R5·R6 두 건** (2026-09-04, Impl 레인 착수 전)
+
+전수 점검이 아니라 **당장 쓰일 둘만** 봤다. **두 건 다 §3(기술 설계)의 전제가 코드와 다르다.**
+
+#### `functions/6_theme_yaml_custom.md` (R5) — 전제 2건 오류, **규모가 사양보다 크다**
+
+| 사양 §3·§4 의 기술 | 실제 (2026-09-04 확인) |
+|---|---|
+| 「글로벌 `index.css`에 정의된 **HSL 기반 테마 변수**를 JS 단에서 오버라이드」 | **`index.css` 의 CSS 커스텀 속성은 0개, HSL 도 0개다.** 하드코딩 hex **33개** |
+| 「Tailwind / Vanilla CSS 변수 세팅 **개편**」 — 기존 변수 체계를 고치는 뉘앙스 | 개편할 변수 체계가 없다. **토큰 계층을 새로 만드는 일**이다 |
+| `entities/theme/store.ts` | `entities/theme/` **디렉터리 자체가 없다** |
+| `js-yaml` 등 파서 | **의존성 미도입**(`package.json` 에 yaml 없음) |
+
+**단, 변수 계층이 아주 없지는 않다** — `app/styles/erd.css:1-9` 에 `:root` 가 있고 Obsidian 계열
+이름(`--background-primary` · `--text-normal` · `--text-accent` 등)을 쓴다. 다만 **ERD 전용으로
+갈라져 있고 값이 Tailwind 팔레트와 중복**된다. `implementation_plan.md:1069` 가 이 중복 제거를
+이미 항목으로 잡아 뒀다.
+
+> **R5 의 실제 범위** (사양서보다 넓다 — 계획 시 반영 필요):
+> `tailwind.config.js` 하드코딩 색 **6개** + `index.css` hex **33개** + `erd.css` hex **7개** +
+> TSX 임의값 클래스(`bg-[#0d0e12]` 류) **9개** 를 토큰으로 이관하는 **선행 마이그레이션**이 있어야
+> YAML 오버라이드가 성립한다. YAML 파서는 그 다음이다.
+
+#### `functions/4_global_search.md` (R6) — 미구현은 정상, 그러나 **설계가 두 문서에서 갈린다**
+
+구현 상태는 사양의 `PLANNED` 와 일치한다(`searchWorkspace` · `GlobalSearch` · Rust 검색 커맨드
+**전부 부재** — 드리프트 아님). 문제는 설계 축이다:
+
+| | `functions/4_global_search.md` §3 | `implementation_plan.md` §4A.3 |
+|---|---|---|
+| 검색 엔진 | **Shared Layer 의 JS 유틸** `searchWorkspace()` | **Rust 검색 엔진 (BufReader 기반)** |
+| 파일 내 검색 | 언급 없음 | §4A.5 CodeMirror `SearchCursor` |
+
+기능 사양서는 Rust 를 §4 체크리스트의 **마지막 항목(성능 대비책)** 으로만 언급하는 반면,
+`implementation_plan.md` 는 **Rust 를 기본 설계로 확정**해 뒀다. **어느 문서를 읽느냐로 결과가 갈린다.**
+게다가 `implementation_plan.md` §4A 는 **사양이 두 벌**이고 「아키텍처 결정: Rust vs JS」는
+**두 번째 벌에만** 있다(§4.4).
+
+> **조치**: `implementation_plan.md` 첫 번째 4A 절 앞에 중복 경고를 끌어올렸다(2026-09-04).
+> 기존 경고는 두 번째 벌 시작 지점에만 있어 **위에서부터 읽는 사람에게는 보이지 않았다.**
+> R6 착수 전에 **Rust vs JS 를 먼저 확정**해야 한다 — 사양 두 벌 문제와 별개의 결정이다.
+
+### 4.4 미정정 (남음)
 
 | 위치 | 내용 | 상태 |
 |---|---|---|
