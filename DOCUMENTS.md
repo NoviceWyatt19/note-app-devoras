@@ -1,6 +1,6 @@
 # 문서 지도 — 어떤 질문에 어느 문서가 답하는가
 
-> **갱신**: 2026-09-02 | **기준선**: v0.8.50 · 현재 배치 **Step 8**
+> **갱신**: 2026-09-03 | **기준선**: v0.9.1 · 현재 배치 **Step 8-D Step 1** (Step 2 차단됨 — `DEBUG_PLAN.md` §5.12)
 > **이 문서의 역할**: 문서가 많다. **읽기 전에 어디를 볼지 정하는 데** 쓴다.
 > 새 세션은 이 문서 → 해당 문서 순으로 진입한다.
 
@@ -65,6 +65,7 @@
 | `SPIKE-20260902-A` | 중첩 카드 시각 재현 — **안건의 생사를 가른다** | [`ticket/impl/20260902_0440_spike_a_nested_card.yml`](ticket/impl/20260902_0440_spike_a_nested_card.yml) |
 | `SPIKE-20260902-B` | 오케스트레이터 증분화 (A 통과 후) | [`ticket/impl/20260902_0450_spike_b_orchestrator_incremental.yml`](ticket/impl/20260902_0450_spike_b_orchestrator_incremental.yml) |
 | `BUG-20260902-01` | ERD 파싱 실패 시 빈 문서 덮어쓰기 (게이트 무관, 즉시) | [`ticket/debug/20260902_0410_erd_empty_doc_overwrite.yml`](ticket/debug/20260902_0410_erd_empty_doc_overwrite.yml) |
+| `TASK-20260903-01` | **8-D Step 1 후속 4건** — INP 폭주 판별 · 하네스 규율 · 카드 픽스처 · 게이트 보강 | [`ticket/impl/20260903_1700_step1_followup_tasks.yml`](ticket/impl/20260903_1700_step1_followup_tasks.yml) |
 
 **사용자 판단 대기 (기존)**: `implementation_plan.md` Sprint 4A 사양 중복 · 퀵 캡처 미해결 5건 · 마인드뷰 메인 뷰 전환.
 

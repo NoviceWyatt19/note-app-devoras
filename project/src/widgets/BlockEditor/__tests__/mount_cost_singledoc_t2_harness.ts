@@ -32,6 +32,19 @@
  *   → http://localhost:1420/src/widgets/BlockEditor/__tests__/mount_cost_singledoc_t2.html
  *   → 콘솔에서 `await mountCostSingleDoc.run()` (기본 N=[50,100,200])
  *   → 예산: N=200 에서 attached 300ms 이내(A6 가 실패했던 그 예산)
+ *
+ * ## ⚠️ 이 숫자 하나만으로 §5.0.4 항목 1 을 닫지 말 것 — DEBUG_PLAN §5.10
+ * 이 하네스는 **React 를 안 쓴다**(`:36-51`, CodeMirror 코어만). 그런데 A6 원 관측치
+ * (N=200 에서 7,024~17,423ms)는 **React 포함 실제 앱 경로**("마운트 완료")를 쟀다.
+ * Step 6 하네스(React 제외)가 그 관측의 8~19% 만 재현했고 — 나머지 80~92% 는
+ * §3-A-0 이 지적한 대로 **한 번도 정체가 밝혀진 적이 없다.** 이 하네스가 낮은 숫자를
+ * 내도 그건 "CodeMirror 계층은 무죄"라는 뜻이지 "예산을 지켰다"는 뜻이 아니다 —
+ * Step 6 이 낸 바로 그 오판과 같은 모양이다.
+ *
+ * **§5.0.4 항목 1 의 실제 판정은 이 하네스가 아니라 실제 앱에서 낸다**: `singleDocEditorFlag.ts`
+ * 를 켜고/끄고 같은 세션에서 N=200 규모 실제 문서를 열어 "마운트 완료"까지 걸리는
+ * 시간을 잰다(A6 와 동일 정의, 동일 경로 — 그래서 직접 비교 가능하다). 이 하네스의
+ * `attachedMs` 는 "CodeMirror 계층 자체는 예산 안인가"라는 **부분 질문**의 답일 뿐이다.
  */
 import '@/app/styles/index.css';
 import { EditorState } from '@codemirror/state';
@@ -72,10 +85,18 @@ function createEditorTheme() {
   });
 }
 
-/** N 개 H2 섹션 — spike_b_orchestrator_incremental.ts 의 makeDoc 과 같은 형태
- *  (실측 재현성을 위해 의도적으로 맞춤). 코드펜스·표·KaTeX 를 고정 개수 섞어
- *  구조 레이어에도 실제 작업을 준다 — 안 그러면 마운트 비용을 과소평가한다. */
-function makeDoc(n: number): string {
+/**
+ * N 개 H2 섹션 — spike_b_orchestrator_incremental.ts 의 makeDoc 과 같은 형태
+ * (실측 재현성을 위해 의도적으로 맞춤). 코드펜스·표·KaTeX 를 고정 개수 섞어
+ * 구조 레이어에도 실제 작업을 준다 — 안 그러면 마운트 비용을 과소평가한다.
+ *
+ * export 하는 이유: §5.10 의 실제 앱 대조 측정(플래그 on/off, React 포함 "마운트
+ * 완료" 시간)에 **같은 문서**를 써야 이 하네스의 CodeMirror-only 숫자와 비교 가능한
+ * 기준선이 생긴다. `fixtures/mount_cost_n200.md` 가 `makeDoc(200)` 의 산출물을
+ * 그대로 저장해 둔 고정본이다 — 매번 콘솔에서 다시 생성할 필요 없이 워크스페이스에
+ * 복사해 넣기만 하면 된다.
+ */
+export function makeDoc(n: number): string {
   const lines: string[] = ['# 마운트 비용 실측 문서', ''];
   for (let i = 1; i <= n; i++) {
     lines.push(`## 섹션 ${i}`);
