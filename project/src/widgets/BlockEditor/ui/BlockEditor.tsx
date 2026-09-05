@@ -547,9 +547,54 @@ export const BlockEditor: React.FC<{ paneId?: string; tab?: TabItem; isActivePan
     useDocumentStore.getState().updateContentForTab(myTabIdRef.current, getMergedContent());
   }, 150);
 
+  // S1(BUG-20260902-01 부수 발견, PM-20260904-01) — 헤딩 개수가 바뀌는 편집(트리
+  // 분할)은 예전엔 디바운스 없이 그 자리에서 O(N) 재해석을 태웠다. 연속된 헤딩 변경
+  // 편집(예: 여러 줄 붙여넣기 직후 계속 타이핑)마다 매번 전체 재분할이 반복 실행되던
+  // 것을, syncContent 와 같은 방식으로 묶어 마지막 편집 기준 1회로 합친다.
+  // updateBlockContent(즉시, 동기)는 그대로 두므로 타이핑 반응성은 바뀌지 않는다 —
+  // 바뀌는 것은 "블록이 몇 개로 쪼개져 보이는가"가 최대 150ms 늦게 반영되는 것뿐이다.
+  const debouncedResplit = useDebouncedCallback((id: string, cursorOffset: number, blocksBeforeUpdate: EditorBlock[]) => {
+    const currentFlatBlocks = flattenTree(blocksBeforeUpdate);
+
+    let absoluteCursorPos = cursorOffset;
+    for (let b of currentFlatBlocks) {
+      if (b.id === id) break;
+      absoluteCursorPos += b.content.length + 1;
+    }
+
+    const merged = getMergedContent();
+    setContent(merged);
+    const nextFlatBlocks = flattenTree(getFreshBlocks());
+
+    let accumulated = 0;
+    let targetId = nextFlatBlocks[nextFlatBlocks.length - 1].id;
+    let targetOffset = 0;
+
+    for (let i = 0; i < nextFlatBlocks.length; i++) {
+      const len = nextFlatBlocks[i].content.length;
+      const isLastBlock = i === nextFlatBlocks.length - 1;
+
+      if (absoluteCursorPos < accumulated + len || isLastBlock) {
+        targetId = nextFlatBlocks[i].id;
+        targetOffset = Math.min(Math.max(0, absoluteCursorPos - accumulated), len);
+        break;
+      }
+      else if (absoluteCursorPos === accumulated + len) {
+        targetId = nextFlatBlocks[i + 1].id;
+        targetOffset = 0;
+        break;
+      }
+      accumulated += len + 1;
+    }
+
+    focusBlock(targetId, targetOffset);
+    useDocumentStore.getState().updateContentForTab(myTabIdRef.current, merged);
+  }, 150);
+
   useEffect(() => {
     return () => {
       syncContent.flush();
+      debouncedResplit.flush();
     };
   }, []);
   React.useLayoutEffect(() => {
@@ -632,43 +677,10 @@ export const BlockEditor: React.FC<{ paneId?: string; tab?: TabItem; isActivePan
 
     updateBlockContent(id, text);
 
-    // 헤딩 개수가 변했을 때만 트리 분할(O(N) 리파싱)을 수행
+    // 헤딩 개수가 변했을 때만 트리 분할(O(N) 리파싱)이 필요하다 — 디바운스해서
+    // 짧은 시간 안에 연달아 헤딩이 바뀌어도 재분할은 마지막 상태 기준 1회만 돈다.
     if (oldHeadingCount !== newHeadingCount) {
-      const currentFlatBlocks = flattenTree(blocksBeforeUpdate);
-
-      let absoluteCursorPos = cursorOffset;
-      for (let b of currentFlatBlocks) {
-        if (b.id === id) break;
-        absoluteCursorPos += b.content.length + 1;
-      }
-      const merged = getMergedContent();
-      setContent(merged);
-      const nextFlatBlocks = flattenTree(getFreshBlocks());
-
-      let accumulated = 0;
-      let targetId = nextFlatBlocks[nextFlatBlocks.length - 1].id;
-      let targetOffset = 0;
-
-      for (let i = 0; i < nextFlatBlocks.length; i++) {
-        const len = nextFlatBlocks[i].content.length;
-        const isLastBlock = i === nextFlatBlocks.length - 1;
-
-        if (absoluteCursorPos < accumulated + len || isLastBlock) {
-          targetId = nextFlatBlocks[i].id;
-          targetOffset = Math.min(Math.max(0, absoluteCursorPos - accumulated), len);
-          break;
-        }
-        else if (absoluteCursorPos === accumulated + len) {
-          targetId = nextFlatBlocks[i + 1].id;
-          targetOffset = 0;
-          break;
-        }
-        accumulated += len + 1;
-      }
-
-      setContent(merged);
-      focusBlock(targetId, targetOffset);
-      useDocumentStore.getState().updateContentForTab(myTabIdRef.current, merged);
+      debouncedResplit(id, cursorOffset, blocksBeforeUpdate);
     } else {
       syncContent();
     }
