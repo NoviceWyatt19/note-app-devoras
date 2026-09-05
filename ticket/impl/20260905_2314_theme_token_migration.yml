@@ -1,0 +1,111 @@
+# 🛠 IMPLEMENT TICKET
+type: "IMPLEMENT_TICKET"
+id: "IMPL-20260905-01"
+# ━━━
+update: "2026-09-05 23:14"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "R5-a — 디자인 토큰 이관 + 다크/라이트 모드 (R-6 StyleModule 누수 흡수)"
+status: "Todo — 실행 사양서 작성 완료, 착수 대기"
+severity: "출시 스코프 (PM-20260904-01 D8)"
+assignee: "Impl_worker_v1 (세션 b25f6bee-1f54-4ae5-9b08-9f29d7d01781)"
+planned_by: "Impl_Manager_v1"
+baseline: "e6875cc · v0.9.1"
+# ━━━
+spec_document:
+  path: "IMPL_PLAN_R5A_THEME_TOKENS.md (저장소 루트)"
+  note: "**대화 맥락 없이 단독 실행 가능하도록 작성됨.** 이 티켓은 색인이고 실행 지시는 그 문서에 있다"
+# ━━━
+decisions_applied:
+  - "PM-20260904-01 D8 — R5 를 R5-a(출시) / R5-b(출시 후)로 분할. 이 티켓은 R5-a"
+  - "사용자 결정 D-4 — R-6(`BUG-20260831-02`) StyleModule 누수를 R5-a 가 흡수"
+  - "사용자 결정 2026-09-05 — 토큰 스키마를 §3.4 의 17개에서 **33개로 확대**"
+  - "사용자 결정 2026-09-05 — `SingleDocEditor.tsx` 도 **동시 수정**(8-D 동결 산출물이지만 드리프트를 물려주지 않는다)"
+  - "사용자 결정 2026-09-05 — 다크/라이트에 **시스템 추종 포함(3택)**, 진입점은 설정 모달 + 상태바 토글"
+# ━━━
+the_finding_that_shapes_this_ticket:
+  headline: "**`implementation_plan.md` §3.9 의 처방을 그대로 쓰면 66곳이 조용히 깨진다**"
+  evidence: >
+    저장소에 설치된 `tailwindcss@3.4.19` 로 직접 컴파일해 확인했다.
+    커스텀 색을 `'var(--accent-primary)'` 로 두면 `.bg-X` 는 생성되지만
+    **`.bg-X/20`(불투명도 수식어)은 규칙 자체가 출력되지 않는다.** 에러도 경고도 없다.
+    이 저장소에는 그런 수식어가 **66곳** 있다(`border-darkBorder/40` 14 · `text-mutedText/40` 10 ·
+    `bg-primary/20` 9 · `bg-primary/10` 6 · 나머지 27).
+  prescription: >
+    토큰을 **RGB 채널 트리플릿**으로 저장하고 이름에 `-rgb` 접미사를 붙인다.
+    `rgb(var(--accent-0-rgb) / <alpha-value>)` 형태면 두 유틸리티가 모두 정상 생성된다.
+    **66곳 무수정**이다. §3.9 의 WARNING 이 제시한 대안(66곳을 손대는 방향)보다 싸고 안전하다
+  action_required: "`implementation_plan.md` §3.9 에 이 정정을 표기할 것 — 그 문서만 읽은 세션이 같은 함정에 빠지는 것을 막는다"
+# ━━━
+scope:
+  included:
+    - "`tailwind.config.js` 커스텀 색 6개 → 사용처 **259곳 무수정 전환**"
+    - "`src/app/styles/index.css` hex **33개**"
+    - "`src/app/styles/erd.css` hex 7 + `:root` 변수 9개 별칭 통합"
+    - "Tailwind 팔레트 클래스 **182곳**(팔레트 159 + white/black 23)"
+    - "임의값 색 클래스 **14곳** + `index.css:10` 1곳"
+    - "`orchestrator.ts` `decorationBaseTheme` 신택스 색 **12개**"
+    - "`createEditorTheme()` 상수화 — `BlockEditor.tsx` + `SingleDocEditor.tsx` (**R-6**)"
+    - "다크/라이트 팔레트 2벌 + 시스템 추종 3택 전환"
+  excluded:
+    - item: "`entities/erd/lib/staticRenderer.ts` (hex 11)"
+      why: "**ERD SVG 내보내기 산출물**의 고정 라이트 팔레트. 테마를 따라가면 다크 사용자가 내보낸 SVG 가 검은 배경이 된다"
+    - item: "YAML 파서 · `entities/theme/` 스토어 · `js-yaml`"
+      why: "R5-b (출시 후)"
+    - item: "`mindmap.nodeColorScheme` · `mindmap.edgeStyle` 고아 설정 처리"
+      why: "별건 티켓. 다만 노드 색 토큰이 단독 소유자가 되므로 **설정에서 노드 색을 읽는 코드를 새로 만들지 않는다**"
+    - item: "`.cm-line *` 위젯 타이포그래피"
+      why: "R7 / P1-9 — 별도 티켓, 사양서 기존재"
+# ━━━
+corrections_to_prior_reports:
+  note: "착수 전 실측에서 이전 보고 3건이 정정됐다. 사양서는 정정된 값으로 쓰여 있다"
+  items:
+    - "임의값 색 클래스는 **14개**다 (PM 보고 17 · 계획 세션 보고 9 — 둘 다 아님). 전수 목록은 사양서 §T3f·§T3g"
+    - "`erd.css` :root 9개 중 Tailwind 와 **값이 같은 것은 3개뿐**(`#0d0e12`·`#272a37`·`#6366f1`). 나머지 6개는 별개 값이라 표면/텍스트 스케일이 그 값을 포함하도록 설계했다"
+    - "`orchestrator.ts` 의 `decorationBaseTheme` 은 **이미 모듈 상수**라 StyleModule 누수와 무관하다. R-6 의 범위는 `createEditorTheme()` 하나뿐이다"
+# ━━━
+hard_constraints:
+  file_occupancy:
+    rule: "조율 규칙 R3 — `Debug_worker_v2` 가 아래 3파일을 점유 중. **T2·T3g 로 마지막에 몰았다**"
+    files:
+      - "`widgets/BlockEditor/ui/BlockEditor.tsx`"
+      - "`widgets/BlockEditor/ui/ReadView.tsx`"
+      - "`widgets/ErdDesigner/ui/ErdDesignerMainView.tsx`"
+    green_light: "**T1a ~ T3f 는 이 3파일을 전혀 건드리지 않는다 — 지금 바로 착수 가능**"
+  harness_asserts_class_names:
+    file: "`src/pages/WorkspacePage/__tests__/save_dirty_indicator_harness.tsx`"
+    detail: "`:66`·`:80`·`:106` 이 `.bg-amber-500` 을, `:64`·`:79`·`:89`·`:102` 가 `bg-primary/10` 문자열을 단언한다"
+    rule: "**`WorkspacePage.tsx:307` 의 `bg-amber-500` 을 T3 에서 바꾸지 말 것.** 라이트 대응이 필요하면 T6 에서 하네스와 함께"
+  commit: "경로 지정 커밋. `git add -A` 금지. 공유 워킹 트리 — 사고 이력 `f48b88c`"
+  version: "코드 커밋이므로 **패치 버전업 4파일 동시**(`.agents/AGENTS.md` §2). 0.9.x 유지"
+# ━━━
+steps:
+  note: "되돌림 단위 = 커밋 1개. **T6 직전까지 전부 순수 리팩터 — 다크 모드에서 화면이 픽셀 동일해야 한다**"
+  items:
+    - "T1a — 토큰 33개 정의 + `tailwind.config.js` 배선 (259곳 자동 전환)"
+    - "T1b — `index.css` hex 33개"
+    - "T1c — `erd.css` 별칭 통합"
+    - "T3a~T3e — 팔레트 182곳, 파일 단위 5커밋"
+    - "T3f — 임의값 8곳 (비충돌)"
+    - "T2 — `orchestrator.ts` 12색 + `createEditorTheme` 상수화 (**R-6**) ← 점유 해제 확인 후"
+    - "T3g — 충돌 파일 잔여 6곳 ← 마지막"
+    - "T6 — 라이트 팔레트 + 3택 전환 ← **처음으로 화면이 바뀐다**"
+# ━━━
+dod:
+  - "T1a~T3g 각 커밋에서 다크 모드 화면이 **픽셀 동일**하다"
+  - "불투명도 수식어 66곳이 여전히 반투명하다"
+  - "라이트 모드 본문 텍스트 대비 4.5:1 이상"
+  - "라이트 모드에서 `bg-overlay/N` 이 보인다(흰 배경에 흰 오버레이가 아니다)"
+  - "ERD SVG 내보내기 결과가 테마와 무관하게 동일하다"
+  - "R-6: 블록 N개 마운트 후 `<style>` 바이트가 N 에 비례 증가하지 않는다 / create-destroy 반복 후 증가 없음 / 폰트 설정 실시간 반영 회귀 0건"
+  - "`themeMode` 설정이 앱 재실행 후 복원된다"
+  - "`pnpm test:t1`(15종) · `pnpm test:t15`(4종) 무회귀"
+  - "`pnpm tsc --noEmit` · `pnpm lint` 통과"
+  - "버전업 4파일 동시"
+# ━━━
+reporting:
+  to: "Impl_Manager_v1"
+  when:
+    - "T1a 완료 직후 — 불투명도 66곳 육안 확인 결과. **여기서 §2 의 실패 모드가 드러난다**"
+    - "T2 착수 전 — 파일 점유 해제 확인 요청"
+    - "T6 착수 전 — 라이트 값 33개 최종 확인"
+    - "막히면 즉시. 새 가설을 문서로 쓰지 말고 보고할 것"
