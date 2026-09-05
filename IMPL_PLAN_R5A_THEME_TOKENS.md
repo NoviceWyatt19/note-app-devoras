@@ -14,7 +14,7 @@
 
 ## 1. 한 줄 요약
 
-앱의 색을 **CSS 변수 토큰 33개**로 이관하고 그 위에 **다크/라이트 팔레트 2벌**을 얹는다.
+앱의 색을 **CSS 변수 토큰 32개**로 이관하고 그 위에 **다크/라이트 팔레트 2벌**을 얹는다.
 YAML 커스텀 테마(R5-b)는 이 범위에 **없다** — 토큰 계층만 세운다.
 
 ---
@@ -90,7 +90,7 @@ background: rgb(var(--accent-1-rgb) / 0.15);   /* 알파도 이 형태로 */
 
 ---
 
-## 4. 토큰 정의 — 33개
+## 4. 토큰 정의 — 32개
 
 > **다크 값은 전부 현행 코드에서 추출한 것이다.** 즉 다크 모드에서 화면은 **픽셀 동일**해야 한다.
 > 라이트 값은 이 계획이 정한 기준선이며, T6 에서 **본문 텍스트 대비 4.5:1 이상**을 기준으로만 조정한다.
@@ -216,7 +216,7 @@ background: rgb(var(--accent-1-rgb) / 0.15);   /* 알파도 이 형태로 */
 
 **파일**: `src/app/styles/index.css` (`:root` 신설) · `tailwind.config.js`
 
-1. `index.css` 최상단(`@tailwind` 지시자 **뒤**, `@layer base` **앞**)에 `:root` 블록을 만들고 §4 의 다크 값 33개를 `--*-rgb: R G B` 형태로 정의한다.
+1. `index.css` 최상단(`@tailwind` 지시자 **뒤**, `@layer base` **앞**)에 `:root` 블록을 만들고 §4 의 다크 값 32개를 `--*-rgb: R G B` 형태로 정의한다.
 2. `tailwind.config.js` `theme.extend.colors` 를 아래로 교체한다. **기존 6개 이름을 유지**해야 259곳이 무수정으로 전환된다.
 
 ```js
@@ -359,7 +359,7 @@ CodeMirror 의 `baseTheme` 은 CSS 로 컴파일되므로 CSS 변수가 그대�
 
 ### T6 — 라이트 팔레트 + 전환 (**처음으로 화면이 바뀐다**)
 
-1. `index.css` 에 `:root[data-theme="light"] { … }` 블록으로 §4 의 라이트 값 33개를 정의한다.
+1. `index.css` 에 `:root[data-theme="light"] { … }` 블록으로 §4 의 라이트 값 32개를 정의한다.
 2. 시스템 추종: `@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { … } }`
    (사용자 결정 — `system`/`dark`/`light` **3택**)
 3. `entities/settings/model/types.ts` 에 `general.themeMode: 'system' | 'dark' | 'light'` 추가, 기본값 `'system'`. **마이그레이션**: 기존 설정에 필드가 없으면 `'system'`.
