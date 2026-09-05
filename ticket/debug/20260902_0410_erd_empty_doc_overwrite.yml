@@ -2,10 +2,10 @@
 type: "FIX_TICKET"
 id: "BUG-20260902-01"
 # ━━━
-update: "2026-09-02 04:10"
+update: "2026-09-05 (실행 세션 — 수정 완료)"
 project_ref: "PRJ-DEVORAS-MVP"
 subject: "ERD 문서 파싱 실패 시 빈 문서로 메모리 상태를 덮어쓴다 — 저장 시 파일 유실"
-status: "Todo"
+status: "Done — commit aff36f5 (v0.9.2). 파싱 실패는 setRawContent/updateContentForTab 을 호출하지 않고 에러 UI로만 표시. parseErdDocument 로 파싱 경로 통일(relations 누락 등 구조 오류도 같이 잡힘). T1.5 회귀 하네스(test:erdparsefailure) 추가·통과. PM 지시 확인 사항(가운데 단계가 예외 없이 빈 결과를 반환하는 경로) 코드로 확인 — 없음(parseErdDocument 는 항상 throw, 항상 새 문서 반환 없음). DoD 중 'ErdDesigner 정상 렌더 왕복'만 jsdom(@xyflow/react 가 ResizeObserver 외에도 요소 크기 계산에 의존해 렌더가 멈춤)으로 자동화하지 못해 실 브라우저로 수동 확인함(신규 .erd 열기 → 기본 users/posts 테이블 정상 렌더)."
 severity: "P1"
 tier: "T2 (앱 구동 + 손상된 .erd 파일)"
 review_ref: "외부 리뷰 §3.3.2 (claude-history/review/code_review_external_20260831_2221.md) · architecture_direction_review.md §6.2"
