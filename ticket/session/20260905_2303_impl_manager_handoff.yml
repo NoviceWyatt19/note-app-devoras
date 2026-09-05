@@ -12,12 +12,12 @@ superseded_by:
     - "**D9 — R6 은 JS 우선.** Rust 는 실측 후. 착수 시 `implementation_plan.md` §4A.3 에 정정 표기할 것(4A 가 두 벌이므로 양쪽 확인)"
   scope_numbers_corrected:
     note: "PM 재실측 — 계획 세션 대조표의 한 건이 과소집계였다"
-    - "TSX/TS 임의값 색 클래스 **17개** (9개 아님 — `.ts` 데코레이터 포함)"
+    - "TSX/TS 임의값 색 클래스 **14개 (확정)** — 최초 보고 9(`.ts` 누락) → PM 정정 17(테스트 픽스처·css 혼입) → **재실측 14**"
     - "`erd.css` 변수 9개는 Tailwind 와 **바이트 동일 중복** — 통합에 판단 불필요"
-    - "이관 총량: `tailwind.config.js` 6 + `index.css` 33 + `erd.css` 7(+변수 9 통합) + TSX/TS 17"
+    - "이관 총량: `tailwind.config.js` 6 + `index.css` 33 + `erd.css` 7(+변수 9 통합) + TSX/TS 14"
   file_contention:
     warn: >
-      **R5-a 의 17개 중 `BlockEditor.tsx`·`ReadView.tsx` 가 `Debug_worker_v2` 의 S1·S2 와 같은 파일이다.**
+      **R5-a 의 14개 중 `BlockEditor.tsx`(2)·`ReadView.tsx`(4) 가 `Debug_worker_v2` 의 S1·S2 와 같은 파일이다. `ReadView.tsx` 가 임의값 최다 파일이라 여기가 첫 충돌 지점이다.**
       S1·S2 를 먼저 착지시키기로 했으니 **그 두 파일은 R5-a 의 마지막 단계로 미룰 것.**
       색 변경과 로직 변경이 한 diff 에 섞이면 `f48b88c` 와 같은 사고가 된다.
   status_change: "**중단 취소.** 사용자 토큰 회복으로 2026-09-05 작업 재개됨"

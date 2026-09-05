@@ -317,7 +317,7 @@ scope_revision_r5_r6:
       - "`app/styles/index.css` — CSS 커스텀 속성 **0개**, HSL **0개**, 하드코딩 hex **33개**"
       - "`app/styles/erd.css` — `:root` 변수 9개 존재하나 **ERD 전용으로 갈라져 있고 값이 Tailwind 와 바이트 동일 중복**(`--background-primary: #0d0e12` = `darkBg`, `--background-modifier-border: #272a37` = `darkBorder`, `--text-accent: #6366f1` = `primary`). hex 7개"
       - "`tailwind.config.js` — 색 **6개** 전부 하드코딩 hex"
-      - "TSX/TS 임의값 색 클래스 — **17개** (계획 세션 보고 9개는 과소집계. `.ts` 데코레이터 포함 시 17)"
+      - "TSX/TS 임의값 색 클래스 — **14개** (`.ts`+`.tsx`). 계획 세션 최초 보고 9개는 `.ts` 누락으로 과소집계, **PM 최초 정정 17개는 과대집계**(`--include` 없이 실행해 테스트 픽스처 `spike_a_nested_card_static.html` 2건 + `index.css` 1건이 섞였다 — 픽스처는 프로덕션이 아니고 css 1건은 hex 33개에 이미 포함). **확정치 14**"
       - "`entities/theme/` — **디렉터리 자체가 없다**. `code_review.md` §9.2' 이 D-4 근거로 인용한 `entities/theme/lib/injector.ts` 는 **계획 경로**이며 기존 물건이 아니다(계획 세션 표기 정정 완료)"
       - "`js-yaml` 등 YAML 파서 — **의존성 미도입**"
     verdict: >
@@ -328,7 +328,7 @@ scope_revision_r5_r6:
     decided_by: "PM (2026-09-05)"
     R5a:
       name: "토큰 마이그레이션 + 다크/라이트 모드"
-      scope: "`tailwind.config.js` 6 + `index.css` 33 + `erd.css` 7(+변수 9 통합) + TSX/TS 17 → CSS 변수 토큰으로 이관 · 다크/라이트 팔레트 2벌 · 런타임 전환"
+      scope: "`tailwind.config.js` 6 + `index.css` 33 + `erd.css` 7(+변수 9 통합) + TSX/TS 14 → CSS 변수 토큰으로 이관 · 다크/라이트 팔레트 2벌 · 런타임 전환"
       in_release: true
       absorbs:
         - "**R-6 StyleModule 누수**(`BUG-20260831-02`) — `createEditorTheme()` 상수화가 토큰 이관 그 자체다(사용자 결정 D-4). `BlockEditor.tsx:144` reconfigure 경로도 함께 소멸"

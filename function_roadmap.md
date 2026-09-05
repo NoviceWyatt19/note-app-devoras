@@ -95,7 +95,7 @@
   - **Base64 이미지 폐기 → Tauri Asset Protocol: ✅ 완료** (`ImageDecorator.ts:67` · `ReadView.tsx:121`)
   - **다중 CodeMirror 통합/가상화: 동결** — 이것이 곧 8-D 게이트다(`PM-20260904-01`). 마운트 비용은 예산 대비 27배 여유로 실측 통과했다
   - 대체 항목: S1·S2 — `handleBlockUpdate` 디바운스 + `setContent` 이중 호출 제거 (출시 경로 국소 수정)
-- **[ ]** YAML 기반 커스텀 테마 및 다크/라이트 모드 전환 (실시간 핫 리로드) — **2026-09-05 분할: R5-a(토큰 이관+다크/라이트, 출시 스코프) / R5-b(YAML, 출시 후).** 사양서 전제(`index.css` 의 HSL 변수)가 코드에 없다 — 토큰 **0개**, 하드코딩 hex **33개**. 「개편」이 아니라 **신설**이다 — *참조: `functions/6_theme_yaml_custom.md`* · **R-6(`BUG-20260831-02`, StyleModule 누수) 병합됨** — CSS 변수 토큰 인젝터가 `createEditorTheme()` 를 상수화하면 누수와 `BlockEditor.tsx:144` reconfigure 경로가 함께 소멸한다 (사용자 결정 D-4, 2026-09-02)
+- **[ ]** YAML 기반 커스텀 테마 및 다크/라이트 모드 전환 (실시간 핫 리로드) — **2026-09-05 분할: R5-a(토큰 이관+다크/라이트, 출시 스코프) / R5-b(YAML, 출시 후).** 사양서 전제(`index.css` 의 HSL 변수)가 코드에 없다 — 토큰 **0개**, 하드코딩 hex **33개**. 이관 총량 = tailwind 6 + `index.css` 33 + `erd.css` 7(+변수 9) + TSX/TS 14. 「개편」이 아니라 **신설**이다 — *참조: `functions/6_theme_yaml_custom.md`* · **R-6(`BUG-20260831-02`, StyleModule 누수) 병합됨** — CSS 변수 토큰 인젝터가 `createEditorTheme()` 를 상수화하면 누수와 `BlockEditor.tsx:144` reconfigure 경로가 함께 소멸한다 (사용자 결정 D-4, 2026-09-02)
 - **[ ]** 워크스페이스 전역 검색 (파일명 + 본문 실시간 검색, 결과 하이라이팅, 점프 네비게이션) — **JS 우선 확정(D9).** `implementation_plan.md` §4A.3 은 Rust 를 기본 설계로 적었으나 그건 Phase 4 를 출시 앞으로 당기는 것이다 — *참조: `functions/4_global_search.md`*
 - **[~]** 다중 파일 탭 지원 및 에디터/마인드맵 스플릿 뷰 — **다중 탭·가로 분할 완료.** 세로 분할은 **미구현이 아니라 미노출**(스토어·레이아웃·테두리 분기 전부 존재, `WorkspacePage.tsx:329` 버튼이 `'horizontal'` 하드코딩) → **진입점 1개**. 탭 드래그 재정렬만 실작업 — *참조: `functions/3_tabs_and_split_view.md`*
 
