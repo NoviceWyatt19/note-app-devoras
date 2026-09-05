@@ -466,8 +466,8 @@ r1_closeout:
 # ━━━
 resume_point:
   update: "2026-09-05 — 사용자 토큰 한계 임박, 전 세션 중단. **재개 시 이 절부터 읽는다**"
-  baseline: "a14e0e8 · **v0.9.2** · 워킹 트리에 미커밋 6파일(아래)"
-  release_progress: "출시 스코프 8건 중 **1건 완료**(R1)"
+  baseline: "**0b2ebd5 · v0.9.3** · 워킹 트리에 R5-a 잔여 2파일(`index.css`·`tailwind.config.js`) — 갱신 2026-09-05"
+  release_progress: "출시 스코프 8건 중 **2건 완료** — R1(`aff36f5`) · **S1·S2(`f4d5d69`, v0.9.3)**"
   # ────────────────
   uncommitted_at_stop:
     note: "중단 시점 워킹 트리. **누가 무엇을 하던 중이었는지**를 파일로 식별한다"
@@ -481,7 +481,26 @@ resume_point:
       task: "R5-a 토큰 마이그레이션 (`IMPL-20260905-01`, 사양서 `611e230`)"
   # ────────────────
   ORDER_VIOLATION_IN_PROGRESS:
-    severity: "🔴 **재개 시 가장 먼저 처리할 것**"
+    severity: "⚪ **철회됨 (2026-09-05) — 오경보였다. 아래 `retraction` 을 먼저 읽을 것**"
+    retraction:
+      verdict: "🔴 → ⚪ **철회.** 순서 위반은 **없었다.** 순서는 지켜졌다"
+      what_actually_happened: >
+        중단 시점에 `BlockEditor.tsx` 가 워킹 트리에 떠 있는 것을 보고 **R5-a(색 이관)가 그 파일을
+        건드린다고 추정**했으나, 실제로는 **`Debug_worker_v2` 의 S1 작업**이었다.
+        계획 세션이 diff 로 반박했고(색 패턴 검색 0건) PM 이 재확인했다.
+      evidence:
+        - "`git diff project/src/widgets/BlockEditor/ui/BlockEditor.tsx` 의 색 패턴(`#hex`/`bg-[`/`text-[`/`var(--`) **0건**"
+        - "**`f4d5d69` (v0.9.3) 로 S1·S2 가 착지했다** — 색 이관보다 **먼저**. 고정 순서 그대로다"
+        - "현재 트리의 R5-a 잔여는 `index.css`·`tailwind.config.js` 뿐 — **충돌 파일이 아니다**"
+      why_i_was_wrong: >
+        **파일 이름만 보고 판정했다. diff 를 안 봤다.**
+        공교롭게도 계획 세션이 `scope_note` 에서 저지른 것과 **정확히 같은 실수**다(D11).
+        이 저장소에서 파일 경로는 소유 레인을 식별하기에 충분하지 않다 — 같은 파일을 두 레인이 겨눈다.
+      lesson_for_resume: >
+        **다음 세션은 이 항목을 근거로 S1·S2 를 되돌리지 말 것.** `f4d5d69` 는 정당한 착지다.
+        남은 규율은 하나뿐이다 — **경로 지정 커밋.** S1·S2 와 R5-a 가 한때 같은 트리에 공존했으므로
+        경로 없는 커밋 한 번이면 섞인다. 그것만 지키면 된다.
+    original_alarm_below: "아래는 철회된 원 경보다. 기록으로만 남긴다"
     what: >
       **`BlockEditor.tsx` 가 R5-a(색 토큰 이관)로 수정되고 있는데 S1·S2 가 아직 착지하지 않았다.**
       마지막 코드 커밋은 `aff36f5`(R1)이고 S1·S2 커밋이 없다.
@@ -502,7 +521,7 @@ resume_point:
       - "**D13** — `WorkspacePage.tsx:369` → `activeTab.cache?.rawContent ?? activeTab.savedContent ?? ''`. **커밋에 「도달 경로 미확인 — 방어적 배선」 명시**"
       - "**하네스 2건** — 빈 입력 분기에 「쓰지 않는다」 단언 추가 · `isDirty` 대신 탭 스토어 `rawContent` 직접 단언"
       - "**D14** — 정규화 손실(`erd.ts:223-225`·`:244`) 신규 티켓 기록만. 고치지 않는다"
-      - "**그다음 S1·S2** — `BlockEditor.tsx:601-675` `handleBlockUpdate` 디바운스 + `:645`/`:669` `setContent` 이중 호출 제거. ⚠️ 위 ORDER_VIOLATION 먼저 해소"
+      - "~~**그다음 S1·S2**~~ — ✅ **완료** (`f4d5d69`, v0.9.3). 계획 세션의 교차검증(A7 헤딩 정체성·2-패스 불변식) 대기 중"
     planner_lane:
       owner: "Debug_Manager_v2"
       - "**D10 4A 통합 계속** — 제약 6건(절 번호 자동 병합 금지 / bulk1 의 `4A.1`·`4A.5`·`4A.6` + bulk2 키보드 단축키 보존 / Rust 절 2개는 Phase 4 참고자료 강등 / 문서 전용 커밋 / `DOCUMENTS.md` §4 해소 갱신 + §4.5 이력 보존)"
@@ -512,7 +531,7 @@ resume_point:
       owner: "Impl_Manager_v1"
       - "**R5-a 토큰 마이그레이션 계속** (`IMPL-20260905-01`)"
       - "이관 총량 **확정치**: `tailwind.config.js` 6 + `index.css` 33 + `erd.css` 7(+변수 9 통합) + TSX/TS **14**"
-      - "⚠️ **`BlockEditor.tsx`·`ReadView.tsx` 는 마지막 단계로.** 위 ORDER_VIOLATION 참조"
+      - "**`BlockEditor.tsx`·`ReadView.tsx`** — S1·S2 가 `f4d5d69` 로 착지했으므로 **이제 착수 가능**하다. 그 커밋 위에 얹는다"
       - "R5-a 가 흡수: **R-6 StyleModule 누수**(`createEditorTheme()` 상수화) · **`erd.css` 변수 중복 제거**"
   # ────────────────
   standing_rules_reminder:
