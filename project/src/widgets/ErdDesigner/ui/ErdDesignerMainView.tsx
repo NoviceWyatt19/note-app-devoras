@@ -12,41 +12,38 @@ import ErdDesigner from './ErdDesigner';
 export const ErdDesignerMainView: React.FC<{ tab?: TabItem }> = ({ tab }) => {
   const { rawContent, setRawContent } = useEffectiveTabStore();
   const [document, setDocument] = useState<any>(null);
+  // BUG-20260902-01 — 읽기 실패는 쓰기를 유발하지 않는다. 파싱 실패 원본을 보존해 표시만 한다.
+  const [parseError, setParseError] = useState<string | null>(null);
 
   useEffect(() => {
-    let finalDoc = null;
-    let needsUpdate = false;
-    try {
-      if (!rawContent || rawContent.trim() === '') {
-        finalDoc = createEmptyErdDocument();
-        needsUpdate = true;
-      } else {
-        const parsed = JSON.parse(rawContent);
-        if (!parsed.version || !parsed.tables) {
-          finalDoc = createEmptyErdDocument();
-          needsUpdate = true;
-        } else {
-          finalDoc = parsed;
-        }
-      }
-    } catch (e) {
-      console.error("Failed to parse ERD JSON", e);
-      try {
-        finalDoc = parseErdDocument(rawContent);
-        needsUpdate = true;
-      } catch (err) {
-        finalDoc = createEmptyErdDocument();
-        needsUpdate = true;
-      }
-    }
-
-    setDocument(finalDoc);
-    if (needsUpdate) {
-      const normalized = JSON.stringify(finalDoc, null, 2);
+    if (!rawContent || rawContent.trim() === '') {
+      const empty = createEmptyErdDocument();
+      setDocument(empty);
+      setParseError(null);
+      const normalized = JSON.stringify(empty, null, 2);
       setRawContent(normalized);
       if (tab?.id) useDocumentStore.getState().updateContentForTab(tab.id, normalized);
+      return;
+    }
+
+    try {
+      setDocument(parseErdDocument(rawContent));
+      setParseError(null);
+    } catch (e) {
+      console.error("Failed to parse ERD document", e);
+      setDocument(null);
+      setParseError(rawContent);
     }
   }, [rawContent, setRawContent, tab?.id]);
+
+  if (parseError !== null) {
+    return (
+      <div className="p-4 h-full overflow-auto text-sm text-red-400 space-y-3">
+        <p>ERD 문서를 해석할 수 없습니다. 원본 내용은 그대로 보존되어 있습니다 — 저장해도 사라지지 않습니다.</p>
+        <pre className="whitespace-pre-wrap text-xs text-mutedText bg-black/20 p-3 rounded">{parseError}</pre>
+      </div>
+    );
+  }
 
   if (!document) {
     return <div className="p-4 text-sm text-red-400">ERD 문서를 로드하는 중...</div>;

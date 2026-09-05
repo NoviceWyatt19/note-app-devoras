@@ -1,7 +1,7 @@
 {
   "name": "devoras-design",
   "private": true,
-  "version": "0.9.1",
+  "version": "0.9.2",
   "type": "module",
   "engines": {
     "node": ">=22.6",
@@ -15,11 +15,12 @@
     "test:t1": "pnpm test:blockkey && pnpm test:path && pnpm test:dirty && pnpm test:closeguard && pnpm test:paneownership && pnpm test:tabstore && pnpm test:activetab && pnpm test:caretstability && pnpm test:symbol && pnpm test:image && pnpm test:ime && pnpm test:sanitizer && pnpm test:diff && pnpm test:structuraltrigger && pnpm test:readvieweorder",
     "test:structuraltrigger": "node --import ./scripts/register-ts.mjs src/shared/lib/editor/__tests__/structural_trigger_coverage_harness.ts",
     "test:readvieweorder": "node --import ./scripts/register-ts.mjs src/entities/document/__tests__/readview_reorder_after_singledoc_edit_harness.ts",
-    "test:t15": "pnpm test:formattoolbar && pnpm test:savedirty && pnpm test:tabswitch && pnpm test:fileexplorer",
+    "test:t15": "pnpm test:formattoolbar && pnpm test:savedirty && pnpm test:tabswitch && pnpm test:fileexplorer && pnpm test:erdparsefailure",
     "test:formattoolbar": "node --import ./scripts/register-dom.mjs src/widgets/BlockEditor/__tests__/format_toolbar_mount_harness.tsx",
     "test:savedirty": "node --import ./scripts/register-dom.mjs src/pages/WorkspacePage/__tests__/save_dirty_indicator_harness.tsx",
     "test:tabswitch": "node --import ./scripts/register-dom.mjs src/pages/WorkspacePage/__tests__/tab_panel_switch_harness.tsx",
     "test:fileexplorer": "node --import ./scripts/register-dom.mjs src/widgets/FileExplorer/__tests__/file_explorer_interaction_harness.tsx",
+    "test:erdparsefailure": "node --import ./scripts/register-dom.mjs src/widgets/ErdDesigner/__tests__/erd_parse_failure_no_overwrite_harness.tsx",
     "test:blockkey": "node --import ./scripts/register-ts.mjs src/entities/block/__tests__/block_key_stability_harness.ts",
     "test:paneownership": "node --import ./scripts/register-ts.mjs src/entities/document/__tests__/pane_ownership_harness.ts",
     "test:tabstore": "node --import ./scripts/register-ts.mjs src/entities/document/__tests__/tab_store_isolation_harness.ts",
