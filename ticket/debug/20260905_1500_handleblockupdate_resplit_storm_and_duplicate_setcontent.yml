@@ -1,0 +1,69 @@
+# 🐛 FIX TICKET
+type: "FIX_TICKET"
+id: "S1S2-20260905-01"
+# ━━━
+update: "2026-09-05 (실행 세션 — 착수와 동시에 완료, PM 지시로 사후 발행)"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "handleBlockUpdate — 헤딩 재분할 EditorView 폭주(S1) + setContent 이중 호출(S2)"
+status: "Done — commit f4d5d69 (v0.9.3)"
+severity: "P2 (출시 경로 실결함, 8-D 조사가 건짐)"
+tier: "T1.5/T2 (실 브라우저 수동 검증, 자동 테스트는 기존 스위트로 무회귀만 확인)"
+review_ref: "DEBUG_PLAN.md §5.16(실관측: 레지스트리 4→204) · §5.17(이중 호출 no-op 아님 확인) · ticket/project/20260904_1800_release_lane_hold.yml salvage_from_the_investigation S1/S2"
+independent_of: "8-D 아키텍처 게이트(GATE-20260902-01/PM-20260904-01) — 플래그 off 인 현재 출시 경로 자체의 결함"
+# ━━━
+problem:
+  location: "project/src/widgets/BlockEditor/ui/BlockEditor.tsx:601-675 (수정 전 라인 번호)"
+  s1_root_cause: >
+    `handleBlockUpdate` 가 헤딩 개수 변화(`oldHeadingCount !== newHeadingCount`)를 감지하면
+    디바운스 없이 그 자리에서 `resolveBlocksFromContent`(O(N) 2-패스 재매칭)를 태우고,
+    새로 생긴 헤딩마다 React 가 새 `CodeMirrorBlock`(=새 `EditorView`)을 마운트했다.
+    8-D 조사(§5.16)가 N=200 픽스처를 한 블록에 붙여 직접 관측: 블록 레지스트리 4→204.
+    A6 원 관측("동시 생존 EditorView 개수", 지수 1.763)과 같은 기전이 파일 열 때가 아니라
+    편집 도중 재현된다.
+  s2_root_cause: >
+    같은 함수 안에서 `setContent(merged)` 를 완전히 같은 인자로 두 번 호출(:645, :669).
+    두 번째는 no-op 이 아니다 — 첫 호출이 `get().blocks` 를 이미 바꿔 놨으므로, 두 번째는
+    *갱신된* blocks 상대로 2-패스 매칭을 처음부터 다시 돈다. 헤딩 수가 바뀌는 모든 편집마다
+    같은 O(N) 작업이 두 배로 돈다.
+  user_impact: "헤딩이 여러 개 늘어나는 붙여넣기·연속 타이핑에서 비례해 발생. 201개는 비현실적이지만 10~20개는 일상적이다."
+# ━━━
+fix:
+  s1_approach: >
+    `syncContent` 와 같은 패턴으로 새 디바운스 콜백(`debouncedResplit`, 150ms)을 추가해
+    재분할(`setContent`)·캐럿 재배치(`focusBlock`)·`updateContentForTab` 을 그 안으로 옮겼다.
+    `updateBlockContent(id, text)`(블록 자신의 내용 갱신)는 그대로 동기 실행 — 타이핑
+    반응성은 그대로다. 바뀌는 것은 "블록이 몇 개로 쪼개져 보이는가"가 최대 150ms 늦게
+    반영되는 것뿐이다. 짧은 시간 안에 헤딩이 연달아 바뀌어도(예: 붙여넣기 직후 계속 타이핑)
+    재분할은 마지막 호출 기준 1회만 돈다(`useDebouncedCallback` 의 "최신 인자로 발화" 특성).
+  s1_caret_safety_note: >
+    디바운스로 옮겨도 캐럿 계산이 틀어지지 않는다 — `absoluteCursorPos` 계산은 대상 블록
+    자신이 아니라 **그 앞의 형제 블록들** 길이 합에만 의존하는데, 형제 블록은 이 편집으로
+    바뀌지 않으므로 마지막 호출의 `blocksBeforeUpdate`/`cursorOffset` 을 그대로 써도 정확하다.
+    실 브라우저로 검증(헤딩 삽입 후 커서가 삽입한 텍스트 끝에 정확히 위치).
+  s2_approach: "두 번째 `setContent(merged)` 호출(:669, 수정 전 라인)을 제거. 첫 호출만 유지."
+  cleanup_scope_note: "리라이트가 아니다 — 디바운스 추가 + 중복 호출 제거 두 가지만. 다른 로직 변경 없음."
+# ━━━
+dod:
+  - "[x] `pnpm test:t1` 전량 유지(캐럿 안정성 하네스 포함)"
+  - "[x] `pnpm test:t15` 전량 유지"
+  - "[x] `tsc --noEmit` 클린"
+  - "[x] 실 브라우저: 문단 중간에 새 헤딩 타이핑 → 블록이 올바르게 분리되고, 커서가 입력 끝 위치에 정확히 남는다"
+  - "[ ] 실 브라우저: 대량 헤딩 포함 붙여넣기(N=10~20 수준) 반복 편집 시 체감 지연 개선 — 이 세션은 정성 확인만 했고 §5.0.4 급의 정량 재측정은 하지 않았다(범위 밖으로 판단, 8-D 게이트는 동결 상태이며 이 티켓은 그 게이트와 무관하게 독립 결함 수정)"
+  - "[ ] 이 경로(멀티 블록 CodeMirror 통합)를 직접 겨냥한 자동 회귀 테스트 — 추가하지 않음(범위 판단, related 참고)"
+# ━━━
+related:
+  - id: "자동 테스트 커버리지 갭"
+    detail: >
+      `handleBlockUpdate` 는 `BlockEditor` 컴포넌트 클로저 안에 있고 여러 실 CodeMirror
+      인스턴스가 얽혀 있어, 이 경로만 겨냥한 T1.5/T2 통합 테스트를 새로 만들려면 멀티 블록
+      렌더 하네스가 필요하다(비용이 이 티켓 범위를 넘는다고 판단). 대신 실 브라우저 수동
+      검증 + 기존 회귀 스위트 무회귀로 대체했다. 향후 멀티 블록 편집 경로에 자동 테스트가
+      쌓이면 이 지점도 자연히 커버될 것.
+  - id: "정량 재측정 미실시"
+    detail: >
+      8-D 조사(§5.16)가 관측한 200-블록 폭주 자체는 이 디바운스로 "줄어들지" 않는다 —
+      한 번의 대량 붙여넣기는 여전히 한 번의 호출이라 디바운스가 그 안의 비용을 줄이지
+      못한다. 이 수정이 실질적으로 돕는 것은 **연속된 개별 헤딩 변경 편집**(타이핑 도중
+      여러 번 헤딩을 넘나드는 경우)의 반복 재분할을 1회로 합치는 것이다. 8-D 게이트
+      자체는 동결 상태(PM-20260904-01)라 이 차이를 정량적으로 다시 재는 것은 이 티켓
+      범위 밖으로 판단했다.
