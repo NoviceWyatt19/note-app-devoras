@@ -1,0 +1,232 @@
+# 🎫 SESSION HANDOFF TICKET
+type: "SESSION_HANDOFF"
+id: "SESS-20260905-IMPL"
+# ━━━
+update: "2026-09-05 23:03"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "Impl_Manager_v1 신설 세션 인수인계 — R5(테마) 착수 전 코드 대조 완료, 사양 미작성"
+baseline: "ebf270d · v0.9.1 · **코드 무변경** (이 세션은 조사·계획만, 파일 편집 0건)"
+status: "**중단** — 사용자 토큰 한도 임박으로 PM 지시(2026-09-04)에 따라 저장 후 정지"
+# ━━━
+your_role:
+  what_you_do: >
+    **기능 구현 계획의 소유자** — 사양 수립·분해·순서. Impl_worker_v1 이 대화 맥락 없이
+    단독 실행할 수 있는 IMPL_PLAN 과 `ticket/impl/` 티켓을 만들고, 구현의 진행과 준수를 확인한다
+  what_you_do_not_do:
+    - "코드 구현 자체 (Impl_worker_v1 담당)"
+    - "우선순위·스코프 변경 (PM 담당 — 기술 판정으로 순서를 재론하지 않는다)"
+    - "다른 세션이 점유한 파일 편집"
+  lanes:
+    - "Impl_Manager_v1 (이 세션) — 기능 구현 계획"
+    - "Debug_Manager_v2 — 판정·교차검증·문서 드리프트. 새 가설 생성 금지"
+    - "Debug_worker_v2 — 실행. R1(ERD) → S1·S2 → R4 준비"
+    - "Project_Manager_v1 — 우선순위·스코프·게이트 조율"
+  hard_rule: "보고를 그대로 믿지 않는다. **커밋·코드를 직접 확인한 뒤 반영한다** (이전 계획 세션이 남긴 규칙)"
+# ━━━
+read_first:
+  - "`DOCUMENTS.md` — 문서 지도. 여기부터"
+  - "`ticket/project/20260904_1800_release_lane_hold.yml` (`PM-20260904-01`) — 게이트 동결 + 조율 규칙 R0~R6 전문"
+  - "`DOCUMENTS.md` §4.3 — **PM 레인이 수행한 R5·R6 사양서 코드 대조**(2026-09-04). 이 티켓 §delta 가 그 숫자를 보정한다"
+# ━━━
+my_queue:
+  note: "PM 이 제시한 착수 순서. 조정은 내 판단 가능, 스코프 변경은 PM 확인"
+  items:
+    - id: "R5"
+      what: "YAML 테마 + 다크/라이트 모드"
+      status: "**대조 완료 · 사양 미작성** ← 다음 세션의 시작점"
+      spec_sources:
+        - "`functions/6_theme_yaml_custom.md` — 원 기능 사양 (2026-07-15). **§3 기술 설계의 전제가 코드와 다르다**"
+        - "`implementation_plan.md` §3.1~3.13 (655~1086행) — **상세 구현 사양이 이미 있다.** 뼈대는 유효"
+      merged: "**R-6 (`BUG-20260831-02`) StyleModule 누수가 여기 병합됨** (사용자 결정 D-4). 따로 짓지 말 것"
+    - id: "R6"
+      what: "워크스페이스 전역 검색"
+      status: "미착수"
+      blocker: "**착수 전 Rust vs JS 확정 필요.** `functions/4_global_search.md` §3 은 JS 유틸, `implementation_plan.md` §4A.3 은 Rust 확정 — 두 문서가 갈린다. 게다가 §4A 는 사양이 두 벌이고 「아키텍처 결정」은 두 번째 벌에만 있다"
+    - id: "R7"
+      what: "P1-9 `.cm-line *` 위젯 타이포그래피 붕괴"
+      status: "미착수. **실행 사양서 기존재** — `claude-history/impl/IMPL_PLAN_20260826_2349_widget_typography.md`. 값 대비 싸다"
+    - id: "소품 2건"
+      what: "스플릿 뷰 세로 분할 · 탭 드래그 재정렬"
+      note: "세로 분할은 **미구현이 아니라 미노출** — `WorkspacePage.tsx:329` 가 `splitPane(pane.id, 'horizontal')` 로 방향 하드코딩. 스토어(`store.ts:37`·`:104`·`:448`)·레이아웃 분기(`:224` flex-col/flex-row)·테두리 분기(`:271`) 전부 존재. **진입점 1개 분량**"
+not_my_lane:
+  - "R1 `BUG-20260902-01` ERD 빈 문서 덮어쓰기 (**P0**) — Debug_worker_v2"
+  - "S1·S2 `BlockEditor.tsx:601-675` 디바운스 + `setContent` 이중 호출 — Debug_worker_v2"
+  - "R2 `FEAT-20260904-01` 자동 저장 — 티켓 발행됨. **구현 착수는 R1 착지 후**. 계획 검토는 가능"
+  - "R3 `REL-20260904-01` 출시 엔지니어링 (E1 Releases → E2 CI). 서명·Homebrew 보류"
+# ━━━
+what_this_session_did:
+  summary: "R5 착수 전 코드 전수 대조. **파일 편집 0건, 커밋 0건.** 산출물은 아래 수치와 판단 전부다"
+  conclusion: >
+    **R5 는 사양 신규 작성이 아니라 「기존 사양 검수 + 보정 3건」이다.**
+    `implementation_plan.md` §3.1~3.13 에 Sprint 3 상세 사양이 이미 있고 뼈대는 유효하다.
+    할 일은 재설계가 아니라 **그 사양이 감춘 비용을 드러내고 Step 으로 쪼개는 것**이다.
+# ━━━
+verified_correct:
+  note: "사양이 맞았고 코드로 확인된 것 — 다음 세션은 재확인하지 않아도 된다"
+  items:
+    - claim: "Sprint 2 선행조건(`activeThemeFile` 저장)"
+      fact: "✅ `entities/settings/model/types.ts:24` 정의 · `:44` 기본값 `null` · `model/store.ts:54` `setActiveThemeFile`. **단 소비처 0건**"
+    - claim: "§3.9 Tailwind 연동"
+      fact: >
+        ✅ **최대 레버리지 지점.** 커스텀 6색이 소스에서 **259회** 사용 중 —
+        `darkBg` 29 · `darkPanel` 32 · `darkBorder` 71 · `primary` 82 · `accent` 1 · `mutedText` 44.
+        `tailwind.config.js` 의 6개 값을 `var(--…)` 로 바꾸면 **259곳이 코드 수정 0으로 전환된다**
+    - claim: "`.devoras/themes/` 스캔 가능"
+      fact: "✅ `shared/api/fs.ts:78`(MockFileSystem)·`:243`(Tauri) 양쪽 `readDirectory` 구현. Mock 이 있으므로 T2 하네스 작성 가능"
+    - claim: "R-6 병합 근거 (D-4)"
+      fact: >
+        ✅ **확인.** `BlockEditor.tsx:90-110` `createEditorTheme()` 의 설정 의존값이 정말
+        `fontFamily`·`fontSize` **둘뿐**이다. 나머지는 전부 상수 — 하드코딩 `#6366f1` 이 `:98`
+        `caretColor` 와 `:107` `borderLeftColor` 두 곳. 둘을 CSS 변수로 빼면 테마가 **모듈 상수**가
+        되어 `StyleModule` 이 1개로 고정되고, `:144-152` reconfigure 이펙트에서 테마 항목이 소멸한다.
+        ⚠️ 그 이펙트는 `lineWrapping` 도 함께 처리하므로 **이펙트 자체를 지우면 안 된다 — 테마 항목만 뺀다**
+# ━━━
+delta_vs_documents_md_4_3:
+  note: >
+    `DOCUMENTS.md` §4.3 (PM 레인, 2026-09-04)이 R5 규모를 「tailwind 6 + index.css 33 +
+    erd.css 7 + TSX 9 = 55개 이관」으로 추정했다. **그 대조는 hex 만 셌다.**
+    아래가 보정치이며 **양방향으로 다르다** — 레버리지는 과소평가, 비용은 과소평가됐다
+  understated_leverage:
+    what: "Tailwind 커스텀 6색이 **259회** 사용 중"
+    meaning: "`tailwind.config.js` 6줄 수정이 259곳을 자동 전환한다. §4.3 은 이 6개를 「이관 대상 6개」로만 셌다"
+  understated_cost:
+    what: "**Tailwind 팔레트 클래스 159회 + `white`/`black` 23회 = 182회**"
+    meaning: >
+      `text-slate-200` 류는 CSS 변수 전환을 **따라오지 않는다.** 라이트 모드로 바꿔도
+      이 182곳은 어두운 채 남는다. **이것이 R5 의 진짜 비용이고 어느 사양에도 없다**
+      (`implementation_plan.md` §3.12 step 3 이 「모든 컴포넌트의 하드코딩 hex 교체」
+      한 줄로 덮고 있다 — hex 가 아니라 팔레트 클래스가 문제다)
+    concentration:
+      - "`widgets/MindView/ui/MindView.tsx` — 46"
+      - "`widgets/FileExplorer/ui/FileExplorer.tsx` — 29"
+      - "`widgets/ErdDesigner/ui/ErdDesigner.tsx` — 26"
+      - "`pages/WorkspacePage/WorkspacePage.tsx` — 26"
+      - "`widgets/SettingsModal/ui/SettingsModal.tsx` — 21"
+      - "`widgets/BlockEditor/ui/FormatToolbar.tsx` — 13 · `ReadView.tsx` — 8 · 나머지 소량"
+    prescription: "토큰 스키마에 텍스트 계층(`textPrimary`/`Secondary`/`Muted`)이 이미 있으므로 **팔레트→토큰 매핑표를 사양 단계에서 확정**하고 파일 단위 Step 으로 분해한다"
+# ━━━
+three_corrections_to_sprint3:
+  items:
+    - id: "C1"
+      where: "`implementation_plan.md` §3.12 step 3"
+      problem: "「모든 컴포넌트의 하드코딩 hex 교체」가 실제 작업량을 감춘다 — 위 `understated_cost` 182곳"
+      fix: "팔레트→토큰 매핑표 확정 + 파일 단위 Step (초안의 T3)"
+    - id: "C2"
+      where: "`implementation_plan.md` §3.12 step 2 — 「`erd.css` 의 `:root` 하드코딩 변수를 ThemeTokens 와 통합」"
+      problem: >
+        한 줄로 적혀 있으나 실제로는 **이름이 다른 두 변수 체계의 충돌**이다.
+        `app/styles/erd.css:1-9` 가 Obsidian 계열 이름(`--background-primary` · `--background-secondary` ·
+        `--background-modifier-border` · `--text-normal` · `--text-muted` · `--text-accent` ·
+        `--background-modifier-error` · `--text-on-accent` · `--font-monospace`)을 쓰고,
+        `.erd-*` 셀렉터가 **259줄에 걸쳐** 그 이름을 참조한다.
+        Sprint 3 토큰명은 `--bg-primary` · `--text-primary` 계열로 **전부 다르다**
+      fix: "**별칭 매핑 권장** — `--background-primary: var(--bg-primary)` 식으로 얹는다. erd.css 본문 무수정, 롤백 가능. 일괄 개명은 비용 대비 값이 없다"
+    - id: "C3"
+      where: "`entities/erd/lib/staticRenderer.ts`"
+      problem: >
+        hex 11개로 두 번째로 많아 「이관 대상」으로 보이지만, 전부 **ERD SVG 내보내기 산출물의
+        고정 라이트 팔레트**다(`:26` `fill="#f8fafc"` · `:79` `#ffffff` · `:80-81` `#0f172a` ·
+        `:92` `#101828` · `:93` `#667085` 등). 앱 테마를 따라가게 만들면
+        **다크 테마 사용자가 내보낸 SVG 가 검은 배경으로 나온다**
+      fix: "**스코프에서 명시적 제외.** 내보내기는 테마 무관하게 라이트 고정을 유지한다 — 사양에 박을 것"
+# ━━━
+open_decisions_for_pm:
+  items:
+    - id: "A"
+      q: "`SingleDocEditor.tsx` 도 함께 고칠 것인가"
+      detail: >
+        이쪽도 자체 `createEditorTheme`(`:62` 정의 · `:103` reconfigure · `:188` compartment)를 갖는다.
+        8-D 동결 산출물이라 「플래그 off 로 보존」 대상인데, 테마가 CSS 변수로 넘어가면
+        **이 파일만 옛 방식으로 남는다**
+      my_recommendation: "**동시 수정.** 변경이 기계적이고, 게이트 재개 시 드리프트를 물려주지 않는다"
+      status: "**미결 — PM 판단 대기**"
+    - id: "B"
+      q: "시스템 추종(`prefers-color-scheme`) 포함 여부와 토글 진입점"
+      detail: >
+        **두 문서가 어긋난다.** `functions/6_theme_yaml_custom.md` §2 는 「시스템 설정에 따르거나
+        앱 내 토글」이라 하고, `implementation_plan.md` §3.10 은 **설정 모달 안 빌트인 2버튼**만 둔다.
+        다크 모드는 상시 토글이라 툴바/상태바 진입점 필요 여부도 함께 정해야 한다
+      my_recommendation: "시스템 추종을 3번째 옵션(`system`)으로 넣고, 진입점은 **설정 모달 + 상태바 토글 1개**"
+      status: "**미결 — PM 판단 대기**"
+# ━━━
+findings_out_of_lane:
+  note: "내 레인 밖이지만 R5 사양에 직접 영향. PM 판단 요청분"
+  items:
+    - id: "F1"
+      what: "**`autosaveDelay` 와 같은 성격의 고아 설정이 2건 더 있다**"
+      evidence:
+        - "`mindmap.nodeColorScheme` — **소비처 0건.** `entities/settings/model/types.ts:11`·`:38` 정의뿐, SettingsModal 에도 없다"
+        - "`mindmap.edgeStyle` — **실소비처 0건.** `widgets/SettingsModal/ui/SettingsModal.tsx:133-134` 의 UI 뿐, MindView 가 읽지 않는다"
+      why_it_matters: >
+        `nodeColorScheme` 은 R5 토큰 `nodeLevel1~4`(`implementation_plan.md` §3.4)와 **정면으로 겹친다.**
+        R5 를 그냥 진행하면 마인드맵 노드 색 설정이 두 벌 되는 **A1 계열 결함**이 생긴다
+      action: "`nodeColorScheme` 관계는 **R5 사양 안에서 확정**(T0). `edgeStyle` 은 **별건 티켓 대상** — 미발행"
+    - id: "F2"
+      what: "`DEBUG_STEP_PLAN.md` §5.1 의 `test:t1` 하네스 수 드리프트"
+      evidence: "문서는 「13 하네스」. `package.json:15` 실측 **15종** — `structuraltrigger`·`readvieweorder` 증가분 미반영"
+      action: "드리프트는 Debug_Manager_v2 레인. **이관**"
+# ━━━
+proposed_step_decomposition:
+  note: >
+    IMPL_PLAN 초안. **스텝 이름을 T0~T6 로 쓴다** — Debug_worker_v2 의 S1·S2 와 이름이 겹치지 않게 하기 위함
+  items:
+    - id: "T0"
+      what: "토큰 스키마 확정 + `entities/theme/` 4파일 생성 + `js-yaml` 의존성 추가"
+      includes: "F1 의 `nodeColorScheme` 관계 확정"
+      touches: "신규 파일만"
+    - id: "T1"
+      what: "`tailwind.config.js` → CSS 변수 + `index.css @layer base` 토큰화"
+      effect: "**259곳 무수정 전환**"
+      touches: "`tailwind.config.js` · `app/styles/index.css`"
+    - id: "T3"
+      what: "팔레트 클래스 182곳 토큰화"
+      detail: "파일 단위 5커밋 (MindView · FileExplorer · ErdDesigner · WorkspacePage · SettingsModal + 잔여)"
+    - id: "T4"
+      what: "`erd.css` 변수 체계 별칭 통합 (C2)"
+    - id: "T5"
+      what: "YAML 파서·스토어·테마 스캔 + 설정 UI (`implementation_plan.md` §3.6·3.7·3.10 그대로)"
+    - id: "T2"
+      what: "**R-6: `createEditorTheme` 상수화 + reconfigure 경로에서 테마 항목 제거**"
+      order_note: "**의도적으로 T5 뒤로 미룸** — 아래 `file_conflict_warning` 참조"
+      touches: "`widgets/BlockEditor/ui/BlockEditor.tsx` (+ 결정 A 시 `SingleDocEditor.tsx`)"
+      dod:
+        - "N 개 블록 마운트 후 `<style>` 총 바이트가 N 에 비례해 증가하지 않는다"
+        - "create-destroy 반복 후 `<style>` 바이트가 증가하지 않는다"
+        - "폰트 크기·패밀리 변경이 여전히 실시간 반영된다 (회귀 0건)"
+    - id: "T6"
+      what: "라이트 모드 실기 통과 + `implementation_plan.md` §3.13 검증 체크리스트 8항"
+# ━━━
+file_conflict_warning:
+  rule: "`PM-20260904-01` §coordination_rule R3 — 구현 세션이 점유한 파일을 다른 레인이 동시에 만지지 않는다"
+  conflict: >
+    **T2 가 `BlockEditor.tsx` 를 건드린다.** Debug_worker_v2 의 S1·S2 가 같은 파일
+    `:601-675` `handleBlockUpdate` 를 잡고 있다. 행 범위는 겹치지 않으나
+    (`createEditorTheme` `:90-110`, reconfigure `:144-152`) **같은 파일이므로 규칙상 동시 점유 금지**
+  resolution: >
+    **T2 를 T5 뒤로 미룬다.** T0·T1·T3·T4 는 `BlockEditor.tsx` 를 전혀 건드리지 않아
+    지금 바로 병행 가능하다. R-6 누수는 출시 차단이 아니므로 순서를 뒤로 빼도 손실이 없다
+  before_starting: "착수 전 `git status --short` 확인. 커밋은 **경로 지정**(`git commit -F - -- <경로>`). `git add -A` 금지"
+# ━━━
+traps:
+  - "`implementation_plan.md` §4A.2~4A.8 이 **두 벌 존재**(1090~ / 1575~). 아래쪽에만 「아키텍처 결정: Rust vs JS」가 있다. 사용자 판단 대기 — **어느 쪽을 근거로 삼는지 명시할 것.** 경고는 2026-09-04 에 첫 번째 벌 앞으로 상향됨"
+  - "`claude-history/arch/` 의 두 문서는 **드리프트**(제거된 전역 `blockStore` 싱글턴 기술). **참조 금지**"
+  - "`functions/*.md` 는 R5·R6 두 건만 대조됐다(`DOCUMENTS.md` §4.3). **나머지는 미점검** — R7·소품 착수 시 직접 대조할 것"
+  - "파일시스템이 대소문자를 구분하지 않는다 — `CODE_REVIEW.md` 와 `code_review.md` 는 같은 파일"
+# ━━━
+conventions:
+  version: "`.agents/AGENTS.md` §2 — 코드 커밋 = 패치 버전업 **4파일 동시**(`package.json`·`Cargo.toml`·`tauri.conf.json`·`Cargo.lock`). 문서 전용은 버전 미상승, 괄호 안은 유지된 현재 버전. **0.9.x 유지, 1.0 승격은 이번 스코프 밖**"
+  ticket: "`.agents/new_ticket_templates.md` · 파일명 `[YYYYMMDD_HHMM]_[주제].yml` · 위치 `ticket/impl/`"
+  verification_tiers: "T1 순수 로직 `pnpm test:t1`(**15종**) · T1.5 `pnpm test:t15`(4종) · T2 레이아웃(`pnpm dev` + playwright) · T3 실기(`pnpm tauri:dev`)"
+# ━━━
+next_actions:
+  - "1. PM 에게 **결정 A·B** 회신 요청 (`SingleDocEditor` 동시 수정 여부 · 시스템 추종/토글 진입점)"
+  - "2. Debug_worker_v2 의 S1·S2 착지 여부 확인 → T2 착수 시점 판단"
+  - "3. `ticket/impl/[YYYYMMDD_HHMM]_yaml_theme_dark_mode.yml` 발행"
+  - "4. IMPL_PLAN 작성 — 형식은 `claude-history/impl/IMPL_PLAN_20260826_2349_widget_typography.md` 기준(대화 맥락 없이 단독 실행 가능: 메커니즘 → 후보안 비교 → 확정 처방 → Step → DoD → 검증 티어)"
+  - "5. F1 의 `edgeStyle` 별건 티켓을 PM 에 제안"
+# ━━━
+data:
+  notes: >
+    이 세션의 수치는 전부 2026-09-05 `project/src` 에서 직접 계측했다(grep 카운트).
+    재계측 명령: 팔레트 클래스 —
+    `grep -roE '\b(bg|text|border|ring|fill|stroke|from|to|via|divide|placeholder)-(slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-[0-9]{2,3}\b' src --include='*.tsx' | wc -l`
