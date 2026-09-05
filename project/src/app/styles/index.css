@@ -5,9 +5,66 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── 디자인 토큰 (R5-a) ───────────────────────────────────────────────────────
+ * 값은 **RGB 채널 트리플릿**이다. `rgb()` 로 감싸지 않는다.
+ *   - Tailwind:  'rgb(var(--surface-0-rgb) / <alpha-value>)'  → .bg-X 와 .bg-X/20 둘 다 생성
+ *   - 생 CSS:    color: rgb(var(--text-2-rgb));  background: rgb(var(--accent-0-rgb) / .15);
+ * `-rgb` 접미사를 빼고 `color: var(--text-2)` 처럼 쓰면 `color: 203 213 225` 가 되어
+ * **조용히 무효**가 된다. 접미사가 그 실수를 문법 차원에서 막는다.
+ * 아래 다크 값은 전부 현행 코드에서 추출한 것 — 다크 모드 화면은 픽셀 동일해야 한다.
+ * 라이트 팔레트는 T6 에서 `:root[data-theme="light"]` 로 얹는다.
+ * ────────────────────────────────────────────────────────────────────────── */
+:root {
+  /* 표면 — 밝기 오름차순 = 고도 오름차순 */
+  --surface-0-rgb: 13 14 18;      /* #0d0e12 · body · MindView 캔버스 */
+  --surface-1-rgb: 17 18 22;      /* #111216 · 스크롤바 트랙 */
+  --surface-2-rgb: 20 21 32;      /* #141520 · 카드/코드블록 헤더 */
+  --surface-3-rgb: 22 24 33;      /* #161821 · darkPanel */
+  --surface-4-rgb: 26 27 38;      /* #1a1b26 · 코드펜스 라인 */
+  --surface-5-rgb: 29 31 48;      /* #1d1f30 · 중첩 카드 2단 */
+
+  /* 텍스트 — 밝기 내림차순 = 강조 내림차순 */
+  --text-0-rgb: 241 245 249;      /* #f1f5f9 · H1 */
+  --text-1-rgb: 226 232 240;      /* #e2e8f0 · H2 · 본문 강조 */
+  --text-2-rgb: 203 213 225;      /* #cbd5e1 · H3 · .rv-content 본문 */
+  --text-3-rgb: 148 163 184;      /* #94a3b8 · mutedText */
+  --text-4-rgb: 100 116 139;      /* #64748b */
+  --text-5-rgb: 51 65 85;         /* #334155 */
+
+  /* 테두리 */
+  --border-1-rgb: 39 42 55;       /* #272a37 · darkBorder */
+  --border-2-rgb: 58 63 82;       /* #3a3f52 · 스크롤바 thumb hover */
+
+  /* 강조 + 보조 */
+  --accent-0-rgb: 99 102 241;     /* #6366f1 · primary */
+  --accent-1-rgb: 129 140 248;    /* #818cf8 · 링크 */
+  --accent-2-rgb: 165 180 252;    /* #a5b4fc · 인라인 코드 */
+  --accent-deep-rgb: 124 58 237;  /* #7c3aed */
+  --accent-alt-rgb: 20 184 166;   /* #14b8a6 · Tailwind accent */
+
+  /* 의미색 */
+  --danger-rgb: 248 113 113;      /* #f87171 */
+  --danger-bg-rgb: 239 68 68;     /* #ef4444 */
+  --warning-rgb: 245 158 11;      /* #f59e0b · dirty 점 */
+  --info-rgb: 147 197 253;        /* #93c5fd */
+  --highlight-rgb: 253 224 71;    /* #fde047 */
+  --magenta-rgb: 240 171 252;     /* #f0abfc */
+
+  /* 마인드뷰 노드 5단 */
+  --node-1-rgb: 45 212 191;       /* teal */
+  --node-2-rgb: 56 189 248;       /* sky */
+  --node-3-rgb: 251 191 36;       /* amber */
+  --node-4-rgb: 244 114 182;      /* pink */
+  --node-5-rgb: 192 132 252;      /* purple */
+
+  /* 오버레이 / 스크림 — 라이트에서 overlay 는 반전된다 */
+  --overlay-rgb: 255 255 255;
+  --scrim-rgb: 0 0 0;
+}
+
 @layer base {
   body {
-    @apply bg-[#0d0e12] text-slate-100 font-sans overflow-hidden select-none;
+    @apply bg-darkBg text-slate-100 font-sans overflow-hidden select-none;
   }
 }
 
