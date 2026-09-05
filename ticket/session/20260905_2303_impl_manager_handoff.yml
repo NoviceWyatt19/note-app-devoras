@@ -207,6 +207,32 @@ file_conflict_warning:
     지금 바로 병행 가능하다. R-6 누수는 출시 차단이 아니므로 순서를 뒤로 빼도 손실이 없다
   before_starting: "착수 전 `git status --short` 확인. 커밋은 **경로 지정**(`git commit -F - -- <경로>`). `git add -A` 금지"
 # ━━━
+reconciled_with_pm_d8_d9:
+  note: >
+    **이 티켓 작성 중 PM 이 `a59678d`(D8·D9)를 커밋했다.** 아래가 그 판정과의 정합 조정이며,
+    충돌하는 부분은 **PM 판정이 이긴다**(우선순위·스코프는 PM 소유)
+  items:
+    - id: "D8 — R5 를 R5-a / R5-b 로 분할"
+      pm_decision: "**R5-a(토큰 마이그레이션 + 다크/라이트)만 출시 스코프.** 다크 모드는 토큰+팔레트 2벌이면 성립하므로 출시를 YAML 파서에 묶지 않는다. R5-a 가 R-6 누수와 erd.css 중복 제거를 흡수한다"
+      effect_on_this_ticket: >
+        `proposed_step_decomposition` 의 매핑이 바뀐다 —
+        **R5-a = T0(스키마·토큰 정의분) + T1 + T3 + T4 + T2 + T6**,
+        **R5-b(출시 후) = T0 의 `js-yaml`·`entities/theme` 파서 부분 + T5**.
+        T0 를 「토큰 스키마 확정」과 「YAML 인프라」로 쪼개야 한다
+      order_note: >
+        이 티켓은 T2 를 T5 뒤로 미뤘으나(파일 충돌 회피), **T5 가 R5-b 로 빠지면 그 근거가 사라진다.**
+        R5-a 안에서 T2 는 여전히 마지막이어야 하며, 판정 기준은 순서가 아니라
+        **Debug_worker_v2 의 S1·S2 가 `BlockEditor.tsx` 에서 손을 뗐는가**다
+    - id: "D9 — R6 전역 검색은 JS 우선"
+      pm_decision: "Rust 는 실측으로 성능이 문제가 될 때. 재지 않은 성능 우려로 아키텍처를 먼저 고르지 않는다(A6 선례)"
+      effect_on_this_ticket: "`my_queue` 의 R6 `blocker`(Rust vs JS 미확정)는 **해소됨.** 다만 `implementation_plan.md` §4A 사양 두 벌 문제는 그대로 남는다"
+    - id: "수치 차이 — 기록만"
+      detail: >
+        PM 은 TSX/TS 임의값을 **17개**로 재실측했고 이전 보고의 9개를 과소집계로 판정했다.
+        이 티켓의 9는 `*.tsx` 의 `bg-[#hex]` 류 임의값 클래스만 센 것이고, 별도로 `*.ts`+`*.tsx`
+        생 hex 를 **59개**로 셌다(§delta 밖). **측정 대상이 다르다 — 어느 쪽도 오류가 아니다.**
+        사양 작성 시 PM 의 17 을 기준으로 쓰고, 팔레트 클래스 182 는 그와 별개 항목으로 더한다
+# ━━━
 traps:
   - "`implementation_plan.md` §4A.2~4A.8 이 **두 벌 존재**(1090~ / 1575~). 아래쪽에만 「아키텍처 결정: Rust vs JS」가 있다. 사용자 판단 대기 — **어느 쪽을 근거로 삼는지 명시할 것.** 경고는 2026-09-04 에 첫 번째 벌 앞으로 상향됨"
   - "`claude-history/arch/` 의 두 문서는 **드리프트**(제거된 전역 `blockStore` 싱글턴 기술). **참조 금지**"
