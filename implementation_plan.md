@@ -1001,8 +1001,27 @@ export function injectThemeTokens(tokens: ThemeTokens): void {
 
 ### 3.9 Tailwind 연동
 
+> **⛔ 정정 (2026-09-05) — 아래 코드 블록의 처방은 틀렸다. 그대로 구현하면 조용히 깨진다.**
+>
+> `colors` 값에 `'var(--x)'` 를 그대로 넣으면 **`.bg-X` 는 생성되지만 `.bg-X/20`(불투명도 수식어)이
+> 출력되지 않는다.** 저장소에 설치된 `tailwindcss@3.4.19` 컴파일 출력으로 확인했다:
+>
+> | config 값 | `.bg-X` | `.bg-X/20` |
+> |---|---|---|
+> | `'#6366f1'` (현행) | ✅ | ✅ `rgb(99 102 241 / 0.2)` |
+> | `'var(--accent-primary)'` ← **아래 블록** | ✅ | ❌ **규칙 자체가 생성되지 않음** |
+> | `'rgb(var(--accent-primary-rgb) / <alpha-value>)'` | ✅ | ✅ |
+>
+> **위험한 이유는 실패가 조용하다는 것이다** — 에러도 경고도 없이 유틸리티가 출력되지 않고,
+> 해당 요소가 그냥 색을 잃는다. 이 저장소에 그런 수식어가 **73곳** 있다
+> (`border-darkBorder/40` 14 · `text-mutedText/40` 10 · `bg-primary/20` 9 · `bg-primary/10` 6 · 나머지 34).
+>
+> **올바른 처방: 토큰 값을 RGB 채널 트리플릿으로 두고 `rgb(var(--x-rgb) / <alpha-value>)` 를 쓴다.**
+> 이러면 **73곳을 한 줄도 안 고친다.** 상세와 재현 명령은
+> [`IMPL_PLAN_R5A_THEME_TOKENS.md`](IMPL_PLAN_R5A_THEME_TOKENS.md) §2 (`611e230`).
+
 ```javascript
-// tailwind.config.js 수정
+// tailwind.config.js 수정 — ⛔ 위 정정 참조. 이 형태로 쓰지 말 것.
 colors: {
   darkBg:     'var(--bg-primary)',
   darkPanel:  'var(--bg-secondary)',
@@ -1018,6 +1037,10 @@ colors: {
 > **Tailwind의 opacity modifier와 CSS 변수**: `bg-primary/50` 같은 Tailwind 문법은 hex 값에서만 정상 동작합니다.
 > CSS 변수를 사용하면 `bg-[var(--accent-primary)]/50`이 작동하지 않을 수 있습니다.
 > **해결책**: opacity가 필요한 곳에서는 `bg-[var(--accent-primary)]` + `opacity-50` 클래스를 분리하거나, Tailwind 대신 인라인 `style={{ backgroundColor: 'color-mix(in srgb, var(--accent-primary) 50%, transparent)' }}`를 사용하세요.
+>
+> **⛔ 이 「해결책」은 폐기됐다 (2026-09-05).** 문제 인식은 맞았으나 처방이 반대다 — 두 방법 모두
+> **73곳의 사용처를 전부 손대야 한다.** `rgb(var(--x-rgb) / <alpha-value>)` 방식은 **사용처를 하나도
+> 건드리지 않는다.** 위 정정과 `IMPL_PLAN_R5A_THEME_TOKENS.md` §2 를 따를 것.
 
 ### 3.10 테마 선택 UI
 
