@@ -1086,22 +1086,22 @@ useEffect(() => {
 
 ## Sprint 4A: 검색 시스템 (전역 검색 + 파일 내 검색)
 
-> **⚠️ 이 절은 두 벌 중 「첫 번째 벌」이다 (2026-09-04 계획 세션 추가).**
+> **✅ 두 벌 통합 완료 (2026-09-05, `PM-20260904-01` D10 · 사용자 결정).**
 >
-> 같은 번호(`### 4A.2`~`### 4A.8`)의 **두 번째 사양이 이 문서 아래쪽에 또 있다.** 기존 경고는
-> 두 번째 벌이 시작하는 지점에만 붙어 있어서, **이 문서를 위에서부터 읽는 사람에게는 보이지 않았다.**
-> 그 경고를 여기로 끌어올린다.
+> 이 절은 2026-08-30 부터 **번호가 어긋난 채 겹치는 두 벌**로 존재했다. 절 번호가 1:1 대응하지
+> 않았고(첫 벌 `4A.3`=Rust 엔진 / 둘째 벌 `4A.3`=아키텍처 결정, 둘째 벌 `4A.4`=Rust 엔진) 어느
+> 쪽도 상위집합이 아니어서 기계적 병합이 불가능했다.
 >
-> - **두 벌은 같지 않다.** 어느 한쪽을 기계적으로 지우면 내용이 소실된다
-> - 두 번째 벌에만 있는 것: **「아키텍처 결정: Rust vs JS」**
-> - **해소는 사용자 판단 대기 중이다.** 그 전까지 이 절을 근거로 사양을 쓸 때는
->   **반드시 두 벌을 모두 읽고 어느 쪽을 채택했는지 명시할 것**
+> **통합 방식**: 첫 번째 벌의 번호 체계를 뼈대로 유지했다 — `function_roadmap.md:99`(§4A.3) ·
+> `architecture_stages.md:69`(§4A.6) · 본 문서 `:8`(§4A.5·§4A.6) 등 **외부 참조 5곳이 이 번호를
+> 가리키고 있어** 재번호는 그 참조를 전부 깨뜨린다.
 >
-> 상세 비교는 두 번째 벌 시작 지점의 원 경고를 참고한다.
-
-
-> **참조**: `functions/4_global_search.md` · 난이도: ★★★ · 예상 소요: 4~5일
-> **선행 조건**: Sprint 2 (설정에서 검색 관련 옵션 저장)
+> **두 번째 벌에서 살려 온 것**: 아키텍처 결정 원문(→ `4A.3-a`) · Rust 구현안 B(→ `4A.3-b`) ·
+> `Cmd+Shift+F` 단축키 배선(→ `4A.8`) · 검증 항목 2건(→ `4A.9`).
+> 나머지(파일 목록·검색 Store·패널 UI·체크리스트)는 첫 번째 벌이 상위집합임을 대조로 확인하고 버렸다 —
+> 첫 벌의 Store 는 `invoke` 에 더해 **dirty 탭 병합(`isUnsaved`)** 을, 패널 UI 는 **미저장 뱃지**를 갖는다.
+>
+> 통합 이력과 원래 구조는 [`DOCUMENTS.md`](DOCUMENTS.md) §4.5 에 보존한다.
 
 ### 4A.1 목표 및 검색 범위 분리
 
@@ -1130,7 +1130,7 @@ useEffect(() => {
 | `src/widgets/GlobalSearch/ui/GlobalSearch.tsx` | 전역 검색 패널 UI |
 | `src/features/inFileSearch/ui/InFileSearchBar.tsx` | 파일 내 검색 인라인 바 UI |
 
-### 4A.3 전역 검색 — Rust 검색 엔진 (BufReader 기반)
+### 4A.3 전역 검색 엔진 — **JS 우선(D9). 아래 Rust 자료는 Phase 4 참고용.**
 
 > **⛔ D9 정정 (2026-09-04, `PM-20260904-01` §scope_revision_r5_r6) — 이 절의 Rust 기본 설계는 뒤집혔다.**
 >
@@ -1259,6 +1259,141 @@ pub async fn devoras_search_workspace(
 ```rust
 mod search;
 
+.invoke_handler(tauri::generate_handler![
+    devoras_image_save, devoras_set_workspace_root, show_main_window, close_splashscreen,
+    search::devoras_search_workspace,  // ✅ 추가
+])
+```
+
+
+---
+
+#### 4A.3-a 결정 이력 — Rust vs JavaScript (통합 전 두 번째 벌 `4A.3`)
+
+> **보존 이유**: D9 이 이 결론을 뒤집었지만 **근거는 남긴다.** Rust 이관을 실제로 할 때(Phase 4)
+> 다시 검토할 물건이고, D9 을 재론하려는 사람이 읽어야 할 원문이다. 위 D9 배너가 이 결론에
+> 우선한다.
+
+> [!IMPORTANT]
+> **`architecture_stages.md` 준수**: Stage 2에서 "파일 검색 인덱싱을 Rust로 구현"이 명시되어 있으며, Stage 1에서 "IPC 인터페이스 설계"를 요구합니다.
+> Phase 3.5의 전역 검색을 Rust로 구현하면, **Stage 2 진입 비용을 크게 절감**할 수 있습니다.
+
+**결론**: 검색 로직은 **Rust 백엔드에서 수행**합니다.
+
+이유:
+1. JavaScript에서 수백 개 파일을 동기/비동기 읽기하면 UI 스레드가 멈춤
+2. Rust의 `ignore` + `grep` crate는 `.gitignore` 자동 존중 + 멀티스레드 검색 지원
+3. IPC 호출 1회로 결과를 받으므로 프론트엔드 복잡도가 대폭 감소
+4. `architecture_stages.md`의 `devoras_{domain}_{action}` 네이밍 컨벤션 확립의 시작점
+
+#### 4A.3-b Phase 4 참고 — Rust 구현안 **B** (`ignore` crate, 통합 전 두 번째 벌 `4A.4`)
+
+> 위 본절의 구현안(**A**, `BufReader` 기반)과 **별개의 설계**다. 두 벌에 서로 다른 Rust 구현이
+> 하나씩 있었고 **둘 다 보존한다** — Phase 4 착수 시 비교 대상이다.
+
+**새 의존성 (Cargo.toml)**:
+```toml
+[dependencies]
+# 기존 deps...
+ignore = "0.4"    # .gitignore 존중 파일 워킹
+```
+
+```rust
+// src-tauri/src/search.rs
+
+use serde::Serialize;
+use ignore::WalkBuilder;
+
+#[derive(Debug, Serialize, Clone)]
+pub struct SearchResult {
+    pub file_path: String,
+    pub file_name: String,
+    pub line: usize,        // 1-indexed
+    pub column: usize,      // 0-indexed
+    pub context_text: String,
+    pub match_type: String,  // "filename" | "content"
+}
+
+#[tauri::command]
+pub async fn devoras_search_workspace(
+    workspace_path: String,
+    query: String,
+    max_results: Option<usize>,
+) -> Result<Vec<SearchResult>, String> {
+    if query.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let max = max_results.unwrap_or(200);
+    let query_lower = query.to_lowercase();
+    let mut results = Vec::new();
+
+    let walker = WalkBuilder::new(&workspace_path)
+        .hidden(true)        // .으로 시작하는 파일/폴더 건너뜀
+        .git_ignore(true)    // .gitignore 존중
+        .filter_entry(|entry| {
+            let name = entry.file_name().to_string_lossy();
+            name != "node_modules" && name != ".git" && name != ".devoras"
+        })
+        .build();
+
+    for entry in walker.flatten() {
+        if results.len() >= max { break; }
+
+        let path = entry.path();
+        if !path.is_file() { continue; }
+
+        let file_name = path.file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_default();
+
+        // 1. 파일명 매칭
+        if file_name.to_lowercase().contains(&query_lower) {
+            results.push(SearchResult {
+                file_path: path.to_string_lossy().to_string(),
+                file_name: file_name.clone(),
+                line: 0,
+                column: 0,
+                context_text: String::new(),
+                match_type: "filename".to_string(),
+            });
+        }
+
+        // 2. 본문 매칭 (텍스트 파일만)
+        let ext = path.extension()
+            .map(|e| e.to_string_lossy().to_lowercase())
+            .unwrap_or_default();
+
+        if !matches!(ext.as_str(), "md" | "txt" | "erd" | "json" | "yml" | "yaml") {
+            continue;
+        }
+
+        if let Ok(content) = std::fs::read_to_string(path) {
+            for (line_idx, line) in content.lines().enumerate() {
+                if results.len() >= max { break; }
+                if let Some(col) = line.to_lowercase().find(&query_lower) {
+                    results.push(SearchResult {
+                        file_path: path.to_string_lossy().to_string(),
+                        file_name: file_name.clone(),
+                        line: line_idx + 1,
+                        column: col,
+                        context_text: line.to_string(),
+                        match_type: "content".to_string(),
+                    });
+                }
+            }
+        }
+    }
+
+    Ok(results)
+}
+```
+
+**`lib.rs` 등록**:
+```rust
+mod search;
+
+// invoke_handler에 추가:
 .invoke_handler(tauri::generate_handler![
     devoras_image_save, devoras_set_workspace_root, show_main_window, close_splashscreen,
     search::devoras_search_workspace,  // ✅ 추가
@@ -1587,7 +1722,7 @@ const handleResultClick = async (result: SearchResult) => {
 };
 ```
 
-### 4A.8 디바운스
+### 4A.8 디바운스 및 키보드 단축키
 
 ```typescript
 // GlobalSearch.tsx 내부
@@ -1601,316 +1736,8 @@ useEffect(() => {
 }, [query]);
 ```
 
-### 4A.9 검증 체크리스트
+**키보드 단축키 배선** (통합 전 두 번째 벌 `4A.7` — 첫 번째 벌에 없던 내용):
 
-- [ ] `Cmd+Shift+F`로 전역 검색 패널이 열리는가
-- [ ] `Cmd+F`로 파일 내 검색 인라인 바가 열리는가
-- [ ] 전역 검색: 250ms 디바운스 후 결과가 표시되는가
-- [ ] 파일 내 검색: 현재 에디터의 미저장 내용도 즉시 검색되는가
-- [ ] dirty 탭의 미저장 내용이 전역 검색 결과에 "(미저장)" 뱃지와 함께 표시되는가
-- [ ] 결과 클릭 시 해당 파일이 열리고 커서가 해당 라인으로 이동하는가
-- [ ] `.git`, `node_modules`, `.devoras` 폴더가 전역 검색에서 제외되는가
-- [ ] 바이너리 파일 존재 시 크래시 없이 건너뛰는가
-- [ ] `cargo build` 성공, `pnpm tsc --noEmit` 통과
-
----
-
-
-
-> [!CAUTION]
-> **⚠️ 문서 구조 결함 — Sprint 4A 사양이 두 벌 존재합니다 (2026-08-30 발견, 미해결)**
->
-> 이 지점부터 아래 `### 4A.8 검증 체크리스트` 까지는 **바로 위 Sprint 4A 절(`### 4A.2`~`### 4A.9`)과 번호가 중복되는 두 번째 사양**입니다. `## Sprint 4A` 상위 헤딩 없이 `### 4A.2` 로 갑자기 시작하므로 편집 중 유입된 것으로 보입니다.
->
-> **두 벌은 같지 않습니다** — 어느 한쪽을 기계적으로 지우면 내용이 소실됩니다:
-> - **위쪽(먼저 나오는) 판**에만 있는 것: `4A.5 파일 내 검색 — CodeMirror SearchCursor`, `4A.6 EditorViewRegistry`, `4A.9 검증 체크리스트`
-> - **아래쪽(이 판)**에만 있는 것: `4A.3 아키텍처 결정: Rust vs JavaScript 검색`
->
-> 아래쪽이 더 이른 초안으로 보이나 **아키텍처 결정 근거는 아래쪽에만 남아 있습니다.** 정리 시 그 절을 위쪽으로 옮긴 뒤 아래쪽을 제거하는 것이 안전합니다. **사용자 확인 전까지 어느 쪽도 삭제하지 않았습니다.**
-
-### 4A.2 신규 파일 목록
-
-| 파일 경로 | 역할 |
-|-----------|------|
-| `src-tauri/src/search.rs` | Rust 네이티브 파일 검색 엔진 |
-| `src/features/search/model/store.ts` | 검색 상태 Zustand Store |
-| `src/features/search/model/types.ts` | SearchResult 타입 정의 |
-| `src/widgets/GlobalSearch/ui/GlobalSearch.tsx` | 검색 패널 UI 컴포넌트 |
-
-### 4A.3 아키텍처 결정: Rust vs JavaScript 검색
-
-> **⛔ D9 정정 (2026-09-04, `PM-20260904-01` §scope_revision_r5_r6) — 이 절의 Rust 기본 설계는 뒤집혔다.**
->
-> **R6(전역 검색)은 JS 우선으로 짓는다. Rust 이관은 실측으로 성능이 문제가 될 때 한다.**
->
-> 근거: Rust 검색은 `architecture_stages.md:81` **Stage 2(Tier 1)** 항목이고 **출시 후로 미뤄져 있다.**
-> 전역 검색을 Rust 로 지으면 **Stage 2 를 출시 앞으로 당기는 것**이다.
-> 그리고 이 절의 1번 이유(「JS 로 수백 개 파일을 읽으면 UI 스레드가 멈춤」)는 **재지 않은 성능 우려**다 —
-> **A6 선례를 반복하지 않는다**(재지 않은 성능 우려로 아키텍처를 먼저 골랐고, 실측에서 예산 대비
-> 27배 여유가 나왔다. `DEBUG_PLAN.md` §5.11).
-
-> **📌 계획 세션 확인 (2026-09-04)**: 이 절의 `architecture_stages.md 준수` 프레이밍은 **과장이다.**
-> `architecture_stages.md:89` 의 Stage 2 항목은 「파일 검색 **인덱싱**을 Rust 로 구현(향후 전체 텍스트
-> 검색 **대비**)」이며 **아직 체크되지 않은 향후 항목**이다 — Phase 3.5 의 전역 검색을 Rust 로 지으라고
-> 요구하지 않는다. 이 절이 실제로 제시한 것은 준수 요구가 아니라 **「지금 Rust 로 지으면 Stage 2 가 싸진다」는
-> 최적화 논거**다.
->
-> 그리고 같은 문서 `:244` 는 **「Rust 이관은 Big Bang 이 아니라 도메인 하나씩 점진적으로」** 를 원칙으로
-> 못 박는다. **따라서 D9 는 `architecture_stages.md` 와 충돌하지 않는다 — 오히려 그 점진 원칙에 부합한다.**
-
-> [!IMPORTANT]
-> **`architecture_stages.md` 준수**: Stage 2에서 "파일 검색 인덱싱을 Rust로 구현"이 명시되어 있으며, Stage 1에서 "IPC 인터페이스 설계"를 요구합니다.
-> Phase 3.5의 전역 검색을 Rust로 구현하면, **Stage 2 진입 비용을 크게 절감**할 수 있습니다.
-
-**결론**: 검색 로직은 **Rust 백엔드에서 수행**합니다.
-
-이유:
-1. JavaScript에서 수백 개 파일을 동기/비동기 읽기하면 UI 스레드가 멈춤
-2. Rust의 `ignore` + `grep` crate는 `.gitignore` 자동 존중 + 멀티스레드 검색 지원
-3. IPC 호출 1회로 결과를 받으므로 프론트엔드 복잡도가 대폭 감소
-4. `architecture_stages.md`의 `devoras_{domain}_{action}` 네이밍 컨벤션 확립의 시작점
-
-### 4A.4 Rust 검색 엔진 구현
-
-> **⛔ D9 정정 (2026-09-04, `PM-20260904-01` §scope_revision_r5_r6) — 이 절의 Rust 기본 설계는 뒤집혔다.**
->
-> **R6(전역 검색)은 JS 우선으로 짓는다. Rust 이관은 실측으로 성능이 문제가 될 때 한다.**
->
-> 근거: Rust 검색은 `architecture_stages.md:81` **Stage 2(Tier 1)** 항목이고 **출시 후로 미뤄져 있다.**
-> 전역 검색을 Rust 로 지으면 **Stage 2 를 출시 앞으로 당기는 것**이다.
-> 그리고 이 절의 1번 이유(「JS 로 수백 개 파일을 읽으면 UI 스레드가 멈춤」)는 **재지 않은 성능 우려**다 —
-> **A6 선례를 반복하지 않는다**(재지 않은 성능 우려로 아키텍처를 먼저 골랐고, 실측에서 예산 대비
-> 27배 여유가 나왔다. `DEBUG_PLAN.md` §5.11).
-
-**새 의존성 (Cargo.toml)**:
-```toml
-[dependencies]
-# 기존 deps...
-ignore = "0.4"    # .gitignore 존중 파일 워킹
-```
-
-```rust
-// src-tauri/src/search.rs
-
-use serde::Serialize;
-use ignore::WalkBuilder;
-
-#[derive(Debug, Serialize, Clone)]
-pub struct SearchResult {
-    pub file_path: String,
-    pub file_name: String,
-    pub line: usize,        // 1-indexed
-    pub column: usize,      // 0-indexed
-    pub context_text: String,
-    pub match_type: String,  // "filename" | "content"
-}
-
-#[tauri::command]
-pub async fn devoras_search_workspace(
-    workspace_path: String,
-    query: String,
-    max_results: Option<usize>,
-) -> Result<Vec<SearchResult>, String> {
-    if query.is_empty() {
-        return Ok(vec![]);
-    }
-
-    let max = max_results.unwrap_or(200);
-    let query_lower = query.to_lowercase();
-    let mut results = Vec::new();
-
-    let walker = WalkBuilder::new(&workspace_path)
-        .hidden(true)        // .으로 시작하는 파일/폴더 건너뜀
-        .git_ignore(true)    // .gitignore 존중
-        .filter_entry(|entry| {
-            let name = entry.file_name().to_string_lossy();
-            name != "node_modules" && name != ".git" && name != ".devoras"
-        })
-        .build();
-
-    for entry in walker.flatten() {
-        if results.len() >= max { break; }
-
-        let path = entry.path();
-        if !path.is_file() { continue; }
-
-        let file_name = path.file_name()
-            .map(|n| n.to_string_lossy().to_string())
-            .unwrap_or_default();
-
-        // 1. 파일명 매칭
-        if file_name.to_lowercase().contains(&query_lower) {
-            results.push(SearchResult {
-                file_path: path.to_string_lossy().to_string(),
-                file_name: file_name.clone(),
-                line: 0,
-                column: 0,
-                context_text: String::new(),
-                match_type: "filename".to_string(),
-            });
-        }
-
-        // 2. 본문 매칭 (텍스트 파일만)
-        let ext = path.extension()
-            .map(|e| e.to_string_lossy().to_lowercase())
-            .unwrap_or_default();
-
-        if !matches!(ext.as_str(), "md" | "txt" | "erd" | "json" | "yml" | "yaml") {
-            continue;
-        }
-
-        if let Ok(content) = std::fs::read_to_string(path) {
-            for (line_idx, line) in content.lines().enumerate() {
-                if results.len() >= max { break; }
-                if let Some(col) = line.to_lowercase().find(&query_lower) {
-                    results.push(SearchResult {
-                        file_path: path.to_string_lossy().to_string(),
-                        file_name: file_name.clone(),
-                        line: line_idx + 1,
-                        column: col,
-                        context_text: line.to_string(),
-                        match_type: "content".to_string(),
-                    });
-                }
-            }
-        }
-    }
-
-    Ok(results)
-}
-```
-
-**`lib.rs` 등록**:
-```rust
-mod search;
-
-// invoke_handler에 추가:
-.invoke_handler(tauri::generate_handler![
-    devoras_image_save, devoras_set_workspace_root, show_main_window, close_splashscreen,
-    search::devoras_search_workspace,  // ✅ 추가
-])
-```
-
-### 4A.5 프론트엔드 검색 Store
-
-```typescript
-// src/features/search/model/store.ts
-import { create } from 'zustand';
-import { invoke } from '@tauri-apps/api/core';
-
-export interface SearchResult {
-  filePath: string;
-  fileName: string;
-  line: number;
-  column: number;
-  contextText: string;
-  matchType: 'filename' | 'content';
-}
-
-interface SearchState {
-  query: string;
-  results: SearchResult[];
-  isSearching: boolean;
-  isOpen: boolean;
-
-  setQuery: (query: string) => void;
-  executeSearch: (workspacePath: string) => Promise<void>;
-  toggleOpen: () => void;
-  close: () => void;
-}
-
-export const useSearchStore = create<SearchState>((set, get) => ({
-  query: '',
-  results: [],
-  isSearching: false,
-  isOpen: false,
-
-  setQuery: (query) => set({ query }),
-
-  executeSearch: async (workspacePath: string) => {
-    const { query } = get();
-    if (!query.trim()) {
-      set({ results: [] });
-      return;
-    }
-
-    set({ isSearching: true });
-    try {
-      const results = await invoke<SearchResult[]>('devoras_search_workspace', {
-        workspacePath,
-        query: query.trim(),
-        maxResults: 200,
-      });
-      // camelCase 변환 (Rust의 snake_case → JS camelCase)
-      set({
-        results: results.map((r: any) => ({
-          filePath: r.file_path,
-          fileName: r.file_name,
-          line: r.line,
-          column: r.column,
-          contextText: r.context_text,
-          matchType: r.match_type,
-        })),
-      });
-    } catch (err) {
-      console.error('[Search] 검색 실패:', err);
-      set({ results: [] });
-    } finally {
-      set({ isSearching: false });
-    }
-  },
-
-  toggleOpen: () => set((s) => ({ isOpen: !s.isOpen })),
-  close: () => set({ isOpen: false, query: '', results: [] }),
-}));
-```
-
-### 4A.6 검색 패널 UI
-
-```
-┌──────────────────────────────────────┐
-│ 🔍 [검색어 입력_________________] ✕ │
-│ ────────────────────────────────────  │
-│ 📄 파일명 일치 (3건)                  │
-│   notes.md                           │
-│   meeting-notes.md                   │
-│   release-notes.md                   │
-│ ────────────────────────────────────  │
-│ 📝 본문 일치 (12건)                   │
-│   design.md:42  ...기능 [검색어] 의... │
-│   todo.md:15    ...[검색어] 추가 필...  │
-│   ...                                │
-└──────────────────────────────────────┘
-```
-
-**결과 점프 구현**:
-```typescript
-const handleResultClick = async (result: SearchResult) => {
-  // 1. 해당 파일 열기
-  await useDocumentStore.getState().openTab(fileEntry);
-  
-  // 2. 에디터 커서 이동 (본문 매칭인 경우)
-  if (result.matchType === 'content' && result.line > 0) {
-    // CodeMirror 에디터 뷰 획득 후 커서 디스패치
-    requestAnimationFrame(() => {
-      const view = getActiveEditorView();
-      if (!view) return;
-      const line = view.state.doc.line(result.line);
-      const pos = line.from + result.column;
-      view.dispatch({
-        selection: { anchor: pos },
-        scrollIntoView: true,
-      });
-      view.focus();
-    });
-  }
-  
-  // 3. 검색 패널 닫기
-  useSearchStore.getState().close();
-};
-```
-
-### 4A.7 디바운스 및 키보드 단축키
 
 ```typescript
 // WorkspacePage.tsx에 단축키 추가
@@ -1930,17 +1757,19 @@ useEffect(() => {
 }, [query]);
 ```
 
-### 4A.8 검증 체크리스트
+### 4A.9 검증 체크리스트
 
-- [ ] `Cmd+Shift+F`로 검색 패널이 열리는가
-- [ ] 검색어 입력 시 250ms 디바운스 후 결과가 표시되는가
-- [ ] 파일명 매칭과 본문 매칭이 분리 표시되는가
+- [ ] `Cmd+Shift+F`로 전역 검색 패널이 열리는가
+- [ ] `Cmd+F`로 파일 내 검색 인라인 바가 열리는가
+- [ ] 전역 검색: 250ms 디바운스 후 결과가 표시되는가
+- [ ] 파일 내 검색: 현재 에디터의 미저장 내용도 즉시 검색되는가
+- [ ] dirty 탭의 미저장 내용이 전역 검색 결과에 "(미저장)" 뱃지와 함께 표시되는가
 - [ ] 결과 클릭 시 해당 파일이 열리고 커서가 해당 라인으로 이동하는가
-- [ ] `.git`, `node_modules`, `.devoras` 폴더가 검색에서 제외되는가
+- [ ] `.git`, `node_modules`, `.devoras` 폴더가 전역 검색에서 제외되는가
+- [ ] 바이너리 파일 존재 시 크래시 없이 건너뛰는가
+- [ ] 파일명 매칭과 본문 매칭이 분리 표시되는가
 - [ ] 빈 쿼리 또는 특수문자 입력 시 크래시 없이 정상 동작하는가
 - [ ] `cargo build` 성공, `pnpm tsc --noEmit` 통과
-
----
 
 ## Sprint 4B: 탭 & 스플릿 뷰 고도화
 
