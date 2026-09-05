@@ -304,3 +304,56 @@ lane_assignment:
     - "Open Q #5 데코레이터 중재 인프라 · `protectedRegions` N² 부채"
     - "P2-4·P2-6~P2-8 코드 품질 · A4 상시 디버그 채널"
     - "BUG-20260828-05 IME 시작 축 — **R4(번들 실기 검증) 때 함께 확인**하고 단독 착수하지 않는다"
+# ━━━
+scope_revision_r5_r6:
+  update: "2026-09-05 — 계획 세션 사양서 코드 대조(`ebf270d`) 접수 + PM 재판정"
+  note: >
+    세로 분할 때는 스코프를 **줄였고**, 이번엔 **늘린다.** 계획 세션이 착수 전에 잡았다 —
+    R0(귀속)을 만족하는 조사였고, 사양서만 보고 착수했으면 R5 착수 후 마이그레이션이 통째로 튀어나왔다.
+  r5_scope_expansion:
+    finding: "`functions/6_theme_yaml_custom.md` §3 의 전제가 코드에 없다"
+    verified_by_pm: "2026-09-05, 직접 실측"
+    table:
+      - "`app/styles/index.css` — CSS 커스텀 속성 **0개**, HSL **0개**, 하드코딩 hex **33개**"
+      - "`app/styles/erd.css` — `:root` 변수 9개 존재하나 **ERD 전용으로 갈라져 있고 값이 Tailwind 와 바이트 동일 중복**(`--background-primary: #0d0e12` = `darkBg`, `--background-modifier-border: #272a37` = `darkBorder`, `--text-accent: #6366f1` = `primary`). hex 7개"
+      - "`tailwind.config.js` — 색 **6개** 전부 하드코딩 hex"
+      - "TSX/TS 임의값 색 클래스 — **17개** (계획 세션 보고 9개는 과소집계. `.ts` 데코레이터 포함 시 17)"
+      - "`entities/theme/` — **디렉터리 자체가 없다**. `code_review.md` §9.2' 이 D-4 근거로 인용한 `entities/theme/lib/injector.ts` 는 **계획 경로**이며 기존 물건이 아니다(계획 세션 표기 정정 완료)"
+      - "`js-yaml` 등 YAML 파서 — **의존성 미도입**"
+    verdict: >
+      **「변수 세팅 개편」이 아니라 「토큰 체계 신설」이다.** YAML 오버라이드는 토큰 계층이 선 뒤에만 성립한다.
+  D8:
+    q: "R5 를 어떻게 스코프에 넣을 것인가 (범위가 사양서보다 넓게 확인됨)"
+    a: "**R5 를 둘로 쪼갠다. R5-a 만 출시 스코프.**"
+    decided_by: "PM (2026-09-05)"
+    R5a:
+      name: "토큰 마이그레이션 + 다크/라이트 모드"
+      scope: "`tailwind.config.js` 6 + `index.css` 33 + `erd.css` 7(+변수 9 통합) + TSX/TS 17 → CSS 변수 토큰으로 이관 · 다크/라이트 팔레트 2벌 · 런타임 전환"
+      in_release: true
+      absorbs:
+        - "**R-6 StyleModule 누수**(`BUG-20260831-02`) — `createEditorTheme()` 상수화가 토큰 이관 그 자체다(사용자 결정 D-4). `BlockEditor.tsx:144` reconfigure 경로도 함께 소멸"
+        - "**`erd.css` 변수 중복 제거** — `implementation_plan.md:1069` 가 이미 잡아 둔 항목. 값이 바이트 동일하므로 통합에 판단이 필요 없다"
+      rationale: >
+        **다크 모드는 토큰 + 팔레트 2벌이면 성립한다. YAML 파서가 필요 없다.**
+        사용자 가치의 대부분이 여기 있고, 출시를 `js-yaml` 도입·파서·핫리로드에 묶지 않는다.
+    R5b:
+      name: "YAML 커스텀 테마 (사용자 정의 + 핫 리로드)"
+      in_release: false
+      when: "출시 후. R5-a 가 세운 토큰 계층 위에 얹는 일이라 **나중에 해도 R5-a 가 매몰되지 않는다**"
+      note: "`functions/6_theme_yaml_custom.md` 의 YAML 부분은 그대로 유효하다 — 전제만 R5-a 가 만든다"
+  D9:
+    q: "R6 전역 검색 — Rust 엔진 vs JS 유틸 (두 문서가 갈린다)"
+    conflict:
+      - "`functions/4_global_search.md` §3 — **Shared Layer JS 유틸** `searchWorkspace()`. Rust 는 체크리스트 마지막 **성능 대비책**으로만 언급"
+      - "`implementation_plan.md` §4A.3 — **Rust 엔진(BufReader)을 기본 설계로 확정**"
+    a: "**JS 우선. Rust 는 성능이 실측으로 문제가 될 때.** (PM 판정, 사용자 확인 대상)"
+    rationale:
+      - "**Rust 이관은 Phase 4 Tier 1 이고 출시 후로 미뤄져 있다.** 전역 검색을 Rust 로 지으면 Phase 4 를 출시 앞으로 당기는 것이 된다 — 스코프 확대다"
+      - "R4 우선순위 축: **출시 차단 > 내부 품질.** 아직 존재하지 않는 기능의 성능 최적화는 출시를 막지 않는다"
+      - "**이 프로젝트가 방금 그 실수로 8일을 썼다** — 재지 않은 성능 우려로 아키텍처를 먼저 골랐고(A6), 실측에서 예산 27배 여유가 나왔다(§5.11). 같은 형태를 반복하지 않는다"
+      - "기능 사양서(`functions/`)가 제품 사양의 원본이고, 그쪽 순서가 JS → 필요 시 Rust 다"
+    action: "`implementation_plan.md` §4A.3 에 **이 판정을 정정 표기**할 것 — 두 벌 문제와 별개다. 그 문서만 읽은 세션이 Rust 로 착수하는 것을 막는다"
+  accepted_without_change:
+    - "**§4A 경고 상향** — 기존 경고가 `:1595`(두 번째 벌 시작점)에만 있어 위에서부터 읽는 사람은 두 벌의 존재를 몰랐고, 「아키텍처 결정: Rust vs JS」가 **두 번째 벌에만** 있어 정직하게 읽은 사람이 정확히 그 결정을 놓쳤다. `:1089` 로 상향 완료. 두 벌 해소 자체는 사용자 판단 대기 유지, **그전까지 두 벌 모두 읽고 채택한 쪽을 명시**하는 조건 유지"
+    - "`code_review.md` §9.0 R2 서술 정정 완료 (D6 반영)"
+    - "`injector.ts` 를 계획 경로로 표기 — D-4 결정 자체는 유효"
