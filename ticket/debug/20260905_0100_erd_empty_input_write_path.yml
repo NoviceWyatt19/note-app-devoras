@@ -1,0 +1,70 @@
+# 🐞 BUG TICKET
+type: "BUG"
+id: "BUG-20260905-01"
+# ━━━
+update: "2026-09-05"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "ERD — 파싱 실패는 막혔으나 **빈 입력 → 쓰기** 경로가 남았고, 두 방어선 모두 이걸 못 잡는다"
+status: "제기 (계획 세션 교차검증 산출)"
+severity: "P1 — 데이터 유실 인접. 도달 조건 미확정이라 P0 아님"
+raised_by: "Debug_Manager_v2 (R1 교차검증)"
+related: "BUG-20260902-01(R1, 이 수정) · FEAT-20260904-01(자동 저장)"
+# ━━━
+r1_verdict:
+  axis: "「3단계 폴백이 의도한 안전장치가 아니라 손실 경로가 되는가」"
+  result: "✅ **통과.** 3단 폴백 자체가 사라졌다"
+  evidence:
+    - "`parseErdDocument`(`entities/erd/model/erd.ts:117-134`)는 **모든 실패에서 던진다** — `JSON.parse` · 비객체 · `version!==1` · `tables`/`relations` 비배열. `normalizeTable:215-221` · `normalizeColumn:236-239` 도 던진다. **조용히 빈 결과를 반환하는 경로가 없다**"
+    - "`ErdDesignerMainView` 는 이제 catch 에서 `setParseError(rawContent)` 만 하고 **쓰기를 하지 않는다**"
+    - "하네스 `test:t15` 에 등재됨(`package.json:18,23`), 실행 2/2 통과"
+# ━━━
+residuals:
+  - id: "잔여 1 — **가장 중요**. `initialContent` 가 `savedContent` 를 무시한다"
+    where: "`pages/WorkspacePage/WorkspacePage.tsx:369`"
+    code: "initialContent={activeTab.cache?.rawContent ?? ''}"
+    fact: "`savedContent` 는 이 파일에서 **한 번도 참조되지 않는다**(grep 0건). 폴백이 곧바로 `''` 다"
+    consequence: >
+      탭에 `cache` 가 없고 `savedContent` 만 있는 상태가 존재하면, ERD 뷰는 `rawContent === ''` 를 보고
+      **빈 문서 분기**로 들어가 `setRawContent` + `updateContentForTab` 로 스켈레톤을 쓴다 → dirty →
+      **자동 저장 기본값 `high` 가 실제 파일 위에 스켈레톤을 덮어쓴다.**
+    reachability: >
+      **미확정이다. 결함으로 확정하지 않는다.** 로드 경로(`store.ts:225-244`)와 캐시 복원 경로 모두
+      `cache` 를 채우고, 로드 실패 시에는 `set(...)` 이 try 안이라 **탭 자체가 안 생긴다**(그 경로는 닫혀 있다).
+      `cache === undefined` 인 탭이 실제로 만들어지는 경로를 찾지 못했다.
+    why_fix_anyway: >
+      **막지 못한 비용이 파일 소실이고, 막는 비용이 한 줄이다.** 그리고 `savedContent` 라는 정확한
+      폴백이 **이미 그 자리에 있는데 안 쓰이고 있다** — 방어를 새로 짓는 게 아니라 있는 것을 연결하는 것이다.
+    fix: "`initialContent={activeTab.cache?.rawContent ?? activeTab.savedContent ?? ''}`"
+  - id: "잔여 2 — **두 방어선 모두 이 경로를 못 잡는다**"
+    where: "`ErdDesignerMainView.tsx` 빈 문서 분기"
+    fact: >
+      빈 입력일 때 여전히 `setRawContent(normalized)` + `updateContentForTab(...)` 으로 **무조건 쓴다.**
+      진짜 빈 파일이면 의도된 동작이지만, 이 컴포넌트에 남은 **유일한 「상태 → 쓰기」 경로**다.
+    critical: >
+      **`FEAT-20260904-01` 의 자동 저장 안전장치가 이걸 잡지 못한다.** 그 사양은
+      「직전 내용이 비어 있지 않은데 **새 내용이 비었거나 파싱 실패 산출물**이면 건너뛴다」인데,
+      여기서 쓰이는 값은 **유효한 ERD 스켈레톤 JSON** 이다 — 비어 있지도 않고 파싱 실패 산출물도 아니다.
+      **두 방어선 사이로 정확히 빠져나간다.**
+    action: >
+      `FEAT-20260904-01` 에 조건을 하나 더 넣거나(「직전이 비어 있지 않은데 새 내용이 **빈 스켈레톤**이면」),
+      R1 쪽에서 빈 입력 시 **쓰기를 미루는** 편이 낫다(사용자가 실제로 편집할 때 쓰면 된다).
+      **어느 쪽인지는 판정 필요 — 처방을 먼저 고르지 않는다.**
+  - id: "잔여 3 — 정규화가 조용히 손실적이다"
+    where: "`erd.ts:223-225`(`position.x/y` 가 number 가 아니면 **0**) · `:244`(`type` 이 string 이 아니면 **\"\"**)"
+    fact: "파싱은 성공하고 문서는 렌더되지만 값이 바뀐다. 다음 저장 때 **바뀐 값이 디스크에 남는다**"
+    severity: "낮음 — 좌표 이동/타입 소실이지 파일 소실은 아니다. 기록만"
+# ━━━
+harness_review:
+  good:
+    - "`test:t15` 에 등재돼 실제로 돈다 — 「존재하지만 연결 안 된 하네스」(`heading_caret_harness` 선례)를 피했다"
+    - "두 조건(문법 오류·구조 오류)을 나눴고, 구조 오류 케이스가 **옛 코드가 통과시키던 문서**(`{version:1,tables:[]}`)를 정확히 겨눈다"
+    - "`ResizeObserver` 스텁을 넣는 대신 **캔버스를 마운트하지 않는 이른 반환 경로만** 검증하도록 설계했다 — 환경 한계를 우회하지 않고 인정했다"
+  gaps:
+    - "**빈 입력 분기에 테스트가 없다.** 유일하게 쓰기가 남아 있는 경로가 미검증이다"
+    - "`isDirty === false` 는 **간접 프록시**다 — `updateContentForTab` 은 잡지만 `setRawContent` 단독 호출은 못 잡는다. 지금은 둘이 같은 분기라 무해하지만, 나중에 분리되면 테스트가 조용히 무력해진다. 탭 스토어의 `rawContent` 를 직접 단언하는 편이 낫다"
+# ━━━
+scope_note:
+  what: "스테이징에 R1 과 무관한 파일이 섞여 있다 — `src-tauri/Cargo.toml` · `Cargo.lock` · `tauri.conf.json`"
+  why_it_matters: >
+    이건 **R3(출시 엔지니어링)** 이지 R1 이 아니다. 한 커밋에 섞이면 **R1 을 되돌릴 때 R3 도 같이 딸려온다.**
+    이 저장소에 이미 `f48b88c` 선례가 있다. **분리해서 커밋할 것.**
