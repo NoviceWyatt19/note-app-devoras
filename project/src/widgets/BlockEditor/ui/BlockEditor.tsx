@@ -547,54 +547,9 @@ export const BlockEditor: React.FC<{ paneId?: string; tab?: TabItem; isActivePan
     useDocumentStore.getState().updateContentForTab(myTabIdRef.current, getMergedContent());
   }, 150);
 
-  // S1(BUG-20260902-01 부수 발견, PM-20260904-01) — 헤딩 개수가 바뀌는 편집(트리
-  // 분할)은 예전엔 디바운스 없이 그 자리에서 O(N) 재해석을 태웠다. 연속된 헤딩 변경
-  // 편집(예: 여러 줄 붙여넣기 직후 계속 타이핑)마다 매번 전체 재분할이 반복 실행되던
-  // 것을, syncContent 와 같은 방식으로 묶어 마지막 편집 기준 1회로 합친다.
-  // updateBlockContent(즉시, 동기)는 그대로 두므로 타이핑 반응성은 바뀌지 않는다 —
-  // 바뀌는 것은 "블록이 몇 개로 쪼개져 보이는가"가 최대 150ms 늦게 반영되는 것뿐이다.
-  const debouncedResplit = useDebouncedCallback((id: string, cursorOffset: number, blocksBeforeUpdate: EditorBlock[]) => {
-    const currentFlatBlocks = flattenTree(blocksBeforeUpdate);
-
-    let absoluteCursorPos = cursorOffset;
-    for (let b of currentFlatBlocks) {
-      if (b.id === id) break;
-      absoluteCursorPos += b.content.length + 1;
-    }
-
-    const merged = getMergedContent();
-    setContent(merged);
-    const nextFlatBlocks = flattenTree(getFreshBlocks());
-
-    let accumulated = 0;
-    let targetId = nextFlatBlocks[nextFlatBlocks.length - 1].id;
-    let targetOffset = 0;
-
-    for (let i = 0; i < nextFlatBlocks.length; i++) {
-      const len = nextFlatBlocks[i].content.length;
-      const isLastBlock = i === nextFlatBlocks.length - 1;
-
-      if (absoluteCursorPos < accumulated + len || isLastBlock) {
-        targetId = nextFlatBlocks[i].id;
-        targetOffset = Math.min(Math.max(0, absoluteCursorPos - accumulated), len);
-        break;
-      }
-      else if (absoluteCursorPos === accumulated + len) {
-        targetId = nextFlatBlocks[i + 1].id;
-        targetOffset = 0;
-        break;
-      }
-      accumulated += len + 1;
-    }
-
-    focusBlock(targetId, targetOffset);
-    useDocumentStore.getState().updateContentForTab(myTabIdRef.current, merged);
-  }, 150);
-
   useEffect(() => {
     return () => {
       syncContent.flush();
-      debouncedResplit.flush();
     };
   }, []);
   React.useLayoutEffect(() => {
@@ -677,10 +632,50 @@ export const BlockEditor: React.FC<{ paneId?: string; tab?: TabItem; isActivePan
 
     updateBlockContent(id, text);
 
-    // 헤딩 개수가 변했을 때만 트리 분할(O(N) 리파싱)이 필요하다 — 디바운스해서
-    // 짧은 시간 안에 연달아 헤딩이 바뀌어도 재분할은 마지막 상태 기준 1회만 돈다.
+    // 헤딩 개수가 변했을 때만 트리 분할(O(N) 리파싱)을 수행.
+    // BUG-20260909-01(D17) — 이 재분할을 디바운스했던 S1(f4d5d69)이 캐럿 회귀를
+    // 냈다: focusBlock 인자(cursorOffset/blocksBeforeUpdate)를 예약 시점에 얼려
+    // 넘기는데 콜백은 발화 시점 본문을 읽어, 한 함수가 두 세대의 상태를 섞었다.
+    // 겨냥한 비용(타이핑 중 버스트 재분할)은 측정된 적이 없었던 반면 회귀는
+    // 실측 확인됐다 — 가드를 얹지 않고 동기 형태로 되돌린다.
     if (oldHeadingCount !== newHeadingCount) {
-      debouncedResplit(id, cursorOffset, blocksBeforeUpdate);
+      const currentFlatBlocks = flattenTree(blocksBeforeUpdate);
+
+      let absoluteCursorPos = cursorOffset;
+      for (let b of currentFlatBlocks) {
+        if (b.id === id) break;
+        absoluteCursorPos += b.content.length + 1;
+      }
+
+      const merged = getMergedContent();
+      setContent(merged);
+      const nextFlatBlocks = flattenTree(getFreshBlocks());
+
+      let accumulated = 0;
+      let targetId = nextFlatBlocks[nextFlatBlocks.length - 1].id;
+      let targetOffset = 0;
+
+      for (let i = 0; i < nextFlatBlocks.length; i++) {
+        const len = nextFlatBlocks[i].content.length;
+        const isLastBlock = i === nextFlatBlocks.length - 1;
+
+        if (absoluteCursorPos < accumulated + len || isLastBlock) {
+          targetId = nextFlatBlocks[i].id;
+          targetOffset = Math.min(Math.max(0, absoluteCursorPos - accumulated), len);
+          break;
+        }
+        else if (absoluteCursorPos === accumulated + len) {
+          targetId = nextFlatBlocks[i + 1].id;
+          targetOffset = 0;
+          break;
+        }
+        accumulated += len + 1;
+      }
+
+      // S2(유지) — 여기서 setContent 를 다시 부르지 않는다. 갱신된 blocks 상대로
+      // 2-패스 매칭을 한 번 더 돌면 위에서 뽑은 targetId 를 무효화할 수 있었다.
+      focusBlock(targetId, targetOffset);
+      useDocumentStore.getState().updateContentForTab(myTabIdRef.current, merged);
     } else {
       syncContent();
     }
