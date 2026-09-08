@@ -1,13 +1,15 @@
 :root {
-  --background-primary: #0d0e12;
-  --background-secondary: #111216;
-  --background-modifier-border: #272a37;
-  --text-normal: #e2e8f0;
-  --text-muted: #64748b;
-  --text-accent: #6366f1;
-  --background-modifier-error: rgba(239, 68, 68, 0.15);
-  --text-on-accent: #f87171;
-  --font-monospace: ui-monospace, SFMono-Regular, Menlo, monospace;
+  /* R5-a T1c — 값은 아래 그대로다. src/app/styles/index.css 의 토큰 별칭으로
+   * 교체했을 뿐이며(값 8건 전부 Impl_Manager_v1 대조 완료), .erd-* 셀렉터는 무수정이다. */
+  --background-primary: rgb(var(--surface-0-rgb));       /* #0d0e12 */
+  --background-secondary: rgb(var(--surface-1-rgb));      /* #111216 */
+  --background-modifier-border: rgb(var(--border-1-rgb)); /* #272a37 */
+  --text-normal: rgb(var(--text-1-rgb));                  /* #e2e8f0 */
+  --text-muted: rgb(var(--text-4-rgb));                   /* #64748b */
+  --text-accent: rgb(var(--accent-0-rgb));                /* #6366f1 */
+  --background-modifier-error: rgb(var(--danger-bg-rgb) / 0.15); /* rgba(239,68,68,.15) */
+  --text-on-accent: rgb(var(--danger-rgb));               /* #f87171 */
+  --font-monospace: ui-monospace, SFMono-Regular, Menlo, monospace;  /* 색 아님 — 유지 */
 }
 
 .erd-shell {
