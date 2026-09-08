@@ -2,10 +2,10 @@
 type: "BUG"
 id: "BUG-20260909-01"
 # ━━━
-update: "2026-09-09"
+update: "2026-09-09 (실행 세션 — D17 판정 반영 완료)"
 project_ref: "PRJ-DEVORAS-MVP"
 subject: "S1 디바운스가 **낡은 캐럿 스냅샷과 최신 본문을 섞는다** — BUG-20260831-01 의 실패 모양이 새 문으로 재진입"
-status: "제기 (계획 세션 S1·S2 교차검증 산출). **계획 세션은 고치지 않는다 — PM 판정 대기**"
+status: "Done — commit f5c6480 (v0.9.5). PM 판정(D17, 3a6065b): 가드 없이 S1 되돌림, S2 유지. F2 는 F1 과 뿌리가 같아 함께 닫힘. 수동 검증(F1 트리거 조건 재현 — 커서 정확히 유지됨). 빈 배열 크래시는 BUG-20260909-02 로 분리 기록."
 severity: "P1 — 사용자 가시. 간헐적이라 재현이 어렵고, 그래서 더 나쁘다"
 target: "`f4d5d69` (v0.9.3) `BlockEditor.tsx` `debouncedResplit`"
 raised_by: "Debug_Manager_v2"

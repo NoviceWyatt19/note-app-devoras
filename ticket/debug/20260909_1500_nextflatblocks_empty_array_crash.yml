@@ -1,0 +1,31 @@
+# 🐛 FIX TICKET
+type: "FIX_TICKET"
+id: "BUG-20260909-02"
+# ━━━
+update: "2026-09-09 (실행 세션 — S1 되돌림 중 발견, 기록만)"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "handleBlockUpdate 재분할 — nextFlatBlocks 가 빈 배열이면 크래시"
+status: "Todo — 기록만. 이번(BUG-20260909-01 D17)에 고치지 않는다"
+severity: "P3 (도달 경로 불명, 기존 결함 — S1 이 만든 게 아니라 옮겨온 것)"
+found_by: "계획 세션 교차검증(BUG-20260909-01, S1·S2 판정 중 부수 발견)"
+independent_of: "BUG-20260909-01 — S1 디바운스 회귀와 무관한 별개 결함. S1 되돌림으로 원위치됨(신규 아님)"
+# ━━━
+problem:
+  location: "project/src/widgets/BlockEditor/ui/BlockEditor.tsx — handleBlockUpdate 의 헤딩 재분할 분기"
+  code: |
+    const nextFlatBlocks = flattenTree(getFreshBlocks());
+    let accumulated = 0;
+    let targetId = nextFlatBlocks[nextFlatBlocks.length - 1].id;  // ← 빈 배열이면 undefined.id 로 throw
+  root_cause: >
+    `resolveBlocksFromContent` 로 재분할한 결과(`getFreshBlocks()`)가 빈 배열이면
+    `nextFlatBlocks[nextFlatBlocks.length - 1]` 이 `undefined` 이고 `.id` 접근이 TypeError.
+    이 코드는 f4d5d69(S1) 이전부터 있던 형태 그대로다 — S1 이 디바운스로 옮겼을 뿐 만든 게
+    아니고, 이번 되돌림으로 원래 위치(동기 경로)로 돌아갔다.
+  reachability: "미확인. 정상적인 편집으로 blocks 가 빈 배열이 되는 경로를 계획 세션도 특정하지 못했다 — 그래서 이번엔 고치지 않는다."
+# ━━━
+fix:
+  note: "다음에 이 함수 근처를 만질 때(예: F1 재작업 시 순수 함수 추출) 같이 막는 게 싸다 — 필수 케이스 목록은 BUG-20260909-01 티켓의 test_gap.recommendation 참고."
+  direction: "nextFlatBlocks.length === 0 이면 재분할 분기 자체를 스킵하거나 방어적으로 early return."
+dod:
+  - "[ ] 빈 배열에 도달하는 재현 경로를 먼저 특정한다(현재 불명)"
+  - "[ ] 재현 확보 후 방어 코드 + 회귀 테스트 추가"
