@@ -366,7 +366,12 @@ const PaneContainer: React.FC<{
           // 거칠 필요 없이 activeTab 자체가 소스다.
           <TabDocumentProvider
             tabId={activeTab.id}
-            initialContent={activeTab.cache?.rawContent ?? ''}
+            // D13(PM-20260904-01 §r1_closeout, 도달 경로 미확인 — 방어적 배선) —
+            // savedContent 는 store.ts:619 의 같은 패턴에서도 cache 다음 폴백으로
+            // 쓰인다. 여기 없으면 cache 미스 시 곧장 '' 로 떨어져 저장된 내용이
+            // 있어도 빈 문서로 열릴 여지가 생긴다 — 실제로 이 경로를 타는 경우를
+            // 확인하지는 못했다.
+            initialContent={activeTab.cache?.rawContent ?? activeTab.savedContent ?? ''}
             initialNodes={activeTab.cache?.nodes}
           >
             {activeTab.type === 'mindmap-global' ? (

@@ -7,12 +7,17 @@
  * 지금은 파싱 실패를 표시 상태로만 다루고, 원본 `rawContent` 를 절대 덮어쓰지 않는다.
  *
  * 여기서 다루는 두 조건(문법 오류·구조 오류) 모두 `<ErdDesigner>`(React Flow 기반)를
- * 마운트하지 않는 이른 반환 경로라 jsdom 에서 안전하게 렌더된다. 빈 문서 초기화(정상
- * 성공 경로)는 `<ErdDesigner>` 를 실제로 마운트하는데, jsdom 에는 `@xyflow/react` 가
+ * 마운트하지 않는 이른 반환 경로라 jsdom 에서 안전하게 렌더된다. 빈 문서 초기화(D12,
+ * 정상 성공 경로)는 `<ErdDesigner>` 를 실제로 마운트하는데, jsdom 에는 `@xyflow/react` 가
  * 요구하는 요소 크기 측정 환경이 없어(ResizeObserver 스텁을 넣어도 뷰포트 계산이
- * 멈추지 않는다) 여기서 검증하지 않는다 — 이 경로는 실 브라우저에서 별도 확인했다
- * (test_erd.erd 를 열어 users/posts 기본 테이블이 정상 렌더되는 것을 확인, 이번 수정
- * 전후로 로직이 바뀌지 않은 기존 동작이기도 하다).
+ * 멈추지 않는다 — 직접 확인, 하네스가 타임아웃까지 걸렸다) 여기서 자동화하지 않는다.
+ * D12("여는 것만으로 쓰지 않는다")는 실 브라우저로 별도 확인했다: 빈 .erd 를 새로 열어
+ * 캔버스는 정상 렌더되지만 저장 버튼에 dirty 점이 뜨지 않는 것, 탭 스토어 rawContent 가
+ * 빈 문자열로 남아 있는 것을 콘솔로 확인.
+ *
+ * `rawContent` 는 `isDirty` 를 거치지 않고 탭 스코프 스토어(`tabStoreRegistry.getTabStore`)
+ * 에서 직접 읽는다 — `updateContentForTab`(documentStore) 은 잡지만 `setRawContent`
+ * (tabStore) 단독 호출은 `isDirty` 만으로는 못 잡는다(두 스토어의 별개 플래그).
  *
  * 실행: pnpm test:erdparsefailure
  */
@@ -22,6 +27,7 @@ import { render, screen, cleanup } from '@testing-library/react';
 import { ErdDesignerMainView } from '../ui/ErdDesignerMainView';
 import { TabDocumentProvider } from '@/entities/document/model/TabDocumentProvider';
 import { useDocumentStore } from '@/entities/document/model/store';
+import { getTabStore } from '@/entities/document/model/tabStoreRegistry';
 
 afterEach(cleanup);
 
@@ -53,6 +59,9 @@ test('문법이 깨진 JSON 을 열면 빈 캔버스 대신 에러 UI 가 뜨고
 
   const tab = useDocumentStore.getState().panes[0].tabs[0] as any;
   assert.strictEqual(tab.isDirty, false, '파싱 실패만으로 탭이 dirty 표시되면 안 된다 — 쓰기가 발생했다는 뜻');
+
+  const tabStore = getTabStore('erd-broken-1');
+  assert.strictEqual(tabStore?.getState().rawContent, broken, '탭 스토어 rawContent 가 원본 그대로여야 한다 — setRawContent 가 불렸다면 여기서 바뀐다');
 });
 
 test('구조가 잘못된 JSON(relations 없음)을 열어도 에러 UI 로 처리되고 원본이 보존된다', () => {
@@ -73,4 +82,7 @@ test('구조가 잘못된 JSON(relations 없음)을 열어도 에러 UI 로 처�
 
   const tab = useDocumentStore.getState().panes[0].tabs[0] as any;
   assert.strictEqual(tab.isDirty, false, '구조 오류도 쓰기를 유발하면 안 된다');
+
+  const tabStore = getTabStore('erd-broken-2');
+  assert.strictEqual(tabStore?.getState().rawContent, structurallyInvalid, '탭 스토어 rawContent 가 원본 그대로여야 한다');
 });

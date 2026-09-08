@@ -17,12 +17,11 @@ export const ErdDesignerMainView: React.FC<{ tab?: TabItem }> = ({ tab }) => {
 
   useEffect(() => {
     if (!rawContent || rawContent.trim() === '') {
-      const empty = createEmptyErdDocument();
-      setDocument(empty);
+      // D12(PM-20260904-01 §r1_closeout) — 빈 입력도 BUG-20260902-01 의 불변식
+      // ("여는 것만으로 디스크에 쓰지 않는다") 대상이다. 스켈레톤 문서는 로컬
+      // 상태로만 두고, 실제로 사용자가 편집(아래 onChange)할 때만 쓴다.
+      setDocument(createEmptyErdDocument());
       setParseError(null);
-      const normalized = JSON.stringify(empty, null, 2);
-      setRawContent(normalized);
-      if (tab?.id) useDocumentStore.getState().updateContentForTab(tab.id, normalized);
       return;
     }
 
@@ -34,7 +33,7 @@ export const ErdDesignerMainView: React.FC<{ tab?: TabItem }> = ({ tab }) => {
       setDocument(null);
       setParseError(rawContent);
     }
-  }, [rawContent, setRawContent, tab?.id]);
+  }, [rawContent, tab?.id]);
 
   if (parseError !== null) {
     return (
