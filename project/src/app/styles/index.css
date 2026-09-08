@@ -75,16 +75,16 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: #111216;
+  background: rgb(var(--surface-1-rgb));
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #272a37;
+  background: rgb(var(--border-1-rgb));
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #3a3f52;
+  background: rgb(var(--border-2-rgb));
 }
 
 /* CodeMirror customization support */
@@ -96,7 +96,7 @@
 /* Applied to the dangerouslySetInnerHTML container in ReadView.tsx             */
 
 .rv-content {
-  color: #cbd5e1; /* slate-300 */
+  color: rgb(var(--text-2-rgb)); /* slate-300 */
   font-size: var(--editor-font-size, 14px);
   line-height: 1.75;
 }
@@ -132,17 +132,17 @@
  *     height map(= getBoundingClientRect().height, margin 미포함)이 실제 DOM 과
  *     어긋나 방향키 수직 이동이 줄을 건너뛴다.
  * 값(0.75rem / 0.5rem 등)만 맞추고 속성 이름은 각자 유지할 것. */
-.rv-content h1 { font-size: 35px; font-weight: 700; color: #f1f5f9; margin: 0.75rem 0 0.5rem; line-height: 1.3; text-align: center; }
-.rv-content h2 { font-size: 1.25rem; font-weight: 600; color: #e2e8f0; margin: 0.625rem 0 0.4rem; line-height: 1.35; }
-.rv-content h3 { font-size: 1.05rem; font-weight: 600; color: #cbd5e1; margin: 0.5rem 0 0.35rem; }
+.rv-content h1 { font-size: 35px; font-weight: 700; color: rgb(var(--text-0-rgb)); margin: 0.75rem 0 0.5rem; line-height: 1.3; text-align: center; }
+.rv-content h2 { font-size: 1.25rem; font-weight: 600; color: rgb(var(--text-1-rgb)); margin: 0.625rem 0 0.4rem; line-height: 1.35; }
+.rv-content h3 { font-size: 1.05rem; font-weight: 600; color: rgb(var(--text-2-rgb)); margin: 0.5rem 0 0.35rem; }
 .rv-content h4,
 .rv-content h5,
-.rv-content h6 { font-size: 0.9rem;  font-weight: 600; color: #94a3b8; margin: 0.4rem 0 0.25rem; }
+.rv-content h6 { font-size: 0.9rem;  font-weight: 600; color: rgb(var(--text-3-rgb)); margin: 0.4rem 0 0.25rem; }
 
-.rv-content strong { font-weight: 700; color: #e2e8f0; }
-.rv-content em     { font-style: italic; color: #94a3b8; }
+.rv-content strong { font-weight: 700; color: rgb(var(--text-1-rgb)); }
+.rv-content em     { font-style: italic; color: rgb(var(--text-3-rgb)); }
 .rv-content s,
-.rv-content del    { text-decoration: line-through; color: #64748b; }
+.rv-content del    { text-decoration: line-through; color: rgb(var(--text-4-rgb)); }
 
 /* Inline code */
 .rv-content :not(pre) > code {
@@ -150,14 +150,14 @@
   font-size: 0.8em;
   padding: 0.15em 0.4em;
   border-radius: 4px;
-  background: rgba(99, 102, 241, 0.12);
-  color: #a5b4fc;
+  background: rgb(var(--accent-0-rgb) / 0.12);
+  color: rgb(var(--accent-2-rgb));
 }
 
 /* Code block */
 .rv-content pre {
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid #272a37;
+  background: rgb(var(--scrim-rgb) / 0.35);
+  border: 1px solid rgb(var(--border-1-rgb));
   border-radius: 8px;
   padding: 1rem;
   overflow-x: auto;
@@ -166,18 +166,18 @@
 .rv-content pre code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.8em;
-  color: #93c5fd;
+  color: rgb(var(--info-rgb));
   background: transparent;
   padding: 0;
 }
 
 /* Blockquote */
 .rv-content blockquote {
-  border-left: 3px solid #6366f1;
+  border-left: 3px solid rgb(var(--accent-0-rgb));
   margin: 0.75rem 0;
   padding: 0.4rem 1rem;
-  color: #64748b;
-  background: rgba(99, 102, 241, 0.05);
+  color: rgb(var(--text-4-rgb));
+  background: rgb(var(--accent-0-rgb) / 0.05);
   border-radius: 0 6px 6px 0;
 }
 
@@ -185,24 +185,24 @@
 .rv-content ul { list-style: disc; padding-left: 1.4rem; margin: 0.5rem 0; }
 .rv-content ol { list-style: decimal; padding-left: 1.4rem; margin: 0.5rem 0; }
 .rv-content li { margin: 0.2rem 0; }
-.rv-content li::marker { color: #6366f1; }
+.rv-content li::marker { color: rgb(var(--accent-0-rgb)); }
 
 /* Tables */
 .rv-content table { width: 100%; border-collapse: collapse; margin: 0.75rem 0; font-size: 0.82rem; }
 .rv-content th {
-  background: rgba(99, 102, 241, 0.1);
-  color: #e2e8f0;
+  background: rgb(var(--accent-0-rgb) / 0.1);
+  color: rgb(var(--text-1-rgb));
   font-weight: 600;
   text-align: left;
   padding: 0.5rem 0.75rem;
-  border: 1px solid #272a37;
+  border: 1px solid rgb(var(--border-1-rgb));
 }
 .rv-content td {
   padding: 0.4rem 0.75rem;
-  border: 1px solid #272a37;
-  color: #94a3b8;
+  border: 1px solid rgb(var(--border-1-rgb));
+  color: rgb(var(--text-3-rgb));
 }
-.rv-content tr:hover td { background: rgba(255, 255, 255, 0.02); }
+.rv-content tr:hover td { background: rgb(var(--overlay-rgb) / 0.02); }
 /* An empty cell has no text node, so it collapses below normal line-height
  * (BUG: table row height shrinks for empty cells). `:empty` only matches when
  * there are truly zero child nodes, so a `&nbsp;`-only `::after` keeps a real
@@ -212,18 +212,18 @@
 
 /* Write Mode table widget — per-cell click-to-edit affordance */
 .cm-table-widget .cm-table-cell { cursor: text; }
-.cm-table-widget .cm-table-cell:hover { background: rgba(99, 102, 241, 0.08); }
+.cm-table-widget .cm-table-cell:hover { background: rgb(var(--accent-0-rgb) / 0.08); }
 /* Keyboard focus lands on the cell itself (tabindex=-1) before editing starts,
  * so it needs the same unmistakable ring the open editor gets. */
 .cm-table-widget .cm-table-cell:focus,
 .cm-table-widget .cm-table-cell:focus-visible {
-  background: rgba(99, 102, 241, 0.12);
-  outline: 2px solid rgba(99, 102, 241, 0.9);
+  background: rgb(var(--accent-0-rgb) / 0.12);
+  outline: 2px solid rgb(var(--accent-0-rgb) / 0.9);
   outline-offset: -2px;
 }
 .cm-table-widget .cm-table-cell-editing {
-  background: rgba(99, 102, 241, 0.1);
-  outline: 2px solid rgba(99, 102, 241, 0.6);
+  background: rgb(var(--accent-0-rgb) / 0.1);
+  outline: 2px solid rgb(var(--accent-0-rgb) / 0.6);
   outline-offset: -2px;
 }
 /* A textarea (not an input) so Shift+Enter shows a real line break while
@@ -245,11 +245,11 @@
 }
 
 /* Links */
-.rv-content a { color: #818cf8; text-decoration: none; }
-.rv-content a:hover { text-decoration: underline; color: #a5b4fc; }
+.rv-content a { color: rgb(var(--accent-1-rgb)); text-decoration: none; }
+.rv-content a:hover { text-decoration: underline; color: rgb(var(--accent-2-rgb)); }
 
 /* Horizontal rule */
-.rv-content hr { border: none; border-top: 1px solid #272a37; margin: 1rem 0; }
+.rv-content hr { border: none; border-top: 1px solid rgb(var(--border-1-rgb)); margin: 1rem 0; }
 
 /* Images */
 .rv-content img { max-width: 100%; border-radius: 8px; margin: 0.5rem 0; min-height: 48px; }
@@ -265,7 +265,7 @@
 .rv-content .rv-figure img { margin: 0; }
 .rv-content .rv-figure-caption {
   font-size: 0.85em;
-  color: #94a3b8;
+  color: rgb(var(--text-3-rgb));
   text-align: center;
   line-height: 1.5;
 }
@@ -275,7 +275,7 @@
 /* Highlight (==text== → <mark>) */
 .rv-content mark {
   background: rgba(234, 179, 8, 0.18);
-  color: #fde047;
+  color: rgb(var(--highlight-rgb));
   padding: 0.05em 0.3em;
   border-radius: 3px;
 }
@@ -305,12 +305,12 @@
  *    재고 그 값에 margin 이 포함되지 않아, 수직 방향키가 줄을 건너뛴다
  *    (BUG-20260828-01, DEBUG_PLAN.md §10.7). 세로 간격은 padding 으로 준다.
  *    회귀 검사: src/widgets/BlockEditor/__tests__/vertical_motion_t2.html */
-.cm-heading { font-weight: bold; color: #f1f5f9; }
+.cm-heading { font-weight: bold; color: rgb(var(--text-0-rgb)); }
 
 .cm-blockquote-line {
-  border-left: 3px solid #6366f1;
+  border-left: 3px solid rgb(var(--accent-0-rgb));
   padding-left: 1rem;
-  background: rgba(99, 102, 241, 0.05);
+  background: rgb(var(--accent-0-rgb) / 0.05);
 }
 
 .cm-blockquote-single {
@@ -331,18 +331,18 @@
 }
 
 .cm-list-bullet {
-  color: #6366f1;
+  color: rgb(var(--accent-0-rgb));
   font-weight: bold;
   display: inline-block;
   min-width: 1.2em;
   text-align: right;
   margin-right: 0.25em;
-  text-shadow: 0 0 5px rgba(99, 102, 241, 0.5);
+  text-shadow: 0 0 5px rgb(var(--accent-0-rgb) / 0.5);
   white-space: nowrap;
 }
 
 .cm-list-item {
-  color: #e2e8f0;
+  color: rgb(var(--text-1-rgb));
 }
 
 .cm-hr-widget {
@@ -352,7 +352,7 @@
 .cm-hr-line {
   display: block;
   height: 1px;
-  background: #334155;
+  background: rgb(var(--text-5-rgb));
   width: 100%;
 }
 
@@ -362,7 +362,7 @@
 .cm-image-caption {
   display: block;
   font-size: 0.85em;
-  color: #94a3b8;
+  color: rgb(var(--text-3-rgb));
   text-align: center;
   line-height: 1.5;
   user-select: none;
