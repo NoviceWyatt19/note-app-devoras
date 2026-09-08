@@ -1,0 +1,89 @@
+# ✅ VERIFICATION VERDICT
+type: "VERDICT"
+id: "VER-20260909-01"
+# ━━━
+update: "2026-09-09"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "R5-a T1a 교차검증 (`b38e8a1`) — **양쪽 주장 통과.** PM 우려 해소 + T6 함정 1건 발견"
+target: "`b38e8a1` refactor(0.9.4) — 디자인 토큰 32개 + Tailwind 배선"
+raised_by: "Debug_Manager_v2"
+status: "판정 완료. **결함 없음** — 후속 2건은 기존 결함·향후 주의"
+# ━━━
+claim_1:
+  claim: "「화면 변화 0 — 다크 값은 전부 현행 코드에서 추출」"
+  verdict: "✅ **통과**"
+  method: "토큰 블록의 RGB 트리플릿을 주석에 병기된 hex 로 각각 역산해 대조(스크립트)"
+  result:
+    - "토큰 **32개** — 커밋 메시지 주장과 일치"
+    - "hex 가 병기된 **25개 전부 정확히 일치.** 불일치 0"
+    - "기존 Tailwind 6색 매핑도 전부 **바이트 동일**: `darkBg`→`surface-0`(#0d0e12) · `darkPanel`→`surface-3`(#161821) · `darkBorder`→`border-1`(#272a37) · `primary`→`accent-0`(#6366f1) · `accent`→`accent-alt`(#14b8a6) · `mutedText`→`text-3`(#94a3b8)"
+claim_2:
+  claim: "「이름 유지 → 사용처 259곳 무수정 전환」"
+  verdict: "✅ **통과 — 개수가 아니라 구조로 확인했다**"
+  method: >
+    개수 대조가 아니라 **커밋이 무엇을 건드렸는지**로 봤다.
+    `git show b38e8a1 --name-only | grep -E '\.tsx?$'` → **결과 0건.**
+    `.ts`/`.tsx` 를 한 줄도 안 건드렸으므로 사용처가 몇 개든 **전부 무수정**이다.
+  count_note: >
+    참고로 개수 실측은 **266** 이 나온다(`[a-zA-Z-]+-(darkBg|darkPanel|darkBorder|primary|accent|mutedText)(/[0-9]+)?`
+    on `.ts`+`.tsx`; darkBg 29 · darkPanel 32 · darkBorder 72 · primary 87 · accent 1 · mutedText 45).
+    보고된 259 와 7 차이는 정규식 범위 차이로 보인다. **판정에는 영향 없다** —
+    「무수정」은 개수가 아니라 diff 로 증명되기 때문이다. 숫자를 문서에 남길 때만 어느 쪽인지 정하면 된다.
+# ━━━
+pm_concern_resolved:
+  concern: >
+    PM `2df9a99` §scope_correction_20260909: 「`erd.css` 변수 9개가 Tailwind 와 바이트 동일 중복이라고
+    두 번 썼는데 틀렸다 — **3개만 일치, 6개가 다르다**」 → **T1a 토큰 스케일이 그 6개를 포함하는가?
+    안 포함하면 T1c 에서 ERD 화면 색이 바뀐다.**
+  answer: "✅ **포함한다. 우려는 실현되지 않는다.**"
+  why: >
+    정정 자체는 맞다 — `erd.css` 값 6개는 **Tailwind 팔레트 6색과** 다르다.
+    그러나 **T1a 의 토큰 스케일은 Tailwind 팔레트가 아니라 그보다 넓다**(32개 대 6개).
+    Tailwind 와 다른 값들이 별도 토큰으로 이미 들어와 있다.
+  mapping:
+    - "`--background-primary` #0d0e12 → `--surface-0-rgb`"
+    - "`--background-secondary` #111216 → `--surface-1-rgb`  ← Tailwind 에 없던 값"
+    - "`--background-modifier-border` #272a37 → `--border-1-rgb`"
+    - "`--text-normal` #e2e8f0 → `--text-1-rgb`  ← Tailwind 에 없던 값"
+    - "`--text-muted` #64748b → `--text-4-rgb`  ← Tailwind 에 없던 값"
+    - "`--text-accent` #6366f1 → `--accent-0-rgb`"
+    - "`--background-modifier-error` rgba(239,68,68,.15) → `--danger-bg-rgb`  ← Tailwind 에 없던 값"
+    - "`--text-on-accent` #f87171 → `--danger-rgb`  ← Tailwind 에 없던 값"
+  extra: >
+    **`--font-monospace` 는 색이 아니다** — PM 이 센 「9개」는 색 8 + 폰트 1 이다. 색 기준으로는 8종이고
+    **8종 전부 토큰 대응이 있다.**
+  t1c_gap_scan: >
+    한 걸음 더 확인했다 — **T1a 시점 `index.css`(토큰 정의부 제외) 와 `erd.css` 의 모든 hex 를
+    토큰 스케일과 대조한 결과 미포함 0건.** T1c 는 새 토큰을 만들 필요가 없다.
+# ━━━
+new_finding:
+  id: "⚠️ `--text-on-accent` 는 **이름이 틀렸다.** 값·역할은 맞다"
+  where: "`erd.css:9` 정의 · `:60` 사용"
+  first_read_was_wrong: >
+    **계획 세션이 처음 「값은 같은데 의미가 반대다」로 적었다가 사용처를 보고 철회했다.**
+    `:55-61` 의 `.erd-alert` 는 `background: var(--background-modifier-error)`(빨강 15%) 위에
+    `color: var(--text-on-accent)`(#f87171 빨강)를 쓴다 — **에러 알림**이다.
+    즉 이 변수의 실제 역할은 「강조 배경 위 글자색」이 아니라 **「에러 텍스트」**이고,
+    T1a 가 `--danger-rgb` 로 대응시킨 것은 **값도 역할도 맞다.**
+  actual_risk: >
+    위험은 값이 아니라 **이름**이다. `--text-on-accent` 라는 이름만 보고 T1c·T6 에서
+    **accent 계열 토큰(`--accent-0-rgb` 등)으로 매핑하면 에러 알림 글자가 보라색이 된다.**
+    이름 기준 매핑이 정확히 이 변수에서 깨진다.
+  recommendation: >
+    T1c 의 치환 기준을 **이름이 아니라 실제 사용처의 역할**로 못 박을 것.
+    가능하면 이 변수를 `--text-error` 로 개명하는 편이 낫다 — 소비자가 `:60` 한 곳뿐이라 비용이 거의 없다.
+  severity: "낮음(현재 무증상) · T1c 착수 전에 한 줄 주의로 충분하다"
+preexisting_defects:
+  - id: "`bg-darkPanel/97` — 죽은 클래스 (Impl 보고 확인)"
+    where: "`MindView.tsx:114`"
+    fact: >
+      Tailwind 기본 opacity 스케일에 **97 이 없어** 규칙이 생성되지 않는다. **기준선에서도 동일** —
+      T1a 가 만든 것이 아니다. Impl 의 보고가 정확하다.
+    impact: "그 패널에 **배경이 아예 안 깔린다.** `backdrop-blur-sm` 만 걸려 있어 육안으로는 흐릿하게 보여 눈치채기 어렵다"
+    fix: "`bg-darkPanel/[.97]`(임의값 문법) 또는 스케일 내 값(`/95`)으로. **R5-a 와 무관한 별건 티켓**"
+# ━━━
+conclusion: >
+  **T1a 는 통과다.** 「순수 리팩터 · 화면 변화 0」 주장이 두 축 모두에서 유지된다 —
+  값은 hex 대조로, 무수정은 diff 로 확인했다. Impl 레인이 컴파일 출력 전문 대조까지 해 둔 것도
+  이 판정을 받쳐 준다(계획 세션은 그 위에서 값·범위·경계를 봤다).
+  **결함 없음.** 위 두 건은 각각 「향후 주의」와 「기존 결함」이지 이 커밋의 하자가 아니다.
