@@ -13,8 +13,8 @@ superseded_by:
   scope_numbers_corrected:
     note: "PM 재실측 — 계획 세션 대조표의 한 건이 과소집계였다"
     - "TSX/TS 임의값 색 클래스 **14개 (확정)** — 최초 보고 9(`.ts` 누락) → PM 정정 17(테스트 픽스처·css 혼입) → **재실측 14**"
-    - "`erd.css` 변수 9개는 Tailwind 와 **바이트 동일 중복** — 통합에 판단 불필요"
-    - "이관 총량: `tailwind.config.js` 6 + `index.css` 33 + `erd.css` 7(+변수 9 통합) + TSX/TS 14"
+    - "⚠️ **`erd.css` 「바이트 동일 중복」은 PM 오류였다(2026-09-09 정정).** 9개 중 3개만 일치, **6개가 다르다** — `--background-secondary` #111216 ≠ `darkPanel` #161821, `--text-muted` #64748b ≠ `mutedText` #94a3b8 등. **T1c 는 대조가 필요하다.** 근거: `PM-20260904-01` §scope_correction_20260909"
+    - "⚠️ **이관 총량 정정: 약 283곳** (2026-09-09). 위 목록에 **Tailwind 팔레트 클래스 194곳**과 **`orchestrator.ts` 신택스 색 20건**이 빠져 있었다 — 둘 다 라이트 모드의 **성립 조건**이다. 정확한 문장: **「32개 토큰으로 약 283곳을 덮는다」**"
   file_contention:
     warn: >
       **R5-a 의 14개 중 `BlockEditor.tsx`(2)·`ReadView.tsx`(4) 가 `Debug_worker_v2` 의 S1·S2 와 같은 파일이다. `ReadView.tsx` 가 임의값 최다 파일이라 여기가 첫 충돌 지점이다.**

@@ -315,7 +315,7 @@ scope_revision_r5_r6:
     verified_by_pm: "2026-09-05, 직접 실측"
     table:
       - "`app/styles/index.css` — CSS 커스텀 속성 **0개**, HSL **0개**, 하드코딩 hex **33개**"
-      - "`app/styles/erd.css` — `:root` 변수 9개 존재하나 **ERD 전용으로 갈라져 있고 값이 Tailwind 와 바이트 동일 중복**(`--background-primary: #0d0e12` = `darkBg`, `--background-modifier-border: #272a37` = `darkBorder`, `--text-accent: #6366f1` = `primary`). hex 7개"
+      - "`app/styles/erd.css` — `:root` 변수 9개. ⚠️ **「바이트 동일 중복」은 PM 오류였다(2026-09-09 정정, §scope_correction_20260909 참조). 9개 중 3개만 일치하고 6개가 다르다.**"
       - "`tailwind.config.js` — 색 **6개** 전부 하드코딩 hex"
       - "TSX/TS 임의값 색 클래스 — **14개** (`.ts`+`.tsx`). 계획 세션 최초 보고 9개는 `.ts` 누락으로 과소집계, **PM 최초 정정 17개는 과대집계**(`--include` 없이 실행해 테스트 픽스처 `spike_a_nested_card_static.html` 2건 + `index.css` 1건이 섞였다 — 픽스처는 프로덕션이 아니고 css 1건은 hex 33개에 이미 포함). **확정치 14**"
       - "`entities/theme/` — **디렉터리 자체가 없다**. `code_review.md` §9.2' 이 D-4 근거로 인용한 `entities/theme/lib/injector.ts` 는 **계획 경로**이며 기존 물건이 아니다(계획 세션 표기 정정 완료)"
@@ -602,3 +602,41 @@ incident_20260905_amend:
     복구가 막히자 임의로 우회하지 않고 올렸으며, **자기 잘못의 구조를 정확히 진단했다**
     (「경로 지정으로 보호되지 않는 연산을 썼다」). 규칙 제안까지 붙였다.
     이 사고의 실질 비용은 커밋 메시지 한 줄이고, 산출물은 **규칙 하나**다 — 남는 장사다.
+# ━━━
+scope_correction_20260909:
+  update: "2026-09-09 — Impl_Manager_v1 보고를 PM 이 실측 검증. **PM 오류 3건 정정**"
+  why: "R5-a 크기 추정의 근거 숫자가 틀렸다. 계획에 그대로 들어가면 착수 후 잔여가 튀어나온다"
+  E1_erd_css_duplication:
+    my_claim: "「`erd.css` 변수 9개는 Tailwind 팔레트와 **바이트 동일 중복**이라 통합에 판단이 필요 없다」"
+    verdict: "🔴 **틀렸다. 그리고 두 번 반복했다** — Impl 레인이 `64f64c8` 로 한 번 정정했는데 PM 이 다음 메시지에 같은 기술을 다시 썼다"
+    measured:
+      method: "`git show b38e8a1^:project/tailwind.config.js`(T1a 이전 원본 hex)와 `erd.css` `:root` 직접 대조"
+      same_3: "`--background-primary` #0d0e12 = `darkBg` · `--background-modifier-border` #272a37 = `darkBorder` · `--text-accent` #6366f1 = `primary`"
+      different_6: "`--background-secondary` **#111216** ≠ `darkPanel` **#161821** · `--text-muted` **#64748b** ≠ `mutedText` **#94a3b8** · `--text-normal` #e2e8f0(대응 없음) · `--text-on-accent` #f87171(대응 없음) · `--background-modifier-error` rgba(239,68,68,.15)(대응 없음) · `--font-monospace`(색 아님)"
+    consequence_if_uncorrected: "**무심코 별칭을 걸면 ERD 화면의 표면·텍스트 색이 실제로 바뀐다.** 사양서가 그 6개 값을 정확히 포함하도록 스케일을 설계해 뒀고, T1c 에 대조 절차가 들어 있다"
+    action: "**「판단 불필요」를 계획에서 제거한다.** T1c 는 대조가 필요한 작업이다"
+  E2_missing_scope:
+    my_claim: "이관 총량 ≈ 69건 (tailwind 6 + index.css 33 + erd.css 7 + TSX/TS 14)"
+    verdict: "🔴 **잔여의 약 4분의 3이 빠져 있었다. 실제 ~283건**"
+    missing:
+      - item: "**Tailwind 팔레트 클래스**(`text-slate-200` 류) — **194곳** (Impl 집계 범위: `.ts`+`.tsx`, `/N` 불투명도·`hover:` 변형 포함). PM 재실측은 기본 패턴만으로 **166**"
+        why_it_matters: "**기능 요건이지 미관이 아니다.** 이게 없으면 **라이트 모드에서 194곳이 어두운 채 남는다** — 팔레트 클래스는 CSS 변수 전환을 따라오지 않는다"
+      - item: "**`orchestrator.ts` 신택스 색** — **20건**"
+        why_it_matters: "마크다운 H1 이 라이트 모드에서 거의 흰색으로 남는다. **다크/라이트의 성립 조건**"
+    note: "둘 다 `IMPL_PLAN_R5A_THEME_TOKENS.md` §3.1·§5·§T2 에 이미 있었다 — 사양서에 있는 것을 PM 이 총량에 반영하지 않았다"
+  E3_axis_confusion:
+    my_claim: "「이관 총량 = tailwind 6 + index.css 33 + erd.css 7(+변수 9) + TSX/TS 14」 · 「토큰 33 → 32」"
+    verdict: "🟠 **두 축을 섞었다**"
+    correct_framing:
+      output_axis: "**32 = 정의되는 토큰 수.** `index.css :root` 의 `--*-rgb` 개수"
+      input_axis: "**6 / 33 / 9 / 194 / 20 / 14 = 이관되는 소비처 수.** 그 토큰을 가리키도록 고칠 자리들"
+      one_sentence: "**「32개 토큰으로 약 283곳을 덮는다」가 맞는 문장이다**"
+  counting_discipline:
+    finding: "같은 대상을 세션마다 다르게 셌다 — 불투명도 수식어 66(Impl)·75(worker)·73(Debug_Manager), 팔레트 클래스 182→194(Impl)·166(PM)"
+    cause: "**셋 다 틀리지 않았다. 패턴 범위가 다르다**(`hover:` 변형·`shadow-`/`stroke-`·`/N` 포함 여부)"
+    rule: "**수치를 인용할 때 집계 범위를 함께 적는다.** 범위 없는 숫자는 다음 세션이 다시 센다 — 이번 사이클에 9→17→14 로 세 번, 182→194→166 으로 또 세 번 셌다"
+    canonical: "팔레트 클래스는 **194**(Impl 집계 범위)를 계획 수치로 쓴다"
+  r5a_size:
+    total: "**10~13시간** (T1b 착지 전제, Impl 실측 기준선)"
+    breakdown: "T1c 0.5h · **T3a~T3e 194곳 3~4h** · T3f 0.5h · T2 20색+R-6 상수화 2~3h · T3g 0.5h · **T6 라이트 팔레트 32값+`themeMode` 3~4h**"
+    note: "**T3a~T3e 와 T6 가 전체의 60%.** T6 가 실제 사용자 가치(다크/라이트 전환)이고, 라이트 값 32개를 대비 4.5:1 로 맞추는 판단이 들어간다"
