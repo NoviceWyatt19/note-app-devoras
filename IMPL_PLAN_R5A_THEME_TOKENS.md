@@ -266,18 +266,28 @@ colors: {
 
 ```css
 :root {
-  --background-primary: rgb(var(--surface-0-rgb));
-  --background-secondary: rgb(var(--surface-1-rgb));
-  --background-modifier-border: rgb(var(--border-1-rgb));
-  --text-normal: rgb(var(--text-1-rgb));
-  --text-muted: rgb(var(--text-4-rgb));
-  --text-accent: rgb(var(--accent-0-rgb));
-  --background-modifier-error: rgb(var(--danger-bg-rgb) / 0.15);
-  --text-on-accent: rgb(var(--danger-rgb));
+  /* Obsidian 계열 이름 유지 — `.erd-*` 셀렉터 259줄 무수정.
+   * 매핑 기준은 값이 아니라 **역할**이다. T6 에서 라이트 값을 조정할 때 이 주석을 근거로 판단할 것.
+   * 값 대응은 전수 검증됨(8종 전부 일치, 미포함 0건). */
+  --background-primary:         rgb(var(--surface-0-rgb));        /* 셸 배경 */
+  --background-secondary:       rgb(var(--surface-1-rgb));        /* 보조 표면 */
+  --background-modifier-border: rgb(var(--border-1-rgb));         /* 툴바·구분선 */
+  --text-normal:                rgb(var(--text-1-rgb));           /* ERD 본문 */
+  --text-muted:                 rgb(var(--text-4-rgb));           /* 부가 설명 */
+  --text-accent:                rgb(var(--accent-0-rgb));         /* 강조 */
+  --background-modifier-error:  rgb(var(--danger-bg-rgb) / 0.15); /* .erd-alert 배경 */
+  --text-on-accent:             rgb(var(--danger-rgb));           /* .erd-alert 글자 — 이름은 on-accent 지만 실제 역할은 on-error */
   --font-monospace: ui-monospace, SFMono-Regular, Menlo, monospace;  /* 색 아님 — 유지 */
 }
 ```
 
+> **매핑 기준은 값이 아니라 역할이다.** 각 별칭 줄에 역할 주석을 남긴다(위 코드 참조).
+> T6 에서 라이트 값을 조정하는 사람이 「이 별칭이 왜 이 토큰인가」를 값이 아니라 역할로 읽어야 한다.
+> 실제 사례: `--text-on-accent`(`#f87171`)는 이름만 「강조 위 글자」이고 실제 용처는
+> `.erd-alert` **에러 배너 글자**다(`erd.css:59-60`, `--background-modifier-error` 와 짝).
+> 그래서 `--danger-rgb` 매핑이 **값이 겹쳐서가 아니라 역할이 같아서** 맞다 —
+> T6 에서 danger 를 조정하면 이 글자도 **함께 움직이는 것이 정상**이다. (`VER-20260909-01` 지적, 확인 완료)
+>
 > **9개 중 3개만 Tailwind 와 값이 같았다**(`#0d0e12`·`#272a37`·`#6366f1`). 나머지 6개는
 > §4 의 스케일이 그 값을 **정확히 포함하도록 설계**되어 있으므로 위 별칭은 값을 바꾸지 않는다.
 > 대응이 맞는지 T1c 착수 시 **한 번 더 대조**할 것.
@@ -341,10 +351,30 @@ CodeMirror 의 `baseTheme` 은 CSS 로 컴파일되므로 CSS 변수가 그대�
 5. `:720` 이 이미 `--editor-font-size` 를 인라인 스타일로 넣고 있다. `--editor-font-family` 도 같은 자리에 추가한다.
 6. `SingleDocEditor.tsx` 의 `createEditorTheme`(`:62`·`:103`·`:188`)에도 **같은 처리를 한다** (사용자 결정, 2026-09-05).
 
-**검증** — 이 단계만 추가 DoD 3건:
-- [ ] N 개 블록 마운트 후 `<style>` 총 바이트가 N 에 비례해 증가하지 않는다
-- [ ] create-destroy 반복 후 `<style>` 바이트가 증가하지 않는다
-- [ ] 설정에서 폰트 크기·패밀리 변경이 **여전히 실시간 반영**된다
+**검증 — R-6 계측 절차** (T2 티어: `pnpm dev` + 브라우저 콘솔)
+
+> 이 절차가 **사용자 결정 D-4 의 검산**이다. D-4 는 「R-6 누수와 테마 토큰화는 같은 물건이니
+> 따로 짓지 말라」고 판단했다. 그게 실제로 맞았는지 확인되는 지점은 여기 하나뿐이다.
+> **결과 수치를 반드시 보고할 것** — 통과/불통과만 적지 말 것.
+
+측정 도구:
+
+```js
+const styleBytes = () => [...document.querySelectorAll('style')]
+  .reduce((n, s) => n + s.textContent.length, 0);
+```
+
+- [ ] **M1 — N 비례 증가 소멸**: 수정 전/후 각각 블록 10개 문서와 100개 문서를 열고 `styleBytes()` 대조.
+      기대 — 전에는 차이가 약 **90 × 525 ≈ 47,000자**(`BUG-20260831-02` 실측 인스턴스당 525자), 후에는 **≈ 0**
+- [ ] **M2 — create-destroy 누수 폐쇄**: 문서 열기 → 탭 닫기 **20회 반복**, 매 회 `styleBytes()` 기록.
+      기대 — 전에는 단조 증가(원 티켓은 360 사이클까지 확인), 후에는 **평탄**
+- [ ] **M3 — 회귀 없음**: 설정에서 폰트 크기·패밀리 변경이 **즉시 반영**된다.
+      ⚠️ **이번 변경의 최대 위험**이다 — `reconfigure` 경로를 없애기 때문이다
+- [ ] **M4 — 마운트 오버헤드** *(참고 수치, 게이트 아님)*: `BUG-20260831-02` 가 「테마를 얹은 조건의
+      마운트 절대 비용 **약 50% 증가**(N=100 에서 614→903ms)」를 기록했다. 그 오버헤드가 사라졌는지
+      `mount_cost_t2_harness.ts` 로 확인한다. **안 사라져도 T2 를 막지 않는다 — 숫자만 보고한다**
+
+보고 시 **색 이관 20건**과 **R-6 계측**을 나눠서 적는다. 둘은 비용도 위험도 다르다.
 
 ### T3g — 충돌 파일 잔여 6곳 (**마지막**)
 
@@ -410,7 +440,7 @@ T2 착수 전에 `Impl_Manager_v1` 을 통해 점유 해제를 확인한다.
 - [ ] 라이트 모드에서 `bg-overlay/N` 이 보인다 (흰 배경에 흰 오버레이가 아니다)
 - [ ] ERD 탭이 양쪽 모드에서 정상 렌더링된다
 - [ ] **ERD SVG 내보내기 결과가 테마와 무관하게 동일**하다 (§3.2)
-- [ ] R-6 DoD 3건 (§T2)
+- [ ] R-6 계측 M1~M4 (§T2) — **수치를 보고한다.** M4 는 참고 수치이지 게이트가 아니다
 - [ ] `themeMode` 설정이 앱 재실행 후 복원된다
 - [ ] `pnpm test:t1` (15종) · `pnpm test:t15` (4종) 무회귀
 - [ ] `pnpm tsc --noEmit` · `pnpm lint` 통과
