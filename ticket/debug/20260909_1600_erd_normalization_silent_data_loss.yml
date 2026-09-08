@@ -1,0 +1,25 @@
+# 🐛 FIX TICKET
+type: "FIX_TICKET"
+id: "D14-20260909-01"
+# ━━━
+update: "2026-09-09 (실행 세션 — PM-20260904-01 §r1_closeout D14 지시로 기록만)"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "erd.ts 정규화가 조용히 손실적이다 — position 비수치→0, type 비문자열→\"\""
+status: "Todo — 기록만. 출시 스코프 밖(R4 우선순위: 사용자 가시 결함 아래)"
+severity: "P3"
+review_ref: "ticket/project/20260904_1800_release_lane_hold.yml §r1_closeout D14"
+# ━━━
+problem:
+  location: "project/src/entities/erd/model/erd.ts"
+  s1: "normalizeTable:223-225 — position.x/position.y 가 숫자가 아니면(누락·문자열 등) 조용히 0 으로 대체된다"
+  s2: "normalizeColumn:244 — column.type 이 문자열이 아니면 조용히 빈 문자열(\"\")로 대체된다"
+  nature: >
+    파일 소실이 아니라 **좌표 이동·타입 소실**이다. 문제는 이 값이 다음 저장(`onChange` →
+    `setRawContent`)때 그대로 디스크에 남는다는 것 — 손상된 원본이 정규화된(=일부 값을 잃은)
+    형태로 조용히 덮어써진다. BUG-20260902-01(파싱 실패)과는 다른 축이다: 여긴 파싱은
+    성공하지만 **개별 필드 단위로 정보를 잃는다.**
+# ━━━
+fix:
+  note: "고치지 않는다. 방향만 기록 — 던지거나(엄격), 원래 값을 보존해 검증 경고만 내거나(관대) 둘 중 하나."
+dod:
+  - "[ ] 스코프 판단이 나오면 재개"
