@@ -90,87 +90,109 @@ background: rgb(var(--accent-1-rgb) / 0.15);   /* 알파도 이 형태로 */
 
 ---
 
-## 4. 토큰 정의 — 32개
+## 4. 토큰 정의 — **26개 (2026-09-09 통합)**
 
-> **다크 값은 전부 현행 코드에서 추출한 것이다.** 즉 다크 모드에서 화면은 **픽셀 동일**해야 한다.
-> 라이트 값은 이 계획이 정한 기준선이며, T6 에서 **본문 텍스트 대비 4.5:1 이상**을 기준으로만 조정한다.
+> **⚠️ 32개 → 26개로 통합됐다 (사용자 지시, 2026-09-09).**
+> 「토큰을 너무 세세하게 나누지 말라. 필요한 것만 나눠 재사용하라. 세분화가 지나치면 테마 통일성이 떨어진다.」
+>
+> **왜 32개가 잘못이었나**: 스케일을 **현행 코드 값에서 전수 추출**해 만들었다. 그러면 「픽셀 동일」은
+> 얻지만 **기존의 우발적 불일치까지 토큰으로 굳는다** — 디자인 시스템이 아니라 현상 기록이 된다.
+> 실측: 표면 6단의 인접 명도대비가 **1.02~1.05:1**, 양끝(구 `surface-0` vs `surface-5`)조차 **1.19:1**.
+> 6단계 전체가 사람 눈에 2~3단으로 읽혔다. 인접 대비 1.02:1 이면 **두 토큰이 다른 값이라는 사실 자체에
+> 근거가 없다.**
+>
+> **텍스트는 다르다** — 인접 1.73~2.18:1 로 실제 구분되므로 과하게 줄이지 않았다(6→4).
+> **노드 5색은 유지한다** (사용자 확정) — 목적이 통일성이 아니라 **마인드뷰 계층 구분**이라 줄이면 기능을 잃는다.
 
-### 4.1 표면 (surface) — 6단, 밝기 오름차순 = 고도 오름차순
+### 4.1 표면 — **3단** (구 6단)
 
-| 토큰 | 다크 (현행값) | 라이트 | 현행 출처 |
+| 토큰 | 다크 | 라이트 | 역할 |
 |---|---|---|---|
-| `--surface-0-rgb` | `13 14 18` (`#0d0e12`) | `255 255 255` | `darkBg` · body · MindView 캔버스 |
-| `--surface-1-rgb` | `17 18 22` (`#111216`) | `248 250 252` | 스크롤바 트랙 · `erd.css --background-secondary` · WorkspacePage:248 |
-| `--surface-2-rgb` | `20 21 32` (`#141520`) | `241 245 249` | 카드/코드블록 헤더 — **임의값 최다 (9곳)** |
-| `--surface-3-rgb` | `22 24 33` (`#161821`) | `236 241 247` | `darkPanel` |
-| `--surface-4-rgb` | `26 27 38` (`#1a1b26`) | `226 232 240` | 코드펜스 라인 배경 |
-| `--surface-5-rgb` | `29 31 48` (`#1d1f30`) | `219 226 236` | 중첩 카드 2단 |
+| `--surface-base-rgb` | `13 14 18` (`#0d0e12`) | `255 255 255` | 앱 배경 · 캔버스 · 에디터 바탕 |
+| `--surface-panel-rgb` | `22 24 33` (`#161821`) | `241 245 249` | 사이드바 · 툴바 · 카드 · 코드블록 헤더 |
+| `--surface-raised-rgb` | `29 31 48` (`#1d1f30`) | `226 232 240` | 부모 표면 위 한 단 — 중첩 카드 · 코드펜스 |
 
-### 4.2 텍스트 — 6단, 밝기 내림차순 = 강조 내림차순
+### 4.2 텍스트 — **4단** (구 6단)
 
-| 토큰 | 다크 | 라이트 | 현행 출처 |
+| 토큰 | 다크 | 라이트 | 역할 |
 |---|---|---|---|
-| `--text-0-rgb` | `241 245 249` (`#f1f5f9`) | `15 23 42` | H1 · `text-slate-100` (11곳) |
-| `--text-1-rgb` | `226 232 240` (`#e2e8f0`) | `30 41 59` | H2 · `text-slate-200` (**46곳, 최다**) · `erd --text-normal` |
-| `--text-2-rgb` | `203 213 225` (`#cbd5e1`) | `51 65 85` | H3 · `text-slate-300` (22곳) · `.rv-content` 본문 |
-| `--text-3-rgb` | `148 163 184` (`#94a3b8`) | `71 85 105` | H4~6 · `mutedText` · `text-slate-400` (16곳) |
-| `--text-4-rgb` | `100 116 139` (`#64748b`) | `100 116 139` | `text-slate-500` (7곳) · `erd --text-muted` |
-| `--text-5-rgb` | `51 65 85` (`#334155`) | `148 163 184` | `index.css:298` |
+| `--text-strong-rgb` | `226 232 240` (`#e2e8f0`) | `15 23 42` | 제목 · 강조 |
+| `--text-body-rgb` | `203 213 225` (`#cbd5e1`) | `51 65 85` | 본문 |
+| `--text-muted-rgb` | `148 163 184` (`#94a3b8`) | `71 85 105` | 보조 · 라벨 |
+| `--text-faint-rgb` | `100 116 139` (`#64748b`) | `100 116 139` | 비활성 · 취소선 |
 
-### 4.3 테두리
+### 4.3 테두리 — 2단
 
-| 토큰 | 다크 | 라이트 | 출처 |
+| 토큰 | 다크 | 라이트 | 역할 |
 |---|---|---|---|
-| `--border-1-rgb` | `39 42 55` (`#272a37`) | `226 232 240` | `darkBorder` (71곳) · `erd --background-modifier-border` |
-| `--border-2-rgb` | `58 63 82` (`#3a3f52`) | `203 213 225` | 스크롤바 thumb hover |
+| `--border-rgb` | `39 42 55` (`#272a37`) | `226 232 240` | 기본 테두리 · 구분선 |
+| `--border-strong-rgb` | `58 63 82` (`#3a3f52`) | `203 213 225` | 강조 테두리 · `<hr>` · 스크롤바 hover |
 
-### 4.4 강조 (indigo 계열) + 보조
+### 4.4 강조 — 4개 (구 5개, `accent-deep` 제거)
 
-| 토큰 | 다크 | 라이트 | 출처 |
+| 토큰 | 다크 | 라이트 | 역할 |
 |---|---|---|---|
-| `--accent-0-rgb` | `99 102 241` (`#6366f1`) | `79 70 229` | `primary` (82곳) · 캐럿 · 헤딩 배지 · `erd --text-accent` |
-| `--accent-1-rgb` | `129 140 248` (`#818cf8`) | `99 102 241` | 링크 · `text-indigo-400` |
-| `--accent-2-rgb` | `165 180 252` (`#a5b4fc`) | `129 140 248` | 인라인 코드 |
-| `--accent-deep-rgb` | `124 58 237` (`#7c3aed`) | `109 40 217` | `index.css` |
-| `--accent-alt-rgb` | `20 184 166` (`#14b8a6`) | `13 148 136` | `accent` (Tailwind) |
+| `--accent-rgb` | `99 102 241` (`#6366f1`) | `79 70 229` | 주 강조 · 캐럿 · 헤딩 배지 |
+| `--accent-soft-rgb` | `129 140 248` (`#818cf8`) | `99 102 241` | 링크 |
+| `--accent-subtle-rgb` | `165 180 252` (`#a5b4fc`) | `129 140 248` | 인라인 코드 |
+| `--accent-alt-rgb` | `20 184 166` (`#14b8a6`) | `13 148 136` | 보조 강조(teal) |
 
-### 4.5 의미색 (semantic)
+> **`--accent-deep`(`#7c3aed`) 제거** — 유일한 용처가 `entities/erd/lib/relations.ts:157` 의
+> `var(--text-accent, #7c3aed)` **폴백**인데, `--text-accent` 가 `erd.css` 에서 항상 정의되므로
+> **그 폴백은 발화하지 않는다.** 죽은 토큰이다.
 
-| 토큰 | 다크 | 라이트 | 출처 |
+### 4.5 의미색 — 6개 (유지)
+
+| 토큰 | 다크 | 라이트 | 역할 |
 |---|---|---|---|
-| `--danger-rgb` | `248 113 113` (`#f87171`) | `220 38 38` | `text-red-400` (6곳) · `erd --text-on-accent` |
-| `--danger-bg-rgb` | `239 68 68` (`#ef4444`) | `239 68 68` | `bg-red-500/N` · `erd --background-modifier-error` |
-| `--warning-rgb` | `245 158 11` (`#f59e0b`) | `217 119 6` | **`bg-amber-500` — dirty 점** (§8 제약 확인) |
-| `--info-rgb` | `147 197 253` (`#93c5fd`) | `37 99 235` | `index.css:112` |
-| `--highlight-rgb` | `253 224 71` (`#fde047`) | `202 138 4` | 하이라이트 마크 |
-| `--magenta-rgb` | `240 171 252` (`#f0abfc`) | `162 28 175` | 강조 구문 (orchestrator :244 · :253) |
+| `--danger-rgb` | `248 113 113` (`#f87171`) | `220 38 38` | 에러 텍스트 |
+| `--danger-bg-rgb` | `239 68 68` (`#ef4444`) | `239 68 68` | 에러 배경(알파와 함께) |
+| `--warning-rgb` | `245 158 11` (`#f59e0b`) | `217 119 6` | 경고 · dirty 표시 |
+| `--info-rgb` | `147 197 253` (`#93c5fd`) | `37 99 235` | 정보 |
+| `--highlight-rgb` | `253 224 71` (`#fde047`) | `202 138 4` | 하이라이트(`==text==`) |
+| `--magenta-rgb` | `240 171 252` (`#f0abfc`) | `162 28 175` | 강조 구문 |
 
-### 4.6 마인드뷰 노드 5단 — **`nodeColorScheme` 충돌 해소**
+각각 **다른 hue 이고 다른 역할**이라 합치면 의미를 잃는다. 유지한다.
 
-`entities/settings/model/types.ts:11` 의 `mindmap.nodeColorScheme` 은 **소비처가 0건**이다.
-이 토큰들이 실제 색의 단독 소유자가 되며, **그 설정 필드는 이 작업에서 건드리지 않는다**
-(제거 여부는 별건 티켓 — §10 참조). 토큰과 설정이 두 벌로 갈리는 것을 막기 위해
-**노드 색을 설정에서 읽는 코드를 새로 만들지 않는다.**
+### 4.6 마인드뷰 노드 — **5개 (유지, 사용자 확정)**
 
-| 토큰 | 다크 | 라이트 | 출처 (`MindView.tsx:394-406`) |
+| 토큰 | 다크 | 라이트 |
+|---|---|---|
+| `--node-1-rgb` | `45 212 191` (teal) | `13 148 136` |
+| `--node-2-rgb` | `56 189 248` (sky) | `2 132 199` |
+| `--node-3-rgb` | `251 191 36` (amber) | `217 119 6` |
+| `--node-4-rgb` | `244 114 182` (pink) | `219 39 119` |
+| `--node-5-rgb` | `192 132 252` (purple) | `147 51 234` |
+
+**목적이 계층 구분**이라 통합 대상이 아니다. `entities/settings/model/types.ts:11` 의
+`mindmap.nodeColorScheme`(소비처 0건)과 겹치므로, **노드 색을 설정에서 읽는 코드를 새로 만들지 않는다.**
+
+### 4.7 오버레이 / 스크림 — 2개
+
+| 토큰 | 다크 | 라이트 | 역할 |
 |---|---|---|---|
-| `--node-1-rgb` | `45 212 191` | `13 148 136` | teal |
-| `--node-2-rgb` | `56 189 248` | `2 132 199` | sky |
-| `--node-3-rgb` | `251 191 36` | `217 119 6` | amber |
-| `--node-4-rgb` | `244 114 182` | `219 39 119` | pink |
-| `--node-5-rgb` | `192 132 252` | `147 51 234` | purple |
+| `--overlay-rgb` | `255 255 255` | `0 0 0` | 표면 위 미세 대비 — **라이트에서 반전된다** |
+| `--scrim-rgb` | `0 0 0` | `0 0 0` | 모달 뒷배경 — 양쪽 동일 |
 
-### 4.7 오버레이 / 스크림 — **라이트 모드의 함정**
+### 4.8 통합으로 **실제 바뀌는 화면 지점** — 여기만 보면 된다
 
-`bg-white/10` 이 **17곳**, `bg-white/5`·`/20`·`border-white/5`·`/10` 이 추가로 있다.
-다크에서는 「살짝 밝히기」지만 **라이트에서 흰색 오버레이는 보이지 않는다.** 반전이 필요하다.
+> **이 단계는 「픽셀 동일」 약속을 처음으로 깨는 단계다.** 그래서 **통합은 그 자체로 하나의 커밋**이어야
+> 하고, 「픽셀 동일」 커밋과 절대 섞지 않는다. 섞이면 나중에 화면이 이상할 때
+> 「배선이 틀렸나 / 통합이 의도된 변화인가」를 분리할 수 없다.
 
-| 토큰 | 다크 | 라이트 | 용도 |
-|---|---|---|---|
-| `--overlay-rgb` | `255 255 255` | `0 0 0` | 표면 위 미세 대비 (`bg-white/10` → `bg-overlay/10`) |
-| `--scrim-rgb` | `0 0 0` | `0 0 0` | 모달 뒷배경 (`bg-black/50`) — **양쪽 동일** |
+| # | 지점 | 이전 | 이후 | 대비 |
+|---|---|---|---|---|
+| 1 | 스크롤바 트랙 (`index.css`) | `#111216` | `#0d0e12` | 1.03:1 |
+| 2 | `erd.css --background-secondary` | `#111216` | `#0d0e12` | 1.03:1 |
+| 3 | `bg-[#111216]` 2곳 — `WorkspacePage:248` · `MindView:374` | `#111216` | `#0d0e12` | 1.03:1 |
+| 4 | `bg-[#141520]` 7곳 — 카드 · 코드블록 헤더 | `#141520` | `#161821` | 1.02:1 |
+| 5 | `bg-[#1a1b26]` 1곳 + `orchestrator` 코드펜스 배경 | `#1a1b26` | `#1d1f30` | 1.05:1 |
+| 6 | H1 · `.cm-heading` · `text-slate-100` 11곳 | `#f1f5f9` | `#e2e8f0` | 1.13:1 |
+| 7 | `.cm-hr-line` | `#334155` | `#3a3f52` | — |
+| 8 | `.rv-content mark` 배경 (`index.css:277`) | `rgba(234,179,8,.18)` | `rgb(var(--highlight-rgb)/.18)` | — |
 
----
+**전부 1.13:1 이하**라 육안으로는 거의 구분되지 않는다. 그래도 **바뀌는 것은 사실**이므로 위 8지점을
+실기에서 확인한다 — 목록이 있으므로 전 화면을 훑을 필요가 없다.
 
 ## 5. 매핑표 — 팔레트 클래스 → 토큰 클래스
 
@@ -178,21 +200,21 @@ background: rgb(var(--accent-1-rgb) / 0.15);   /* 알파도 이 형태로 */
 
 | 현행 클래스 | 치환 | 건수 |
 |---|---|---|
-| `text-slate-100` | `text-t0` | 11 |
-| `text-slate-200` | `text-t1` | 46 |
-| `text-slate-300` | `text-t2` | 22 |
-| `text-slate-400` | `text-t3` | 16 |
-| `text-slate-500` | `text-t4` | 7 |
-| `text-white` | `text-t0` | 2 |
+| `text-slate-100` | `text-strong` | 11 |
+| `text-slate-200` | `text-strong` | 46 |
+| `text-slate-300` | `text-body` | 22 |
+| `text-slate-400` | `text-muted` | 16 |
+| `text-slate-500` | `text-faint` | 7 |
+| `text-white` | `text-strong` | 2 |
 | `bg-white/N` · `border-white/N` | `bg-overlay/N` · `border-overlay/N` | ~25 |
 | `bg-black/N` | `bg-scrim/N` | 3 |
 | `text-red-400` · `text-red-300` | `text-danger` | 7 |
 | `bg-red-500/N` · `border-red-500/N` | `bg-dangerBg/N` · `border-dangerBg/N` | 5 |
 | `bg-amber-500` | **§8 제약 — 건드리지 말 것** | 4 |
 | `text-amber-400` · `bg-amber-500/N` · `border-amber-500/N` · `bg-amber-950/N` | `*-node3` | 5 |
-| `text-indigo-400` · `text-indigo-300` | `text-accent1` · `text-accent2` | 8 |
-| `bg-indigo-500/N` · `border-indigo-500/N` · `ring-indigo-*` | `*-accent0/N` | 9 |
-| `bg-indigo-9NN/N` · `border-indigo-9NN/N` | `bg-surface5/N` 계열 — **육안 대조 필수** | 8 |
+| `text-indigo-400` · `text-indigo-300` | `text-accentSoft` · `text-accentSubtle` | 8 |
+| `bg-indigo-500/N` · `border-indigo-500/N` · `ring-indigo-*` | `*-accent/N` | 9 |
+| `bg-indigo-9NN/N` · `border-indigo-9NN/N` | `bg-panel/N` 계열 — **육안 대조 필수** | 8 |
 | `text-teal-400` · `bg-teal-*` · `border-teal-*` | `*-node1` | 4 |
 | `text-sky-400` · `bg-sky-*` · `border-sky-*` | `*-node2` | 4 |
 | `text-pink-400` · `bg-pink-*` · `border-pink-*` | `*-node4` | 4 |
@@ -245,7 +267,7 @@ colors: {
 }
 ```
 
-3. `index.css:10` 의 `bg-[#0d0e12]` → `bg-darkBg`.
+3. `index.css:10` 의 `bg-[#0d0e12]` → `bg-base`.
 
 **검증**: `pnpm dev` 로 띄워 **화면이 이전과 동일한지 육안 확인**. 특히 `border-darkBorder/40`·`bg-primary/20` 이 쓰인 곳(탭 바·저장 버튼)의 **반투명이 살아 있는지** — §2 의 실패 모드가 여기서 드러난다.
 
@@ -294,6 +316,33 @@ colors: {
 
 **검증**: ERD 탭을 열어 화면 픽셀 동일.
 
+### T1d — **토큰 통합 (32 → 26)** ← 단독 커밋. 화면이 바뀌는 유일한 사전 단계
+
+**파일**: `src/app/styles/index.css`(`:root`) · `tailwind.config.js` · `src/app/styles/erd.css`
+
+§4 의 26개 스케일로 `:root` 를 다시 쓰고, Tailwind 색 이름을 새 토큰에 맞춘다.
+`erd.css` 별칭 8줄도 새 토큰명으로 갱신하고, 이때 **`--text-on-accent` → `--text-error` 로 개명**한다
+(이름만 보고 accent 계열로 매핑하면 에러 알림 글자가 보라색이 된다. 소비자는 `erd.css:60` 한 곳뿐).
+
+기존 6색 Tailwind 이름(`darkBg`·`darkPanel`·`darkBorder`·`primary`·`accent`·`mutedText`)은
+**그대로 유지**한다 — 사용처 259~266곳이 무수정으로 남는다. 가리키는 토큰만 바꾼다:
+
+```js
+darkBg:     'rgb(var(--surface-base-rgb) / <alpha-value>)',
+darkPanel:  'rgb(var(--surface-panel-rgb) / <alpha-value>)',
+darkBorder: 'rgb(var(--border-rgb) / <alpha-value>)',
+primary:    'rgb(var(--accent-rgb) / <alpha-value>)',
+accent:     'rgb(var(--accent-alt-rgb) / <alpha-value>)',
+mutedText:  'rgb(var(--text-muted-rgb) / <alpha-value>)',
+```
+
+**⚠️ 이 커밋에 다른 것을 섞지 말 것.** §4.8 의 8지점이 이 커밋 하나 때문에 바뀐다.
+커밋 메시지에 **어느 쌍이 어느 값으로 수렴했는지** 남긴다.
+
+**검증**: §4.8 의 8지점 **외에는** 컴파일 출력이 값 동일해야 한다. 앞 단계에서 쓰던
+「토큰을 실제 색으로 환원해 전문 대조」를 그대로 돌리되, **차이가 8지점에서만 나오는지**로 판정한다.
+9번째 차이가 나오면 배선 실수다.
+
 ### T3a~T3e — 팔레트 클래스 182곳, 파일 단위 5커밋
 
 §5 매핑표대로 치환한다. **파일 하나 = 커밋 하나.**
@@ -312,12 +361,12 @@ colors: {
 
 | 파일 | 행 | 현재 | 치환 |
 |---|---|---|---|
-| `pages/WorkspacePage/WorkspacePage.tsx` | 248 | `bg-[#111216]` | `bg-surface1` |
-| `widgets/MindView/ui/MindView.tsx` | 374 | `bg-[#111216]` | `bg-surface1` |
-| `widgets/MindView/ui/MindView.tsx` | 480 | `bg-[#0d0e12]` | `bg-darkBg` |
-| `shared/lib/editor/decorators/impl/BlockCardDecorator.ts` | 132, 133 | `bg-[#141520]`, `bg-[#1d1f30]` | `bg-surface2`, `bg-surface5` |
-| `shared/lib/editor/decorators/impl/CodeBlockDecorator.ts` | 237 | `bg-[#141520]` | `bg-surface2` |
-| `shared/lib/editor/decorators/impl/TableDecorator.ts` | 760, 766 | `bg-[#141520]` ×2 | `bg-surface2` |
+| `pages/WorkspacePage/WorkspacePage.tsx` | 248 | `bg-[#111216]` | `bg-base` |
+| `widgets/MindView/ui/MindView.tsx` | 374 | `bg-[#111216]` | `bg-base` |
+| `widgets/MindView/ui/MindView.tsx` | 480 | `bg-[#0d0e12]` | `bg-base` |
+| `shared/lib/editor/decorators/impl/BlockCardDecorator.ts` | 132, 133 | `bg-[#141520]`, `bg-[#1d1f30]` | `bg-panel`, `bg-raised` |
+| `shared/lib/editor/decorators/impl/CodeBlockDecorator.ts` | 237 | `bg-[#141520]` | `bg-panel` |
+| `shared/lib/editor/decorators/impl/TableDecorator.ts` | 760, 766 | `bg-[#141520]` ×2 | `bg-panel` |
 
 > `MindView.tsx:502` 의 `stroke="#272a37"` 은 **SVG 속성**이라 Tailwind 클래스가 아니다.
 > `stroke="rgb(var(--border-1-rgb))"` 로 바꾼다.
@@ -380,10 +429,10 @@ const styleBytes = () => [...document.querySelectorAll('style')]
 
 | 파일 | 행 | 치환 |
 |---|---|---|
-| `widgets/BlockEditor/ui/BlockEditor.tsx` | 421, 423 | `bg-surface2`, `bg-surface5` |
-| `widgets/BlockEditor/ui/ReadView.tsx` | 68, 458 | `bg-surface2` |
-| `widgets/BlockEditor/ui/ReadView.tsx` | 76 | `bg-surface4` |
-| `widgets/BlockEditor/ui/ReadView.tsx` | 460 | `bg-surface5` |
+| `widgets/BlockEditor/ui/BlockEditor.tsx` | 421, 423 | `bg-panel`, `bg-raised` |
+| `widgets/BlockEditor/ui/ReadView.tsx` | 68, 458 | `bg-panel` |
+| `widgets/BlockEditor/ui/ReadView.tsx` | 76 | `bg-raised` |
+| `widgets/BlockEditor/ui/ReadView.tsx` | 460 | `bg-raised` |
 
 `ReadView.tsx` 팔레트 8곳 · `ErdDesignerMainView.tsx` 팔레트 1곳도 같은 커밋에서 처리한다.
 
