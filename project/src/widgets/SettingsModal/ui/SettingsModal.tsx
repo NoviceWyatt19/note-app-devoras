@@ -110,17 +110,17 @@ export function SettingsModal() {
                   <p className="text-xs text-mutedText">0으로 설정하면 화면 전체 너비를 사용합니다.</p>
                 </div>
                 <div className="space-y-3">
-                  <label className="text-sm font-semibold text-body">자동 저장 지연 시간 ({settings.editor.autosaveDelay / 1000}초)</label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="10000"
-                    step="500"
-                    value={settings.editor.autosaveDelay}
-                    onChange={(e) => updateEditor({ autosaveDelay: parseInt(e.target.value) })}
-                    className="w-full accent-primary"
-                  />
-                  <p className="text-xs text-mutedText">0으로 설정 시 입력 즉시 저장됩니다 (성능에 영향을 줄 수 있음).</p>
+                  <label className="text-sm font-semibold text-body">자동 저장</label>
+                  <select
+                    value={settings.editor.autosaveLevel}
+                    onChange={(e) => updateEditor({ autosaveLevel: e.target.value as 'off' | 'low' | 'high' })}
+                    className="w-full bg-darkPanel border border-darkBorder rounded-md px-3 py-2 text-sm text-strong outline-none focus:border-primary"
+                  >
+                    <option value="off">끄기</option>
+                    <option value="low">낮음 (편집을 멈춘 뒤 5초)</option>
+                    <option value="high">높음 (편집을 멈춘 뒤 1.5초)</option>
+                  </select>
+                  <p className="text-xs text-mutedText">편집을 멈추면 지정한 시간 뒤 자동으로 저장됩니다.</p>
                 </div>
               </div>
             )}

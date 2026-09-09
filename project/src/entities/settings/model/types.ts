@@ -1,7 +1,9 @@
+export type AutosaveLevel = 'off' | 'low' | 'high';
+
 export interface EditorSettings {
   fontSize: number;           // 12~24, 기본값 15
   fontFamily: string;         // 기본값 'ui-monospace, monospace'
-  autosaveDelay: number;      // ms 단위. 0 = 즉시, 1000~10000, 기본값 3000
+  autosaveLevel: AutosaveLevel; // FEAT-20260904-01. 저장 빈도(off/low/high). 기본값 'high'
   lineWrapping: boolean;      // 기본값 true
   contentMaxWidth: number;    // 에디터 중앙 정렬 최대 너비 (0이면 전체 너비 사용). 기본값 900
 }
@@ -30,7 +32,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   editor: {
     fontSize: 15,
     fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-    autosaveDelay: 3000,
+    autosaveLevel: 'high',
     lineWrapping: true,
     contentMaxWidth: 900,
   },

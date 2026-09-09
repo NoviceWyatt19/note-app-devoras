@@ -4,6 +4,7 @@ import { MindNode, parseMarkdown } from '@/entities/document/lib/parser';
 import { isSameOrInside, rebasePath } from '@/shared/lib/path';
 import { useWorkspaceStore } from '@/entities/workspace/model/store';
 import { getTabStore } from './tabStoreRegistry';
+import { scheduleAutosave, cancelAutosave } from './autosave';
 
 export type TabType = 'markdown' | 'mindmap-global' | 'erd';
 
@@ -319,6 +320,11 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   },
 
   closeTab: async (paneId, tabId) => {
+    // FEAT-20260904-01 — 탭이 사라지면 예약된 자동 저장은 취소한다. saveFile
+    // 자체가 없는 탭을 찾으면 안전하게 no-op 이지만, 도는 타이머를 남길
+    // 이유가 없다(cancelAutosave 주석 참고).
+    cancelAutosave(tabId);
+
     const { panes, activePaneId } = get();
     const closingPane = panes.find((p) => p.id === paneId);
     const wasActiveTabClosed = closingPane?.activeTabId === tabId;
@@ -550,7 +556,9 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       tabs: p.tabs.map((t) => {
         if (t.id !== tabId) return t;
         const isActiveTab = p.id === activePaneId && p.activeTabId === tabId;
-        const hasChanged = content !== (t.savedContent ?? t.cache?.rawContent ?? '');
+        const prevContent = t.savedContent ?? t.cache?.rawContent ?? '';
+        const hasChanged = content !== prevContent;
+
         if (isActiveTab) {
           // 활성 탭: cache 는 여기서 건드리지 않는다 — 라이브 편집 중엔 탭
           // 스코프 스토어가 진실이고, cache 는 _snapshotActiveTab 이 이
@@ -568,6 +576,19 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     }));
 
     set({ panes: updatedPanes });
+
+    // FEAT-20260904-01 — 자동 저장 대상은 set() 이후 별도 순수 탐색으로
+    // 구한다(위 map 콜백 안에서 바깥 변수를 재할당해 부작용을 흘리지 않는다).
+    // tabId 는 이 스토어 전체에서 유일하다(getTabStore 도 같은 전제).
+    for (const p of panes) {
+      const t = p.tabs.find((tab) => tab.id === tabId);
+      if (!t) continue;
+      const prevContent = t.savedContent ?? t.cache?.rawContent ?? '';
+      if (content !== prevContent && t.fileEntry && (t.type === 'markdown' || t.type === 'erd')) {
+        scheduleAutosave(p.id, tabId, prevContent, content);
+      }
+      break;
+    }
   },
 
   markTabDirty: (tabId) => {
