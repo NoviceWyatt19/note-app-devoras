@@ -1,0 +1,6 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# R3 E2' — 무거운 게이트(약 16초 실측: tsc 1.8s + t1 7.7s + t15 6.8s).
+# push 는 드물어서 여기서 도는 것이 원격에 들어간 뒤 발견하는 것보다 싸다.
+cd project && pnpm exec tsc --noEmit && pnpm test:t1 && pnpm test:t15

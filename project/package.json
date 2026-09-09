@@ -38,7 +38,7 @@
     "test:sanitizer": "node --import ./scripts/register-ts.mjs src/widgets/BlockEditor/__tests__/sanitizer_harness.ts",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "format": "prettier --write \"src/**/*.{ts,tsx,css,md}\"",
-    "prepare": "cd .. && husky project/.husky"
+    "prepare": "cd .. && husky install project/.husky"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.4",

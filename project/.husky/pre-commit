@@ -1,0 +1,7 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# R3 E2' — 버전 4파일 동기 검사. 33ms(실측), 체감 0.
+# 문서 전용 커밋은 버전을 올리지 않는 것이 규약이므로 이 스크립트는
+# 「넷이 서로 같은가」만 본다("올랐는가"가 아니다) — 문서 커밋을 막지 않는다.
+cd project && node scripts/check-version-sync.mjs
