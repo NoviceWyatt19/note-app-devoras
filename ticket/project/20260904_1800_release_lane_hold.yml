@@ -1203,3 +1203,37 @@ batch_B_narrowed:
     R2 는 **데이터 유실 인접 누락분**이고, R3 는 **없으면 기능이 몇 개든 출시가 성립하지 않는** 항목이다.
     둘이 끝나면 **R4 로 실제 산출물을 처음 검증**하게 된다 —
     코드로 갈 수 있는 데까지 가고 사람에게 넘기는 형태다.
+# ━━━
+R2_landed:
+  update: "2026-09-09 — **R2 착지.** `d88d054`(v0.9.30) · 티켓 완료 `7fabc06`"
+  pm_verified:
+    - "`entities/document/model/autosave.ts` 신설(4,853 bytes). `store.ts:588` `scheduleAutosave`(= `updateContentForTab` 안) · `:326` `cancelAutosave`(= `closeTab`)"
+    - "**안전장치 실재** — `shouldSkipAutosave(prev, new)` = 직전 비어있지 않은데 새 내용이 비면 `true`. `console.warn` + dirty 유지"
+    - "**ERD `entities/erd/model/settings.ts` 삭제됨** — 소비자 0 재확인(`grep` 무출력). 「설정 두 벌」 위험을 조정이 아니라 **제거**로 해소"
+    - "`test:autosave` 가 `test:t1` 에 등재됨(`package.json:16,19`)"
+    - "**PM 이 직접 실행: `pnpm test:autosave` → 9/9 pass**"
+  design_note: >
+    **`updateContentForTab` 한 곳에만 배선했다** — 모든 편집 경로가 거치는 단일 진입점이라
+    BlockEditor·SingleDocEditor·ErdDesignerMainView 를 개별 수정하지 않고 전부 덮었다.
+    **소비자를 늘리지 않는 배선**이라 A1 계열 위험이 없다
+  flush_decision:
+    what: "**새 flush 로직을 얹지 않았다.** 기존 가드 셋을 신뢰"
+    guards: "탭 전환 → `_snapshotActiveTab` 캐시 폴백 · 탭 닫기 → `confirmDiscardIfDirty` · 앱 종료 → `onCloseRequested`"
+    added: "닫히는 탭의 예약만 `cancelAutosave` 로 취소"
+    pm_note: "**판단은 합리적이나 교차검증 초점에 넣는다** — 세 가드가 실제로 「대기 중 예약」을 덮는지는 별개 명제다"
+  migration: "옛 `autosaveDelay`(ms) → `<5000ms → high, else low`. 없거나 파싱 실패면 기본값 `high`. **옛 필드는 결과 객체에 남기지 않는다**"
+  gates: "`test:t1` **101/101**(신규 9 포함) · `test:t15` 16/16 · `tsc` 클린 · `dirty_baseline_harness`·`tab_close_guard_harness` 무회귀"
+  live_verification_gap:
+    what: "라이브 브라우저로 편집→디스크 반영 왕복을 실시간 확인하려다 실패"
+    why: "**공유 dev 서버에서 R3 레인이 동시에 커밋해 HMR 리로드가 여러 번 걸려 상태가 초기화됐다**"
+    covered_by: "T1 하네스 9건이 실제 `saveFile` 경로로 검증(`fileSystemRepository` 가 Node 에서 `MockFileSystem` 인메모리로 해석 — `dirty_baseline_harness` 와 같은 전제). 설정 모달 UI 렌더는 라이브 확인"
+    disposition: "**수용.** 결정론적 증명이 하네스 쪽이 강하다는 판단이 맞다. 다만 **두 레인 병행의 부수 비용**으로 기록해 둔다"
+  cross_check_assigned:
+    to: "Debug_Manager_v2"
+    why: "**기본값 ON 이고 데이터 유실 인접인데 교차검증이 없다.** 판정 레인이 놀고 있다"
+    focus:
+      - "**F1 — `updateContentForTab` 이 정말 유일한 편집 진입점인가.** 아니면 일부 편집이 자동 저장되지 않는다(안전 문제는 아니나 약속 미이행)"
+      - "**F2 — flush 생략 판단.** 세 가드가 실제로 **대기 중 예약**을 덮는가. 특히 **탭/패널 전환 시 예약이 살아 있는 채 다른 탭 내용이 쓰이지 않는가**"
+      - "**F3 — 마이그레이션.** 옛 `autosaveDelay` 필드를 결과에서 제거하는데, **구버전 앱으로 되돌아갈 때** 무슨 일이 생기는가"
+      - "**F4 — `erd/model/settings.ts` 삭제.** 소비자 0 이 맞는가, 삭제 자체의 부수 영향은 없는가"
+      - "**R1-c 적용** — 위 넷을 다 통과시킨 뒤 **「이 초점이 이 변경의 위험을 다 덮는가」를 한 번 더 물을 것**"
