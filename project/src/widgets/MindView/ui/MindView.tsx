@@ -141,7 +141,7 @@ const PreviewPanel: React.FC<PreviewPanelProps> = ({
           className={[
             'flex-shrink-0 p-1.5 rounded transition-colors',
             isPinned
-              ? 'text-accentSoft bg-indigo-900/40 hover:bg-indigo-900/60'
+              ? 'text-accentSoft bg-accentDeep/40 hover:bg-accentDeep/60'
               : 'text-mutedText/40 hover:text-body hover:bg-overlay/10',
           ].join(' ')}
         >

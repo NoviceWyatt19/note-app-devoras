@@ -40,11 +40,14 @@
   --border-rgb: 39 42 55;            /* #272a37 · darkBorder */
   --border-strong-rgb: 58 63 82;     /* #3a3f52 · 스크롤바 thumb hover */
 
-  /* 강조 4개 */
+  /* 강조 5개 — accent-deep 은 T1d 에서 죽은 토큰(#7c3aed, 발화 안 함)으로 제거했으나
+   * T3 에서 값을 바꿔(indigo-900 #312e81) 되살렸다. 딥 인디고 7곳(MindView·FormatToolbar·
+   * App)이 산 소비처 — 1개로 합쳐도 ΔE 전부 2.28 이하(JND 미만)라 나눌 근거가 없다 */
   --accent-rgb: 99 102 241;          /* #6366f1 · primary(indigo) */
   --accent-soft-rgb: 129 140 248;    /* #818cf8 · 링크 */
   --accent-subtle-rgb: 165 180 252;  /* #a5b4fc · 인라인 코드 */
   --accent-alt-rgb: 20 184 166;      /* #14b8a6 · Tailwind accent(teal) */
+  --accent-deep-rgb: 49 46 129;      /* #312e81 · indigo-900 — 딥 인디고 배지 */
 
   /* 의미색 7개 */
   --danger-rgb: 248 113 113;         /* #f87171 */

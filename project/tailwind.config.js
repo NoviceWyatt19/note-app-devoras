@@ -38,6 +38,7 @@ export default {
         // ── 강조 (primary·accent 는 레거시) ─────────────────────
         accentSoft:   'rgb(var(--accent-soft-rgb) / <alpha-value>)',
         accentSubtle: 'rgb(var(--accent-subtle-rgb) / <alpha-value>)',
+        accentDeep:   'rgb(var(--accent-deep-rgb) / <alpha-value>)',
 
         // ── 의미색 ──────────────────────────────────────────────
         danger:      'rgb(var(--danger-rgb) / <alpha-value>)',

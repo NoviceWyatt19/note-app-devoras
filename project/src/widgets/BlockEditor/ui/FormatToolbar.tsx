@@ -170,7 +170,7 @@ export const FormatToolbar: React.FC = () => {
           className={[
             'flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition-all duration-150 select-none',
             viewMode === 'read'
-              ? 'text-accentSubtle bg-indigo-950/70 border border-indigo-800/50 hover:bg-indigo-900/50'
+              ? 'text-accentSubtle bg-accentDeep/[.39] border border-accentDeep/[.70] hover:bg-accentDeep/50'
               : 'text-mutedText hover:text-strong hover:bg-overlay/10',
           ].join(' ')}
         >
