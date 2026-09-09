@@ -234,23 +234,23 @@ class CodeBlockHeaderWidget extends WidgetType {
     });
     
     const wrap = document.createElement('div');
-    wrap.className = 'cm-code-block-header flex items-center justify-between px-4 py-1.5 bg-darkPanel border-b border-white/5 select-none w-full box-border rounded-t-xl border-t border-l border-r border-white/5 relative';
+    wrap.className = 'cm-code-block-header flex items-center justify-between px-4 py-1.5 bg-darkPanel border-b border-overlay/5 select-none w-full box-border rounded-t-xl border-t border-l border-r border-overlay/5 relative';
     
     const langSpan = document.createElement('span');
-    langSpan.className = 'cm-cb-lang font-mono text-slate-400 uppercase tracking-wider';
+    langSpan.className = 'cm-cb-lang font-mono text-mutedText uppercase tracking-wider';
     langSpan.textContent = this.lang || 'plaintext';
     
     wrap.appendChild(langSpan);
 
     if (this.title) {
       const titleSpan = document.createElement('span');
-      titleSpan.className = 'cm-cb-title font-medium text-slate-300 absolute left-1/2 -translate-x-1/2';
+      titleSpan.className = 'cm-cb-title font-medium text-body absolute left-1/2 -translate-x-1/2';
       titleSpan.textContent = this.title;
       wrap.appendChild(titleSpan);
     }
 
     const btn = document.createElement('button');
-    btn.className = 'opacity-0 group-hover:opacity-100 transition-opacity hover:text-primary text-slate-400 rv-copy-btn p-1 flex items-center gap-1 cursor-pointer';
+    btn.className = 'opacity-0 group-hover:opacity-100 transition-opacity hover:text-primary text-mutedText rv-copy-btn p-1 flex items-center gap-1 cursor-pointer';
     btn.title = 'Copy';
     btn.dataset.code = this.code;
     btn.innerHTML = `

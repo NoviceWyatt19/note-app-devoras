@@ -435,7 +435,7 @@ class UnpinRawWidget extends WidgetType {
     const btn = document.createElement('button');
     btn.title = '미리보기로 전환';
     btn.className =
-      'cm-table-unpin-btn ml-1.5 p-0.5 rounded text-slate-500 hover:text-primary hover:bg-white/10 ' +
+      'cm-table-unpin-btn ml-1.5 p-0.5 rounded text-faint hover:text-primary hover:bg-overlay/10 ' +
       'cursor-pointer inline-flex items-center justify-center align-middle';
     btn.innerHTML =
       '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>';
@@ -757,13 +757,13 @@ class TableWidget extends WidgetType {
     const kebab = document.createElement('button');
     kebab.title = '표 옵션';
     kebab.className =
-      'p-1 rounded text-mutedText hover:text-primary hover:bg-white/10 cursor-pointer flex items-center justify-center bg-darkPanel/90 border border-white/10';
+      'p-1 rounded text-mutedText hover:text-primary hover:bg-overlay/10 cursor-pointer flex items-center justify-center bg-darkPanel/90 border border-overlay/10';
     kebab.innerHTML = ICONS.kebab;
 
     const menu = document.createElement('div');
     menu.className =
       'hidden absolute top-full right-0 mt-1 min-w-[9.5rem] py-1 rounded-md shadow-2xl ' +
-      'bg-darkPanel border border-white/10 flex flex-col z-10';
+      'bg-darkPanel border border-overlay/10 flex flex-col z-10';
 
     const closeMenu = () => {
       menu.classList.add('hidden');
@@ -776,7 +776,7 @@ class TableWidget extends WidgetType {
     const makeItem = (label: string, svg: string, eventName: string, detail: Record<string, number>) => {
       const item = document.createElement('button');
       item.className =
-        'flex items-center gap-2 px-3 py-1.5 text-left text-slate-300 hover:bg-white/10 hover:text-primary cursor-pointer whitespace-nowrap';
+        'flex items-center gap-2 px-3 py-1.5 text-left text-body hover:bg-overlay/10 hover:text-primary cursor-pointer whitespace-nowrap';
       item.innerHTML = `<span class="shrink-0">${svg}</span><span>${label}</span>`;
       item.addEventListener('mousedown', (e) => {
         e.preventDefault();
