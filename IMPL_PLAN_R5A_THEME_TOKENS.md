@@ -203,7 +203,7 @@ background: rgb(var(--accent-1-rgb) / 0.15);   /* 알파도 이 형태로 */
 | `text-slate-100` | `text-strong` | 11 |
 | `text-slate-200` | `text-strong` | 46 |
 | `text-slate-300` | `text-body` | 22 |
-| `text-slate-400` | `text-muted` | 16 |
+| `text-slate-400` | `text-mutedText` *(레거시 이름 유지)* | 16 |
 | `text-slate-500` | `text-faint` | 7 |
 | `text-white` | `text-strong` | 2 |
 | `bg-white/N` · `border-white/N` | `bg-overlay/N` · `border-overlay/N` | ~25 |
@@ -211,10 +211,11 @@ background: rgb(var(--accent-1-rgb) / 0.15);   /* 알파도 이 형태로 */
 | `text-red-400` · `text-red-300` | `text-danger` | 7 |
 | `bg-red-500/N` · `border-red-500/N` | `bg-dangerBg/N` · `border-dangerBg/N` | 5 |
 | `bg-amber-500` | **§8 제약 — 건드리지 말 것** | 4 |
-| `text-amber-400` · `bg-amber-500/N` · `border-amber-500/N` · `bg-amber-950/N` | `*-node3` | 5 |
+| `text-amber-400` · `bg-amber-500/N` · `border-amber-500/N` | `*-node3` | 5 |
+| `bg-amber-950/N` 등 `-950` 계열 | **§5.1 참조** | — |
 | `text-indigo-400` · `text-indigo-300` | `text-accentSoft` · `text-accentSubtle` | 8 |
-| `bg-indigo-500/N` · `border-indigo-500/N` · `ring-indigo-*` | `*-accent/N` | 9 |
-| `bg-indigo-9NN/N` · `border-indigo-9NN/N` | `bg-panel/N` 계열 — **육안 대조 필수** | 8 |
+| `bg-indigo-500/N` · `border-indigo-500/N` · `ring-indigo-*` | **`*-primary/N`** *(레거시 이름 — 새 키를 만들지 않는다)* | 9 |
+| `bg-indigo-9NN/N` · `border-indigo-9NN/N` | **§5.1 의 낮은 알파 치환** (`bg-primary/[.05]` 등) | 8 |
 | `text-teal-400` · `bg-teal-*` · `border-teal-*` | `*-node1` | 4 |
 | `text-sky-400` · `bg-sky-*` · `border-sky-*` | `*-node2` | 4 |
 | `text-pink-400` · `bg-pink-*` · `border-pink-*` | `*-node4` | 4 |
@@ -326,14 +327,14 @@ colors: {
 
 | 원본 | 치환 | 합성 총차 |
 |---|---|---|
-| `bg-indigo-950/20` | `bg-accent/[.05]` | 2 |
+| `bg-indigo-950/20` | `bg-primary/[.05]` | 2 |
 | `bg-teal-950/20` | `bg-node1/[.03]` | 5 |
 | `bg-sky-950/20` | `bg-node2/[.04]` | 5 |
 | `bg-amber-950/20` | `bg-node3/[.04]` | 10 |
 | `bg-pink-950/20` | `bg-node4/[.03]` | 11 |
 | `bg-purple-950/20` | `bg-node5/[.05]` | 11 |
-| `bg-indigo-900/40` | `bg-accent/[.18]` | 8 |
-| `bg-indigo-900/60` | `bg-accent/[.30]` | 11 |
+| `bg-indigo-900/40` | `bg-primary/[.18]` | 8 |
+| `bg-indigo-900/60` | `bg-primary/[.30]` | 11 |
 | `shadow-{hue}-950/10` | 같은 방식으로 `shadow-nodeN/[.02]` 수준 | — |
 
 **임의 알파 문법은 컴파일 검증했다** — `bg-node1/[.03]` → `background-color: rgb(var(--node-1-rgb) / .03)`,
@@ -362,13 +363,52 @@ Tailwind 관용이지 설계된 구분이 아니다. `--node-N` 하나로 합친
 **그대로 유지**한다 — 사용처 259~266곳이 무수정으로 남는다. 가리키는 토큰만 바꾼다:
 
 ```js
-darkBg:     'rgb(var(--surface-base-rgb) / <alpha-value>)',
-darkPanel:  'rgb(var(--surface-panel-rgb) / <alpha-value>)',
-darkBorder: 'rgb(var(--border-rgb) / <alpha-value>)',
-primary:    'rgb(var(--accent-rgb) / <alpha-value>)',
-accent:     'rgb(var(--accent-alt-rgb) / <alpha-value>)',
-mutedText:  'rgb(var(--text-muted-rgb) / <alpha-value>)',
+// tailwind.config.js — theme.extend.colors 전체. 토큰 26개 ↔ 키 26개, 1:1 이다.
+//
+// 명명 규칙: **레거시 이름이 있으면 그것이 정본이다.** 같은 토큰에 새 키를 덧붙이지 않는다
+// (같은 색에 두 이름이 생기는 것이 이 저장소가 반복해 온 A1 계열 결함이다).
+// 레거시 6개는 사용처 259~266곳을 무수정으로 남긴다 — 가리키는 토큰만 바꾼다.
+colors: {
+  // ── 레거시 6개 (이름 유지) ──────────────────────────────
+  darkBg:     'rgb(var(--surface-base-rgb) / <alpha-value>)',
+  darkPanel:  'rgb(var(--surface-panel-rgb) / <alpha-value>)',
+  darkBorder: 'rgb(var(--border-rgb) / <alpha-value>)',
+  primary:    'rgb(var(--accent-rgb) / <alpha-value>)',        // ← indigo. 새 팔레트 치환도 이 이름을 쓴다
+  accent:     'rgb(var(--accent-alt-rgb) / <alpha-value>)',    // ← teal. 사용처 1곳뿐이지만 이름을 뺏지 않는다
+  mutedText:  'rgb(var(--text-muted-rgb) / <alpha-value>)',    // ← 텍스트 muted 단의 정본 이름
+
+  // ── 신규 (레거시가 덮지 않는 토큰만) ────────────────────
+  raised:       'rgb(var(--surface-raised-rgb) / <alpha-value>)',
+  strong:       'rgb(var(--text-strong-rgb) / <alpha-value>)',
+  body:         'rgb(var(--text-body-rgb) / <alpha-value>)',
+  faint:        'rgb(var(--text-faint-rgb) / <alpha-value>)',
+  borderStrong: 'rgb(var(--border-strong-rgb) / <alpha-value>)',
+  accentSoft:   'rgb(var(--accent-soft-rgb) / <alpha-value>)',
+  accentSubtle: 'rgb(var(--accent-subtle-rgb) / <alpha-value>)',
+  danger:    'rgb(var(--danger-rgb) / <alpha-value>)',
+  dangerBg:  'rgb(var(--danger-bg-rgb) / <alpha-value>)',
+  warning:   'rgb(var(--warning-rgb) / <alpha-value>)',
+  info:      'rgb(var(--info-rgb) / <alpha-value>)',
+  highlight: 'rgb(var(--highlight-rgb) / <alpha-value>)',
+  magenta:   'rgb(var(--magenta-rgb) / <alpha-value>)',
+  node1: 'rgb(var(--node-1-rgb) / <alpha-value>)',
+  node2: 'rgb(var(--node-2-rgb) / <alpha-value>)',
+  node3: 'rgb(var(--node-3-rgb) / <alpha-value>)',
+  node4: 'rgb(var(--node-4-rgb) / <alpha-value>)',
+  node5: 'rgb(var(--node-5-rgb) / <alpha-value>)',
+  overlay: 'rgb(var(--overlay-rgb) / <alpha-value>)',
+  scrim:   'rgb(var(--scrim-rgb) / <alpha-value>)',
+}
 ```
+
+> ⚠️ **`accent` 는 teal 이다. indigo 가 아니다.** 레거시 `accent`(`#14b8a6`, 사용처 1곳)가
+> 그 이름을 이미 쓰고 있으므로, indigo 강조의 Tailwind 이름은 **`primary`** 다(사용처 87곳).
+> §5 매핑표의 `bg-indigo-500/N` → **`bg-primary/N`** 인 이유다.
+> JS 객체는 같은 키를 두 번 가질 수 없어, 새로 `accent` 키를 만들면 **나중에 쓴 쪽이 조용히 이긴다.**
+>
+> **텍스트 단의 클래스 이름이 한 군데 어긋난다** — `text-strong` · `text-body` · **`text-mutedText`** · `text-faint`.
+> muted 만 레거시 이름인데, 45곳을 고치지 않으려는 의도적 선택이다. 통일하려면 별건으로 정리한다.
+> **같은 토큰에 `muted` 키를 추가하지 말 것** — 그 순간 한 색에 두 이름이 생긴다.
 
 **⚠️ 이 커밋에 다른 것을 섞지 말 것.** §4.8 의 8지점이 이 커밋 하나 때문에 바뀐다.
 커밋 메시지에 **어느 쌍이 어느 값으로 수렴했는지** 남긴다.
