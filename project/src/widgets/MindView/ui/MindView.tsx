@@ -371,7 +371,7 @@ export const MindView: React.FC<MindViewProps> = ({ onClose, isStandalone }) => 
   // 체크만으론 "ERD 의 JSON 을 마인드맵 nodes 로 그리려는 시도"를 막지 못한다.
   if (!currentFile || showEmptyForNonMarkdownActiveTab) {
     return (
-      <div className="h-full flex flex-col items-center justify-center text-center p-6 select-none bg-[#111216]/20">
+      <div className="h-full flex flex-col items-center justify-center text-center p-6 select-none bg-darkBg/20">
         <EyeOff className="w-12 h-12 text-mutedText/20 mb-3" />
         <h3 className="text-sm font-semibold text-mutedText/40 mb-1">마인드 맵 로드 대기</h3>
         <p className="text-xs text-mutedText/30 max-w-xs leading-relaxed">
@@ -480,7 +480,7 @@ export const MindView: React.FC<MindViewProps> = ({ onClose, isStandalone }) => 
       {/* ── SVG Canvas ───────────────────────────────────────────────────── */}
       <svg
         ref={svgRef}
-        className="w-full h-full cursor-grab active:cursor-grabbing bg-[#0d0e12]"
+        className="w-full h-full cursor-grab active:cursor-grabbing bg-darkBg"
         onMouseDown={handleCanvasMouseDown}
         onWheel={handleWheel}
       >
@@ -502,7 +502,7 @@ export const MindView: React.FC<MindViewProps> = ({ onClose, isStandalone }) => 
                 key={`link-${node.id}`}
                 d={`M ${startX} ${startY} C ${startX + controlDist} ${startY}, ${endX - controlDist} ${endY}, ${endX} ${endY}`}
                 fill="none"
-                stroke="#272a37"
+                stroke="rgb(var(--border-rgb))"
                 strokeWidth={1.5}
                 className="transition-all duration-300 hover:stroke-primary/50"
               />

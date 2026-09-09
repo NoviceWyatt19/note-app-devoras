@@ -245,7 +245,7 @@ export const WorkspacePage: React.FC = () => {
           />
           <div
             style={{ width: `${mindViewWidth}px` }}
-            className="flex-shrink-0 min-w-0 h-full bg-[#111216]/60 border-l border-darkBorder relative"
+            className="flex-shrink-0 min-w-0 h-full bg-darkBg/60 border-l border-darkBorder relative"
           >
             <MindView onClose={() => setIsMindViewOpen(false)} isStandalone={false} />
           </div>

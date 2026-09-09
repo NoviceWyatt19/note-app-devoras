@@ -146,7 +146,7 @@ export const blockCardTheme = EditorView.theme({
   },
 
   '&.cm-editor .cm-block-card-l2': {
-    backgroundColor: '#141520',
+    backgroundColor: 'rgb(var(--surface-panel-rgb))',
     backgroundClip: 'padding-box',
     borderLeft: '4px solid transparent',
     borderRight: '4px solid transparent',
@@ -187,7 +187,7 @@ export const blockCardTheme = EditorView.theme({
     right: '24px',
     top: '0',
     bottom: '0',
-    backgroundColor: '#1d1f30',
+    backgroundColor: 'rgb(var(--surface-raised-rgb))',
     boxShadow: 'inset 1px 0 0 rgba(39,42,55,0.75), inset -1px 0 0 rgba(39,42,55,0.75)',
     zIndex: '-1',
   },

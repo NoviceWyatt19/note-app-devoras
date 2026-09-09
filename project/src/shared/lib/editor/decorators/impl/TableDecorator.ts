@@ -757,13 +757,13 @@ class TableWidget extends WidgetType {
     const kebab = document.createElement('button');
     kebab.title = '표 옵션';
     kebab.className =
-      'p-1 rounded text-slate-400 hover:text-primary hover:bg-white/10 cursor-pointer flex items-center justify-center bg-[#141520]/90 border border-white/10';
+      'p-1 rounded text-mutedText hover:text-primary hover:bg-white/10 cursor-pointer flex items-center justify-center bg-darkPanel/90 border border-white/10';
     kebab.innerHTML = ICONS.kebab;
 
     const menu = document.createElement('div');
     menu.className =
       'hidden absolute top-full right-0 mt-1 min-w-[9.5rem] py-1 rounded-md shadow-2xl ' +
-      'bg-[#141520] border border-white/10 flex flex-col z-10';
+      'bg-darkPanel border border-white/10 flex flex-col z-10';
 
     const closeMenu = () => {
       menu.classList.add('hidden');

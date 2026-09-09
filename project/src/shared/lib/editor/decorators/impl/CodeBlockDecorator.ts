@@ -234,7 +234,7 @@ class CodeBlockHeaderWidget extends WidgetType {
     });
     
     const wrap = document.createElement('div');
-    wrap.className = 'cm-code-block-header flex items-center justify-between px-4 py-1.5 bg-[#141520] border-b border-white/5 select-none w-full box-border rounded-t-xl border-t border-l border-r border-white/5 relative';
+    wrap.className = 'cm-code-block-header flex items-center justify-between px-4 py-1.5 bg-darkPanel border-b border-white/5 select-none w-full box-border rounded-t-xl border-t border-l border-r border-white/5 relative';
     
     const langSpan = document.createElement('span');
     langSpan.className = 'cm-cb-lang font-mono text-slate-400 uppercase tracking-wider';
