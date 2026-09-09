@@ -63,7 +63,7 @@ test('로드 직후 저장 버튼은 clean 스타일이고 탭 바에 점이 없
   const btn = saveButton();
   assert.ok(!btn.className.includes('bg-primary/10'), '편집 전인데 저장 버튼이 dirty 스타일이다');
   assert.strictEqual(
-    document.querySelector('.bg-amber-500'),
+    document.querySelector('.bg-warning'),
     null,
     '편집 전인데 탭 바에 dirty 점이 떠 있다',
   );
@@ -77,7 +77,7 @@ test('편집하면 저장 버튼과 탭 바 점이 함께 dirty 로 바뀐다', 
 
   const btn = saveButton();
   assert.ok(btn.className.includes('bg-primary/10'), '편집 후 저장 버튼이 dirty 스타일로 바뀌지 않았다');
-  assert.ok(document.querySelector('.bg-amber-500'), '편집 후 탭 바에 dirty 점이 뜨지 않았다');
+  assert.ok(document.querySelector('.bg-warning'), '편집 후 탭 바에 dirty 점이 뜨지 않았다');
 });
 
 test('저장 버튼 클릭 시 디스크에 반영되고 두 dirty 표시가 함께 꺼진다', async () => {
@@ -103,7 +103,7 @@ test('저장 버튼 클릭 시 디스크에 반영되고 두 dirty 표시가 함
     '저장 후에도 저장 버튼이 dirty 스타일로 남아 있다',
   );
   assert.strictEqual(
-    document.querySelector('.bg-amber-500'),
+    document.querySelector('.bg-warning'),
     null,
     '저장 후에도 탭 바 dirty 점이 남아 있다 — 노란 점이 디스크 반영 여부와 어긋난다(B1/BUG-20260826-07 재발)',
   );

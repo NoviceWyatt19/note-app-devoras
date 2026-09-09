@@ -14,6 +14,7 @@ export interface MindmapSettings {
 export interface GeneralSettings {
   autoOpenLastWorkspace: boolean;  // 기본값 true
   language: 'ko' | 'en';          // 기본값 'ko'
+  themeMode: 'system' | 'dark' | 'light';  // 기본값 'system'. R5-a T6
 }
 
 export interface AppSettings {
@@ -40,6 +41,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   general: {
     autoOpenLastWorkspace: true,
     language: 'ko',
+    themeMode: 'system',
   },
   activeThemeFile: null,
 };

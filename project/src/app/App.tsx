@@ -4,6 +4,7 @@ import { LauncherPage } from '@/pages/LauncherPage/LauncherPage';
 import { useWorkspaceStore } from '@/entities/workspace/model/store';
 import { useRecentWorkspaceStore } from '@/entities/workspace/model/recentStore';
 import { useSettingsStore } from '@/entities/settings/model/store';
+import { Sun, Moon, MonitorCog } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useDocumentStore } from '@/entities/document/model/store';
@@ -39,9 +40,26 @@ async function revealWindow(): Promise<void> {
   }
 }
 
+const THEME_CYCLE = ['system', 'dark', 'light'] as const;
+const THEME_ICON = { system: MonitorCog, dark: Moon, light: Sun } as const;
+const THEME_LABEL = { system: '시스템 설정을 따름', dark: '다크 모드', light: '라이트 모드' } as const;
+
 function App() {
   const { workspacePath } = useWorkspaceStore();
   const { loadFromDisk } = useRecentWorkspaceStore();
+  const themeMode = useSettingsStore((s) => s.settings.general.themeMode);
+  const updateGeneral = useSettingsStore((s) => s.updateGeneral);
+
+  // R5-a T6 — data-theme 속성 전환. 'system' 이면 속성을 제거해 index.css 의
+  // `@media (prefers-color-scheme: light)` 가 OS 설정을 따르게 둔다.
+  useEffect(() => {
+    const root = document.documentElement;
+    if (themeMode === 'system') {
+      root.removeAttribute('data-theme');
+    } else {
+      root.setAttribute('data-theme', themeMode);
+    }
+  }, [themeMode]);
 
   useEffect(() => {
     const initApp = async () => {
@@ -100,7 +118,21 @@ function App() {
         <div data-tauri-drag-region className="text-xs text-mutedText font-medium">
           텍스트와 마인드맵의 실시간 단방향 투영 캔버스
         </div>
-        <div data-tauri-drag-region className="w-16"></div>
+        <div className="w-16 flex items-center justify-end">
+          <button
+            onClick={() => {
+              const next = THEME_CYCLE[(THEME_CYCLE.indexOf(themeMode) + 1) % THEME_CYCLE.length];
+              updateGeneral({ themeMode: next });
+            }}
+            title={`테마: ${THEME_LABEL[themeMode]} (클릭하여 전환)`}
+            className="p-1.5 rounded text-mutedText hover:text-strong hover:bg-overlay/10 transition-colors"
+          >
+            {(() => {
+              const Icon = THEME_ICON[themeMode];
+              return <Icon size={15} />;
+            })()}
+          </button>
+        </div>
       </header>
 
       {/* Main Area */}

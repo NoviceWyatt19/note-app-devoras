@@ -145,6 +145,18 @@ export function SettingsModal() {
             {activeTab === 'general' && (
               <div className="space-y-6">
                 <div className="space-y-3">
+                  <label className="text-sm font-semibold text-body">테마</label>
+                  <select
+                    value={settings.general.themeMode}
+                    onChange={(e) => updateGeneral({ themeMode: e.target.value as 'system' | 'dark' | 'light' })}
+                    className="w-full bg-darkPanel border border-darkBorder rounded-md px-3 py-2 text-sm text-strong outline-none focus:border-primary"
+                  >
+                    <option value="system">시스템 설정을 따름</option>
+                    <option value="dark">다크</option>
+                    <option value="light">라이트</option>
+                  </select>
+                </div>
+                <div className="space-y-3">
                   <label className="text-sm font-semibold text-body flex items-center justify-between">
                     <span>마지막 워크스페이스 자동 열기</span>
                     <button
