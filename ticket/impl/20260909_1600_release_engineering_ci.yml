@@ -1,0 +1,88 @@
+# 🛠 IMPLEMENT TICKET
+type: "IMPLEMENT_TICKET"
+id: "IMPL-20260909-01"
+# ━━━
+update: "2026-09-09 16:00"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "R3 출시 엔지니어링 — E2(CI) → E1(GitHub Releases)"
+status: "Todo — 실행 사양서 작성 완료"
+parent: "REL-20260904-01"
+assignee: "Impl_worker_v1"
+planned_by: "Impl_Manager_v1"
+baseline: "dc8e000 · v0.9.27"
+spec_document: "IMPL_PLAN_R3_RELEASE_ENGINEERING.md (저장소 루트)"
+# ━━━
+the_finding_that_shapes_this_ticket:
+  headline: "**`lint` 는 지금 실패한다 — 차단 게이트로 넣으면 CI 가 첫날부터 빨간불이다**"
+  measured: "`pnpm lint` → 124 problems (111 errors, 13 warnings). `no-explicit-any` 50 · `exhaustive-deps` 9 · 나머지 9"
+  the_others_pass: "`tsc --noEmit` exit 0 · `test:t1` 92/92 · `test:t15` 16/16 — 전부 직접 실행 확인"
+  why_it_matters: >
+    **빨간 CI 는 CI 가 없는 것보다 나쁘다.** 없으면 사람이 기억이라도 하지만, 상시 빨간불은
+    「원래 빨간 거」가 되어 진짜 실패를 가린다. 이 배치의 목적이 「하네스가 사람 기억에 의존하는
+    상태를 끊는 것」인데 빨간 CI 는 그걸 정확히 반대로 달성한다.
+  prescription: "통과하는 4종은 차단 게이트, `lint` 는 기준선 124 대비 비차단 비교(래칫). 0 이 되는 날 승격"
+# ━━━
+prechecked:
+  note: "착수 전에 내가 직접 확인한 것 — 실행 세션은 재확인하지 않아도 된다"
+  items:
+    - "`.github/` 디렉터리가 **저장소 어디에도 없다**"
+    - "`prepare` 스크립트(husky v9 문법 + v8 설치)는 usage 를 찍지만 **exit 0** 이라 `pnpm install` 을 막지 않는다"
+    - "`packageManager` 필드가 **없다** — pnpm 버전 미고정. CI 첫 작업으로 박을 것"
+    - "Node 요구 버전은 **24**(저장소 루트 `.nvmrc`)"
+    - "4파일 버전이 현재 전부 `0.9.27` 로 일치 — 동기 검사가 착수 시점에 통과한다"
+    - "**`.dmg` 산출물이 이미 존재한다** — 아래 `existing_artifact`"
+# ━━━
+existing_artifact:
+  note: "PM 지시의 「수동으로 한 번 돌려보라」가 이미 수행된 상태다. E1 의 남은 일은 자동화와 배포다"
+  path: "project/src-tauri/target/release/bundle/dmg/Devoras_0.9.27_aarch64.dmg"
+  built_at: "2026-09-09 15:59"
+  size_bytes: 10186112
+  sha256: "4eaa7ac17642ec39d3e8daf2e7f7f1babd5137516e1c03a39b6191141985393e"
+  signature: "**adhoc** (`flags=0x20002(adhoc,linker-signed)`) — E3(a) 무서명 경로 그대로"
+  arch: "**arm64 단독**"
+  app_version: "0.9.27 (4파일과 일치)"
+# ━━━
+decision_needed_from_pm:
+  id: "arm64 단독인가 universal 인가"
+  fact: "현재 산출물은 Apple Silicon 전용이다. **Intel Mac 사용자는 실행할 수 없다**"
+  options:
+    - "arm64 단독 유지 — 비용 0. README 에 「Apple Silicon 전용」 명시 필수"
+    - "universal — `--target universal-apple-darwin` + Rust 타깃 2개. 빌드 시간·용량 증가"
+  my_recommendation: "**개인 배포 단계에서는 arm64 단독으로 충분하다.** 다만 Homebrew cask 는 아키텍처를 명시해야 하므로 **E6 착수 전에는 확정**돼야 한다"
+# ━━━
+scope:
+  e2_ci:
+    - "`.github/workflows/ci.yml` — **저장소 루트**(`project/.github/` 아님). 모든 job 의 `working-directory: project`"
+    - "runner `macos-latest` · Node 24 · pnpm 고정"
+    - "차단 게이트: `tsc --noEmit` · `test:t1` · `test:t15` · **버전 4파일 동기 검사**"
+    - "`project/scripts/check-version-sync.mjs` 신규 — 불일치 시 **네 값을 전부 출력하고** exit 1"
+    - "`lint` 비차단, 기준선 124 대비 증가 시 경고"
+  e1_release:
+    - "`.github/workflows/release.yml` — `push: tags: ['v*']` + `workflow_dispatch`"
+    - "**태그와 4파일 버전 일치 검사** — 불일치면 즉시 실패(§3.2 스크립트 재사용)"
+    - "`pnpm tauri build` → `.dmg` + `SHA256SUMS.txt` 업로드"
+    - "`README.md` 첫 실행 안내(우클릭→열기) + **Apple Silicon 전용** 명시"
+  excluded:
+    - "Developer ID 서명·공증(E3b) · Homebrew tap(E6) — 계정 확인 대기(D5)"
+    - "`tauri-plugin-updater` · Windows 빌드"
+    - "`lint` 124건 수정 — 별건. `exhaustive-deps` 9건은 동작이 바뀔 수 있어 R5-a 직후에 섞으면 회귀 원인이 분리되지 않는다"
+    - "husky v8→v9 — 별건. CI 를 막지 않는다"
+# ━━━
+dod:
+  - "차단 게이트 4종이 저장소 루트 워크플로에서 돈다"
+  - "`packageManager` 로 pnpm 버전 고정"
+  - "버전 동기 검사가 불일치 시 네 값을 전부 출력하고 실패한다"
+  - "`lint` 비차단, 기준선 124"
+  - "태그 push 로 `.dmg` + `SHA256SUMS.txt` 발행"
+  - "태그와 4파일 버전 불일치 시 릴리스 실패"
+  - "README 에 첫 실행 안내 + Apple Silicon 전용 명시"
+  - "**CI 가 초록이다** — 빨간 채로 두지 않는다"
+# ━━━
+this_unit_ends_with:
+  what: "**R4 를 사람에게 넘기는 지점**"
+  why_now: "`existing_artifact` 가 이미 있으므로 CI 완성을 기다릴 필요 없이 **지금 넘길 수 있다**"
+  first_check: >
+    `VERIFY_BY_HUMAN.md` §1 의 **미재현 보고**(「빌드 앱 첫 실행 시 이미지 미렌더링,
+    dev 를 한 번 거치면 정상」, 2026-08-30)가 이 `.dmg` 에서 재현되는지가 **첫 확인 대상**이다.
+    사실이면 새 사용자 전원이 깨진 앱을 본다.
+  also: "§2 · §4(프로덕션 csp) · **§12(라이트 모드 육안 — R5-a 산출물)**"
