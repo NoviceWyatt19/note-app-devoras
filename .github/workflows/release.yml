@@ -1,0 +1,79 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: project
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read .nvmrc
+        id: nvmrc
+        run: echo "node_version=$(cat .nvmrc)" >> "$GITHUB_OUTPUT"
+        working-directory: .
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ steps.nvmrc.outputs.node_version }}
+          cache: pnpm
+          cache-dependency-path: project/pnpm-lock.yaml
+
+      - name: Enable Corepack (pnpm version pinned via packageManager field)
+        run: corepack enable
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: project/src-tauri
+
+      # 태그와 4파일 버전이 어긋난 릴리스를 원천 차단한다(§3.2 스크립트 재사용).
+      # workflow_dispatch(태그 없음) 로 수동 실행한 경우는 이 검사를 건너뛴다 —
+      # 그때는 4파일 자체가 유일한 진실이다.
+      - name: Version sync check (tag vs. 4 files)
+        if: github.ref_type == 'tag'
+        run: node scripts/check-version-sync.mjs "${{ github.ref_name }}"
+
+      - name: Version sync check (4 files only)
+        if: github.ref_type != 'tag'
+        run: node scripts/check-version-sync.mjs
+
+      - name: Install dependencies (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Build (Tauri)
+        run: pnpm tauri build
+
+      - name: Locate DMG and compute SHA256
+        id: artifact
+        run: |
+          DMG_PATH=$(find src-tauri/target/release/bundle/dmg -maxdepth 1 -name '*.dmg' | head -1)
+          if [ -z "$DMG_PATH" ]; then
+            echo "❌ .dmg 를 못 찾았다 — 빌드 산출물 경로 확인 필요"
+            find src-tauri/target/release/bundle -maxdepth 2
+            exit 1
+          fi
+          echo "dmg_path=$DMG_PATH" >> "$GITHUB_OUTPUT"
+          echo "dmg_name=$(basename "$DMG_PATH")" >> "$GITHUB_OUTPUT"
+          shasum -a 256 "$DMG_PATH" > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            project/${{ steps.artifact.outputs.dmg_path }}
+            project/SHA256SUMS.txt
+          generate_release_notes: true

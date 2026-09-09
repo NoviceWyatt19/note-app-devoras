@@ -1,12 +1,13 @@
 {
   "name": "devoras-design",
   "private": true,
-  "version": "0.9.27",
+  "version": "0.9.28",
   "type": "module",
   "engines": {
     "node": ">=22.6",
     "pnpm": ">=10"
   },
+  "packageManager": "pnpm@10.34.5",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",

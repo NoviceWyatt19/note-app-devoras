@@ -41,7 +41,23 @@ Devoras는 **텍스트 기반의 마크다운 에디터**와 **실시간 마인�
 
 ---
 
-## 🚀 시작하기 (Getting Started)
+## 📦 설치 (macOS · Apple Silicon 전용)
+
+> 현재 배포 `.dmg` 는 **Apple Silicon(M1 이상) 전용**입니다. Intel Mac 에서는 실행되지 않습니다.
+
+1. [Releases](../../releases) 에서 최신 `.dmg` 를 받아 앱을 Applications 폴더로 옮깁니다.
+2. **처음 한 번은 우클릭 → 열기** 로 실행하세요. 앱이 무서명 상태라, 더블클릭하면
+   "확인되지 않은 개발자" 경고가 뜨며 열리지 않습니다.
+3. 이후에는 더블클릭으로 정상적으로 열립니다.
+
+다운로드한 `.dmg` 의 무결성은 같은 릴리스에 첨부된 `SHA256SUMS.txt` 로 확인할 수 있습니다:
+```bash
+shasum -a 256 -c SHA256SUMS.txt
+```
+
+---
+
+## 🚀 시작하기 (Getting Started, 개발자용)
 
 ### 사전 요구사항
 * [Node.js](https://nodejs.org/) (v18 이상 권장)
