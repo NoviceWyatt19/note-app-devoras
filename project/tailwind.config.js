@@ -6,7 +6,8 @@ export default {
   ],
   theme: {
     extend: {
-      // tailwind.config.js — theme.extend.colors 전체. 토큰 26개 ↔ 키 26개, 1:1.
+      // tailwind.config.js — theme.extend.colors 전체. 토큰 35개 ↔ 키 35개, 1:1.
+      // (2026-09-09 T1d-2 — ΔE 재판정으로 26→35. index.css 상단 주석 참조)
       //
       // 명명 규칙: 레거시 이름이 있으면 그것이 정본이다. 같은 토큰에 새 키를 덧붙이지 않는다
       // (같은 색에 두 이름이 생기는 것이 이 저장소가 반복해 온 A1 계열 결함이다).
@@ -20,25 +21,46 @@ export default {
         accent:     'rgb(var(--accent-alt-rgb) / <alpha-value>)',    // ← teal. 사용처 1곳뿐이지만 이름을 뺏지 않는다
         mutedText:  'rgb(var(--text-muted-rgb) / <alpha-value>)',    // ← 텍스트 muted 단의 정본 이름
 
-        // ── 신규 (레거시가 덮지 않는 토큰만) ────────────────────
-        raised:       'rgb(var(--surface-raised-rgb) / <alpha-value>)',
-        strong:       'rgb(var(--text-strong-rgb) / <alpha-value>)',
-        body:         'rgb(var(--text-body-rgb) / <alpha-value>)',
-        faint:        'rgb(var(--text-faint-rgb) / <alpha-value>)',
+        // ── 표면 (레거시가 base·panel 을 덮으므로 2개만 신규) ──
+        code:   'rgb(var(--surface-code-rgb) / <alpha-value>)',
+        raised: 'rgb(var(--surface-raised-rgb) / <alpha-value>)',
+
+        // ── 텍스트 (mutedText 는 레거시로 이미 있음) ────────────
+        title:  'rgb(var(--text-title-rgb) / <alpha-value>)',
+        strong: 'rgb(var(--text-strong-rgb) / <alpha-value>)',
+        body:   'rgb(var(--text-body-rgb) / <alpha-value>)',
+        faint:  'rgb(var(--text-faint-rgb) / <alpha-value>)',
+        divider:'rgb(var(--divider-rgb) / <alpha-value>)',
+
+        // ── 테두리 (darkBorder 는 레거시) ───────────────────────
         borderStrong: 'rgb(var(--border-strong-rgb) / <alpha-value>)',
+
+        // ── 강조 (primary·accent 는 레거시) ─────────────────────
         accentSoft:   'rgb(var(--accent-soft-rgb) / <alpha-value>)',
         accentSubtle: 'rgb(var(--accent-subtle-rgb) / <alpha-value>)',
-        danger:    'rgb(var(--danger-rgb) / <alpha-value>)',
-        dangerBg:  'rgb(var(--danger-bg-rgb) / <alpha-value>)',
-        warning:   'rgb(var(--warning-rgb) / <alpha-value>)',
-        info:      'rgb(var(--info-rgb) / <alpha-value>)',
-        highlight: 'rgb(var(--highlight-rgb) / <alpha-value>)',
-        magenta:   'rgb(var(--magenta-rgb) / <alpha-value>)',
+
+        // ── 의미색 ──────────────────────────────────────────────
+        danger:      'rgb(var(--danger-rgb) / <alpha-value>)',
+        dangerBg:    'rgb(var(--danger-bg-rgb) / <alpha-value>)',
+        warning:     'rgb(var(--warning-rgb) / <alpha-value>)',
+        info:        'rgb(var(--info-rgb) / <alpha-value>)',
+        highlight:   'rgb(var(--highlight-rgb) / <alpha-value>)',
+        highlightBg: 'rgb(var(--highlight-bg-rgb) / <alpha-value>)',
+        magenta:     'rgb(var(--magenta-rgb) / <alpha-value>)',
+
+        // ── 노드 hue 5 + tint 5 ─────────────────────────────────
         node1: 'rgb(var(--node-1-rgb) / <alpha-value>)',
         node2: 'rgb(var(--node-2-rgb) / <alpha-value>)',
         node3: 'rgb(var(--node-3-rgb) / <alpha-value>)',
         node4: 'rgb(var(--node-4-rgb) / <alpha-value>)',
         node5: 'rgb(var(--node-5-rgb) / <alpha-value>)',
+        node1Tint: 'rgb(var(--node-1-tint-rgb) / <alpha-value>)',
+        node2Tint: 'rgb(var(--node-2-tint-rgb) / <alpha-value>)',
+        node3Tint: 'rgb(var(--node-3-tint-rgb) / <alpha-value>)',
+        node4Tint: 'rgb(var(--node-4-tint-rgb) / <alpha-value>)',
+        node5Tint: 'rgb(var(--node-5-tint-rgb) / <alpha-value>)',
+
+        // ── 오버레이 ────────────────────────────────────────────
         overlay: 'rgb(var(--overlay-rgb) / <alpha-value>)',
         scrim:   'rgb(var(--scrim-rgb) / <alpha-value>)',
       },

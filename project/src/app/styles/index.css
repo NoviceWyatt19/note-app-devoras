@@ -12,46 +12,60 @@
  * `-rgb` 접미사를 빼고 `color: var(--text-body)` 처럼 쓰면 `color: 203 213 225` 가 되어
  * **조용히 무효**가 된다. 접미사가 그 실수를 문법 차원에서 막는다.
  *
- * 2026-09-09 — 32개 → 26개로 통합(사용자 지시, `2ab7ece`·`1357626`). 표면 6→3·텍스트 6→4·
- * 강조 5→4(`accent-deep` 제거) 로 병합, 병합 승자는 사용처가 많은 쪽. 라이트 팔레트는
- * T6 에서 `:root[data-theme="light"]` 로 얹는다.
+ * 2026-09-09 — 32개 → 26개(사용자 지시, `2ab7ece`·`1357626`) → **35개(ΔE 재판정, `b0beeed`·`3a2b50e`)**.
+ * 명도대비(WCAG)로 「감지 불가」를 판정한 것이 오류였다 — 그건 텍스트 가독성 지표지 색
+ * 근접성 지표가 아니고, 어두운 색끼리는 1.0x 로 뭉개진다. CIE76 ΔE(2.3=JND)로 다시 재
+ * 26개 안의 병합 3건(surface-4+5·text-0+1·text-5→border)을 철회하고 9개를 되살렸다.
+ * ΔE < 2.3 인 surface-0+1·surface-2+3 병합만 유지한다. 라이트 팔레트는 T6 에서
+ * `:root[data-theme="light"]` 로 얹는다.
  * ────────────────────────────────────────────────────────────────────────── */
 :root {
-  /* 표면 3단 */
-  --surface-base-rgb: 13 14 18;     /* #0d0e12 · body · 스크롤바 트랙(병합) · MindView 캔버스 */
-  --surface-panel-rgb: 22 24 33;    /* #161821 · darkPanel · 카드/코드블록 헤더(병합) */
-  --surface-raised-rgb: 29 31 48;   /* #1d1f30 · 중첩 카드 2단 · 코드펜스 라인(병합) */
+  /* 표면 4단 — ΔE<2.3 인 2쌍만 병합(base=0+1, panel=2+3), code·raised 는 분리 유지(ΔE 4.71) */
+  --surface-base-rgb: 13 14 18;      /* #0d0e12 · body · 스크롤바 트랙(병합) · MindView 캔버스 */
+  --surface-panel-rgb: 22 24 33;     /* #161821 · darkPanel · 카드/코드블록 헤더(병합) */
+  --surface-code-rgb: 26 27 38;      /* #1a1b26 · 코드펜스 라인 — surface-raised 에서 분리(ΔE 4.71) */
+  --surface-raised-rgb: 29 31 48;    /* #1d1f30 · 중첩 카드 2단 */
 
-  /* 텍스트 4단 */
-  --text-strong-rgb: 226 232 240;   /* #e2e8f0 · H2 · 본문 강조 · H1(병합) */
-  --text-body-rgb: 203 213 225;     /* #cbd5e1 · H3 · .rv-content 본문 */
-  --text-muted-rgb: 148 163 184;    /* #94a3b8 · mutedText */
-  --text-faint-rgb: 100 116 139;    /* #64748b */
+  /* 텍스트 5단 — 병합 철회(ΔE 5.08~19.19, 전부 감지 가능) */
+  --text-title-rgb: 241 245 249;     /* #f1f5f9 · H1 — text-strong 에서 분리(ΔE 5.08, 35px 직접 색) */
+  --text-strong-rgb: 226 232 240;    /* #e2e8f0 · H2 · 본문 강조 */
+  --text-body-rgb: 203 213 225;      /* #cbd5e1 · H3 · .rv-content 본문 */
+  --text-muted-rgb: 148 163 184;     /* #94a3b8 · mutedText */
+  --text-faint-rgb: 100 116 139;     /* #64748b */
+
+  /* 구분선 — 텍스트가 아니다(역할 배정 오류였음). border-strong 과 합치려 했으나 ΔE 3.28 로 철회 */
+  --divider-rgb: 51 65 85;           /* #334155 · .cm-hr-line */
 
   /* 테두리 2단 */
-  --border-rgb: 39 42 55;           /* #272a37 · darkBorder */
-  --border-strong-rgb: 58 63 82;    /* #3a3f52 · 스크롤바 thumb hover · .cm-hr-line(병합) */
+  --border-rgb: 39 42 55;            /* #272a37 · darkBorder */
+  --border-strong-rgb: 58 63 82;     /* #3a3f52 · 스크롤바 thumb hover */
 
   /* 강조 4개 */
-  --accent-rgb: 99 102 241;         /* #6366f1 · primary(indigo) */
-  --accent-soft-rgb: 129 140 248;   /* #818cf8 · 링크 */
-  --accent-subtle-rgb: 165 180 252; /* #a5b4fc · 인라인 코드 */
-  --accent-alt-rgb: 20 184 166;     /* #14b8a6 · Tailwind accent(teal) */
+  --accent-rgb: 99 102 241;          /* #6366f1 · primary(indigo) */
+  --accent-soft-rgb: 129 140 248;    /* #818cf8 · 링크 */
+  --accent-subtle-rgb: 165 180 252;  /* #a5b4fc · 인라인 코드 */
+  --accent-alt-rgb: 20 184 166;      /* #14b8a6 · Tailwind accent(teal) */
 
-  /* 의미색 6개 */
-  --danger-rgb: 248 113 113;        /* #f87171 */
-  --danger-bg-rgb: 239 68 68;       /* #ef4444 */
-  --warning-rgb: 245 158 11;        /* #f59e0b · dirty 점 */
-  --info-rgb: 147 197 253;          /* #93c5fd */
-  --highlight-rgb: 253 224 71;      /* #fde047 */
-  --magenta-rgb: 240 171 252;       /* #f0abfc */
+  /* 의미색 7개 */
+  --danger-rgb: 248 113 113;         /* #f87171 */
+  --danger-bg-rgb: 239 68 68;        /* #ef4444 */
+  --warning-rgb: 245 158 11;         /* #f59e0b · dirty 점 */
+  --info-rgb: 147 197 253;           /* #93c5fd */
+  --highlight-rgb: 253 224 71;       /* #fde047 */
+  --highlight-bg-rgb: 234 179 8;     /* #eab308 · .rv-content mark 배경(알파와 함께) */
+  --magenta-rgb: 240 171 252;        /* #f0abfc */
 
-  /* 마인드뷰 노드 5단 — 통합 대상 아님(사용자 확정) */
-  --node-1-rgb: 45 212 191;         /* teal */
-  --node-2-rgb: 56 189 248;         /* sky */
-  --node-3-rgb: 251 191 36;         /* amber */
-  --node-4-rgb: 244 114 182;        /* pink */
-  --node-5-rgb: 192 132 252;        /* purple */
+  /* 마인드뷰 노드 — hue 5(텍스트, 구 -400) + tint 5(배경/테두리, 구 -500). 통합 철회(ΔE 2.76~10.40) */
+  --node-1-rgb: 45 212 191;          /* teal-400 */
+  --node-2-rgb: 56 189 248;          /* sky-400 */
+  --node-3-rgb: 251 191 36;          /* amber-400 */
+  --node-4-rgb: 244 114 182;         /* pink-400 */
+  --node-5-rgb: 192 132 252;         /* purple-400 */
+  --node-1-tint-rgb: 20 184 166;     /* teal-500 */
+  --node-2-tint-rgb: 14 165 233;     /* sky-500 */
+  --node-3-tint-rgb: 245 158 11;     /* amber-500 */
+  --node-4-tint-rgb: 236 72 153;     /* pink-500 */
+  --node-5-tint-rgb: 168 85 247;     /* purple-500 */
 
   /* 오버레이 / 스크림 — 라이트에서 overlay 는 반전된다 */
   --overlay-rgb: 255 255 255;
@@ -128,7 +142,7 @@
  *     height map(= getBoundingClientRect().height, margin 미포함)이 실제 DOM 과
  *     어긋나 방향키 수직 이동이 줄을 건너뛴다.
  * 값(0.75rem / 0.5rem 등)만 맞추고 속성 이름은 각자 유지할 것. */
-.rv-content h1 { font-size: 35px; font-weight: 700; color: rgb(var(--text-strong-rgb)); margin: 0.75rem 0 0.5rem; line-height: 1.3; text-align: center; }
+.rv-content h1 { font-size: 35px; font-weight: 700; color: rgb(var(--text-title-rgb)); margin: 0.75rem 0 0.5rem; line-height: 1.3; text-align: center; }
 .rv-content h2 { font-size: 1.25rem; font-weight: 600; color: rgb(var(--text-strong-rgb)); margin: 0.625rem 0 0.4rem; line-height: 1.35; }
 .rv-content h3 { font-size: 1.05rem; font-weight: 600; color: rgb(var(--text-body-rgb)); margin: 0.5rem 0 0.35rem; }
 .rv-content h4,
@@ -270,7 +284,7 @@
 
 /* Highlight (==text== → <mark>) */
 .rv-content mark {
-  background: rgb(var(--highlight-rgb) / 0.18);
+  background: rgb(var(--highlight-bg-rgb) / 0.18);
   color: rgb(var(--highlight-rgb));
   padding: 0.05em 0.3em;
   border-radius: 3px;
@@ -301,7 +315,7 @@
  *    재고 그 값에 margin 이 포함되지 않아, 수직 방향키가 줄을 건너뛴다
  *    (BUG-20260828-01, DEBUG_PLAN.md §10.7). 세로 간격은 padding 으로 준다.
  *    회귀 검사: src/widgets/BlockEditor/__tests__/vertical_motion_t2.html */
-.cm-heading { font-weight: bold; color: rgb(var(--text-strong-rgb)); }
+.cm-heading { font-weight: bold; color: rgb(var(--text-title-rgb)); }
 
 .cm-blockquote-line {
   border-left: 3px solid rgb(var(--accent-rgb));
@@ -348,7 +362,7 @@
 .cm-hr-line {
   display: block;
   height: 1px;
-  background: rgb(var(--border-strong-rgb));
+  background: rgb(var(--divider-rgb));
   width: 100%;
 }
 

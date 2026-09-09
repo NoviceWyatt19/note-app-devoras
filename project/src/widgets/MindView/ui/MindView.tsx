@@ -389,21 +389,24 @@ export const MindView: React.FC<MindViewProps> = ({ onClose, isStandalone }) => 
   }
 
   // ── Node colours ───────────────────────────────────────────────────────────
+  // 카드 배경(구 -950/20)은 해당 hue 의 tint 토큰을 낮은 임의 알파로 재현한다(§5.1, ΔE 0.63~2.82).
+  // -500 셰이드(뱃지·좌측 테두리)는 tint 토큰 그대로(ΔE 0) — indigo 는 accent-rgb 가 이미
+  // indigo-500 과 같아 별도 tint 가 필요 없다.
   const levelColors: Record<number, string> = {
-    1: 'border-l-primary shadow-indigo-950/20 bg-indigo-950/20',
-    2: 'border-l-node1 shadow-teal-950/10 bg-teal-950/20',
-    3: 'border-l-node2 shadow-sky-950/10 bg-sky-950/20',
-    4: 'border-l-node3 shadow-amber-950/10 bg-amber-950/20',
-    5: 'border-l-node4 shadow-pink-950/10 bg-pink-950/20',
-    6: 'border-l-node5 shadow-purple-950/10 bg-purple-950/20',
+    1: 'border-l-primary shadow-primary/[.02] bg-primary/[.05]',
+    2: 'border-l-node1Tint shadow-node1Tint/[.02] bg-node1Tint/[.04]',
+    3: 'border-l-node2Tint shadow-node2Tint/[.02] bg-node2Tint/[.05]',
+    4: 'border-l-node3Tint shadow-node3Tint/[.02] bg-node3Tint/[.05]',
+    5: 'border-l-node4Tint shadow-node4Tint/[.02] bg-node4Tint/[.06]',
+    6: 'border-l-node5Tint shadow-node5Tint/[.02] bg-node5Tint/[.09]',
   };
   const levelBadgeColors: Record<number, string> = {
     1: 'bg-primary/20 text-accentSoft border border-primary/30',
-    2: 'bg-node1/20 text-node1 border border-node1/30',
-    3: 'bg-node2/20 text-node2 border border-node2/30',
-    4: 'bg-node3/20 text-node3 border border-node3/30',
-    5: 'bg-node4/20 text-node4 border border-node4/30',
-    6: 'bg-node5/20 text-node5 border border-node5/30',
+    2: 'bg-node1Tint/20 text-node1 border border-node1Tint/30',
+    3: 'bg-node2Tint/20 text-node2 border border-node2Tint/30',
+    4: 'bg-node3Tint/20 text-node3 border border-node3Tint/30',
+    5: 'bg-node4Tint/20 text-node4 border border-node4Tint/30',
+    6: 'bg-node5Tint/20 text-node5 border border-node5Tint/30',
   };
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -536,7 +539,7 @@ export const MindView: React.FC<MindViewProps> = ({ onClose, isStandalone }) => 
                             : 'hover:border-darkBorder/80 hover:shadow-xl',
                     ].join(' ')}
                   >
-                    <div className="text-xs font-bold text-strong truncate w-full" title={node.label}>
+                    <div className="text-xs font-bold text-title truncate w-full" title={node.label}>
                       {node.label}
                     </div>
                     <div className="flex items-center justify-between">
