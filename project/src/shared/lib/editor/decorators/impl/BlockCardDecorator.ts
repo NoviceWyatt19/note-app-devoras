@@ -142,7 +142,7 @@ export const blockCardTheme = EditorView.theme({
   // 원본의 `pb-3 mb-5` — 안쪽 padding(12px) + 바깥 margin(20px) → paddingBottom 하나로 합친다.
   '&.cm-editor .cm-block-l1-heading': {
     paddingBottom: '32px',
-    borderBottom: '2px solid rgba(39,42,55,0.6)',
+    borderBottom: '2px solid rgb(var(--border-rgb) / 0.6)',
   },
 
   '&.cm-editor .cm-block-card-l2': {
@@ -150,7 +150,7 @@ export const blockCardTheme = EditorView.theme({
     backgroundClip: 'padding-box',
     borderLeft: '4px solid transparent',
     borderRight: '4px solid transparent',
-    boxShadow: 'inset 1px 0 0 rgba(39,42,55,0.55), inset -1px 0 0 rgba(39,42,55,0.55)',
+    boxShadow: 'inset 1px 0 0 rgb(var(--border-rgb) / 0.55), inset -1px 0 0 rgb(var(--border-rgb) / 0.55)',
     paddingLeft: '20px',
     paddingRight: '20px',
   },
@@ -161,14 +161,14 @@ export const blockCardTheme = EditorView.theme({
     // `.cm-line` 에는 margin 을 못 쓰므로(위 헤더 주석) 합쳐서 paddingTop 하나로 만든다.
     paddingTop: '44px',
     boxShadow:
-      'inset 1px 0 0 rgba(39,42,55,0.55), inset -1px 0 0 rgba(39,42,55,0.55), inset 0 1px 0 rgba(39,42,55,0.55), 0 4px 12px rgba(0,0,0,0.25)',
+      'inset 1px 0 0 rgb(var(--border-rgb) / 0.55), inset -1px 0 0 rgb(var(--border-rgb) / 0.55), inset 0 1px 0 rgb(var(--border-rgb) / 0.55), 0 4px 12px rgba(0,0,0,0.25)',
   },
   '&.cm-editor .cm-block-card-l2-bottom': {
     borderBottomLeftRadius: '16px',
     borderBottomRightRadius: '16px',
     paddingBottom: '20px',
     boxShadow:
-      'inset 1px 0 0 rgba(39,42,55,0.55), inset -1px 0 0 rgba(39,42,55,0.55), inset 0 -1px 0 rgba(39,42,55,0.55), 0 4px 12px rgba(0,0,0,0.25)',
+      'inset 1px 0 0 rgb(var(--border-rgb) / 0.55), inset -1px 0 0 rgb(var(--border-rgb) / 0.55), inset 0 -1px 0 rgb(var(--border-rgb) / 0.55), 0 4px 12px rgba(0,0,0,0.25)',
   },
 
   // L3 는 같은 줄 위에 얹는 안쪽 페인트 레이어다(::before) — 다른 블록을
@@ -188,18 +188,18 @@ export const blockCardTheme = EditorView.theme({
     top: '0',
     bottom: '0',
     backgroundColor: 'rgb(var(--surface-raised-rgb))',
-    boxShadow: 'inset 1px 0 0 rgba(39,42,55,0.75), inset -1px 0 0 rgba(39,42,55,0.75)',
+    boxShadow: 'inset 1px 0 0 rgb(var(--border-rgb) / 0.75), inset -1px 0 0 rgb(var(--border-rgb) / 0.75)',
     zIndex: '-1',
   },
   '&.cm-editor .cm-block-card-l3-top::before': {
     borderTopLeftRadius: '12px',
     borderTopRightRadius: '12px',
-    boxShadow: 'inset 1px 0 0 rgba(39,42,55,0.75), inset -1px 0 0 rgba(39,42,55,0.75), inset 0 1px 0 rgba(39,42,55,0.75)',
+    boxShadow: 'inset 1px 0 0 rgb(var(--border-rgb) / 0.75), inset -1px 0 0 rgb(var(--border-rgb) / 0.75), inset 0 1px 0 rgb(var(--border-rgb) / 0.75)',
   },
   '&.cm-editor .cm-block-card-l3-bottom::before': {
     borderBottomLeftRadius: '12px',
     borderBottomRightRadius: '12px',
-    boxShadow: 'inset 1px 0 0 rgba(39,42,55,0.75), inset -1px 0 0 rgba(39,42,55,0.75), inset 0 -1px 0 rgba(39,42,55,0.75)',
+    boxShadow: 'inset 1px 0 0 rgb(var(--border-rgb) / 0.75), inset -1px 0 0 rgb(var(--border-rgb) / 0.75), inset 0 -1px 0 rgb(var(--border-rgb) / 0.75)',
   },
   // 원본의 `mt-4 p-4` — 바깥 margin(16px) + 안쪽 padding(16px) → paddingTop 32px 로 합친다.
   '&.cm-editor .cm-block-card-l3-top': { paddingTop: '32px' },

@@ -122,7 +122,7 @@ const decorationBaseTheme = EditorView.baseTheme({
   '&.cm-editor .cm-h1-line': {
     fontSize: '35px',
     fontWeight: '700',
-    color: '#f1f5f9',
+    color: 'rgb(var(--text-title-rgb))',
     margin: '0',
     padding: '0.75rem 4px 0.5rem',
     lineHeight: '1.3',
@@ -131,7 +131,7 @@ const decorationBaseTheme = EditorView.baseTheme({
   '&.cm-editor .cm-h2-line': {
     fontSize: '1.25rem',
     fontWeight: '600',
-    color: '#e2e8f0',
+    color: 'rgb(var(--text-strong-rgb))',
     margin: '0',
     padding: '0.625rem 4px 0.4rem',
     lineHeight: '1.35',
@@ -139,7 +139,7 @@ const decorationBaseTheme = EditorView.baseTheme({
   '&.cm-editor .cm-h3-line': {
     fontSize: '1.05rem',
     fontWeight: '600',
-    color: '#cbd5e1',
+    color: 'rgb(var(--text-body-rgb))',
     margin: '0',
     padding: '0.5rem 4px 0.35rem',
     lineHeight: '1.4',
@@ -147,7 +147,7 @@ const decorationBaseTheme = EditorView.baseTheme({
   '&.cm-editor .cm-h4-line, &.cm-editor .cm-h5-line, &.cm-editor .cm-h6-line': {
     fontSize: '0.9rem',
     fontWeight: '600',
-    color: '#94a3b8',
+    color: 'rgb(var(--text-muted-rgb))',
     margin: '0',
     padding: '0.4rem 4px 0.25rem',
     lineHeight: '1.4',
@@ -156,8 +156,8 @@ const decorationBaseTheme = EditorView.baseTheme({
     display: 'inline-block',
     marginRight: '0.5rem',
     fontSize: '0.65rem',
-    color: '#6366f1',
-    backgroundColor: 'rgba(99, 102, 241, 0.15)',
+    color: 'rgb(var(--accent-rgb))',
+    backgroundColor: 'rgb(var(--accent-rgb) / 0.15)',
     padding: '0.15rem 0.4rem',
     borderRadius: '4px',
     fontWeight: '800',
@@ -174,19 +174,19 @@ const decorationBaseTheme = EditorView.baseTheme({
   '&.cm-editor .cm-inline-code': {
     fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
     fontSize: '0.88em',
-    backgroundColor: 'rgba(99,102,241,0.14)',
-    color: '#a5b4fc',
+    backgroundColor: 'rgb(var(--accent-rgb) / 0.14)',
+    color: 'rgb(var(--accent-subtle-rgb))',
     padding: '0.05em 0.3em',
     borderRadius: '3px',
   },
 
   // Code-fence block line background
   '&.cm-editor .cm-code-block-line': {
-    backgroundColor: '#1a1b26',
+    backgroundColor: 'rgb(var(--surface-code-rgb))',
     backgroundClip: 'padding-box',
     borderLeft: '1rem solid transparent',
     borderRight: '1rem solid transparent',
-    boxShadow: 'inset 1px 0 0 rgba(255,255,255,0.05), inset -1px 0 0 rgba(255,255,255,0.05)',
+    boxShadow: 'inset 1px 0 0 rgb(var(--overlay-rgb) / 0.05), inset -1px 0 0 rgb(var(--overlay-rgb) / 0.05)',
     paddingLeft: '1rem',
     paddingRight: '1rem',
   },
@@ -194,7 +194,7 @@ const decorationBaseTheme = EditorView.baseTheme({
     borderTopLeftRadius: '0.75rem',
     borderTopRightRadius: '0.75rem',
     paddingTop: '1rem',
-    boxShadow: 'inset 1px 0 0 rgba(255,255,255,0.05), inset -1px 0 0 rgba(255,255,255,0.05), inset 0 1px 0 rgba(255,255,255,0.05)',
+    boxShadow: 'inset 1px 0 0 rgb(var(--overlay-rgb) / 0.05), inset -1px 0 0 rgb(var(--overlay-rgb) / 0.05), inset 0 1px 0 rgb(var(--overlay-rgb) / 0.05)',
   },
   '&.cm-editor .cm-code-block-flat-top': {
     paddingTop: '1rem',
@@ -236,21 +236,21 @@ const decorationBaseTheme = EditorView.baseTheme({
     borderBottomLeftRadius: '0.75rem',
     borderBottomRightRadius: '0.75rem',
     paddingBottom: '1rem',
-    boxShadow: 'inset 1px 0 0 rgba(255,255,255,0.05), inset -1px 0 0 rgba(255,255,255,0.05), inset 0 -1px 0 rgba(255,255,255,0.05)',
+    boxShadow: 'inset 1px 0 0 rgb(var(--overlay-rgb) / 0.05), inset -1px 0 0 rgb(var(--overlay-rgb) / 0.05), inset 0 -1px 0 rgb(var(--overlay-rgb) / 0.05)',
   },
 
   // Inline math  $...$  (visual hint; replaced by KaTeX widget when rendered)
   '&.cm-editor .cm-math-inline': {
-    color: '#f0abfc',
+    color: 'rgb(var(--magenta-rgb))',
     fontStyle: 'italic',
-    backgroundColor: 'rgba(168,85,247,0.10)',
+    backgroundColor: 'rgb(var(--node-5-tint-rgb) / 0.10)',
     padding: '0.05em 0.25em',
     borderRadius: '3px',
   },
 
   // Display math  $$...$$
   '&.cm-editor .cm-math-display': {
-    color: '#f0abfc',
+    color: 'rgb(var(--magenta-rgb))',
     display: 'block',
     textAlign: 'center',
     padding: '0.2em 0',
@@ -276,14 +276,14 @@ const decorationBaseTheme = EditorView.baseTheme({
     display: 'block',
     textAlign: 'center',
     padding: '0.75em 1em',
-    backgroundColor: 'rgba(168,85,247,0.05)',
+    backgroundColor: 'rgb(var(--node-5-tint-rgb) / 0.05)',
     borderRadius: '6px',
     cursor: 'text',
   },
 
   // Fallback for parse/render errors
   '&.cm-editor .cm-math-error': {
-    color: '#f87171',
+    color: 'rgb(var(--danger-rgb))',
     fontFamily: 'ui-monospace, monospace',
     fontSize: '0.85em',
   },
@@ -291,7 +291,7 @@ const decorationBaseTheme = EditorView.baseTheme({
   // Interactive checkbox widget  - [ ] / - [x]
   '& .cm-checkbox': {
     cursor: 'pointer',
-    accentColor: '#6366f1',
+    accentColor: 'rgb(var(--accent-rgb))',
     verticalAlign: 'middle',
     marginRight: '0.35em',
     width: '13px',
@@ -300,9 +300,9 @@ const decorationBaseTheme = EditorView.baseTheme({
 
   // Hyperlink text  [text](url)  — markers hidden, text styled
   '&.cm-editor .cm-md-link-text': {
-    color: '#818cf8',
+    color: 'rgb(var(--accent-soft-rgb))',
     textDecoration: 'underline',
-    textDecorationColor: 'rgba(129,140,248,0.45)',
+    textDecorationColor: 'rgb(var(--accent-soft-rgb) / 0.45)',
     textUnderlineOffset: '2px',
     cursor: 'pointer',
   },
