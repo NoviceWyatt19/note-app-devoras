@@ -1237,3 +1237,46 @@ R2_landed:
       - "**F3 — 마이그레이션.** 옛 `autosaveDelay` 필드를 결과에서 제거하는데, **구버전 앱으로 되돌아갈 때** 무슨 일이 생기는가"
       - "**F4 — `erd/model/settings.ts` 삭제.** 소비자 0 이 맞는가, 삭제 자체의 부수 영향은 없는가"
       - "**R1-c 적용** — 위 넷을 다 통과시킨 뒤 **「이 초점이 이 변경의 위험을 다 덮는가」를 한 번 더 물을 것**"
+# ━━━
+D22_r2_conditional_pass:
+  update: "2026-09-10 — R2 교차검증(`VER-20260909-02`, `1fab45c`) 처분"
+  verdict: "✅ **조건부 통과 수용. 출시 가능.** 잔여 2건은 **다음 작업 단위 최우선**"
+  headline: "**디스크를 잘못 덮는 경로는 없다.** 발견된 둘은 전부 「켜져 있다고 믿는데 안 도는」 축이다"
+  why_shippable: >
+    자동 저장은 **데이터를 지키는 기능**이므로 **안 도는 것은 안전하다.**
+    두 경우 모두 **dirty 는 정상적으로 켜지고**, 탭 닫기(`confirmDiscardIfDirty`)·
+    앱 종료(`onCloseRequested`)가 그대로 막는다. **수동 저장도 정상이다.**
+    즉 **유실 경로가 아니라 커버리지 공백**이다 — 0.9.x 출시선에서 수용 가능하다
+  F1_mindview_coords:
+    what: "**마인드맵 노드 좌표 드래그가 `updateContentForTab` 을 거치지 않는다**"
+    where: "`useActiveTabStore.ts:60-66` `updateNodeCoordinate` — 탭 스코프 `isDirty` 를 켜고 `markTabDirty(activeTabId)` 로 탭 바 점만 켠다"
+    note: "**코드 주석이 그 사실을 이미 명시하고 있었다** — 「좌표만 바뀐 경우 `updateContentForTab` 을 거치지 않으므로 탭 바 점은 별도로 켜야 한다」. 실행 세션의 「유일한 진입점」 전제가 여기서 깨진다"
+    consequence: "자동 저장 `high` 인데 **노드를 아무리 옮겨도 저장되지 않는다.** 좌표는 `.devoras/spatial.json` 에 쓰이는 **저장 대상**이다"
+    scope: "`markTabDirty` 는 이 한 곳에서만 호출된다 — **구멍은 이 경로 하나**"
+  F2_frozen_paneId:
+    what: "**`paneId` 가 예약 시점에 얼어 있고 `closePane` 이 그 패널을 없앤다**"
+    mechanism: >
+      `saveFile` 은 `panes.find(p => p.id === targetPaneId)` 로 시작하고 **못 찾으면 조용히 early return**
+      (`store.ts:611-612`). `closePane` 은 닫히는 패널의 탭을 병합 대상으로 옮기므로 얼어붙은 `paneId` 의
+      패널이 사라진다. 그리고 **`cancelAutosave` 는 `closeTab` 에만 배선돼 있고 `closePane` 에는 없다.**
+      → 예약이 살아서 발화하고 **아무 일도 하지 않고 끝난다**
+    reachability: "분할 패널에서 편집한 뒤 지연 안에 그 패널을 닫으면 된다. `high` 1500ms 는 촉박하나 **`low` 5000ms 는 쉽다**"
+    consequence: "그 뒤 사용자가 편집을 멈추면 **자동 저장이 켜진 채로 영원히 저장되지 않는다** — 다음 `updateContentForTab` 이 있어야 재예약된다"
+  s1_style_risk_cleared:
+    asked: "PM 이 「S1 의 F1 과 같은 모양(예약 시점 인자 / 발화 시점 상태)」을 초점으로 걸었다"
+    answer: "✅ **내용 축은 재현되지 않는다**"
+    why: >
+      `scheduleAutosave(paneId, tabId, prev, new)` 의 `prev`/`new` 는 **예약 시점 skip 판정에만** 쓰이고
+      **쓰기에 실리지 않는다.** 타이머 콜백은 `saveFile(paneId, tabId)` 만 부르고 `saveFile` 은
+      `getTabStore(targetTabId)`(`store.ts:630`)로 **발화 시점 라이브 내용**을 읽는다.
+      **스토어가 tabId 로 키잉돼 있어서 다른 탭 내용이 실릴 경로가 없다**
+    but: "**얼어붙은 것은 내용이 아니라 `paneId` 였다** — 초점은 맞았고 축이 하나 옆이었다"
+  F3_migration: "✅ **안전, 조치 불필요.** 구버전 파서가 `{...DEFAULT_SETTINGS.editor, ...parsed.editor}` 스프레드라 없는 키는 구버전 기본값 3000ms 로 폴백한다. 그리고 **구버전엔 `autosaveDelay` 소비자가 애초에 0건**이라 값이 무엇이든 아무 동작도 하지 않는다. 새 키 `autosaveLevel` 은 스프레드에 실려 **왕복 보존**된다"
+  disposition:
+    - "**R2 는 이 상태로 닫는다.** 출시 스코프 항목으로 완료 처리"
+    - "**F1·F2 를 신규 티켓으로 발행하고 다음 작업 단위 최우선에 둔다** — 데이터 유실이 아니라 착수 순서를 R3·R4 뒤로 미룰 수 있으나, **자동 저장이 기본 ON 인 이상 오래 두지 않는다**"
+    - "**지금 고치지 않는다** — 사용자가 디버그 레인 정리를 지시했고, 두 건 다 유실 경로가 아니다"
+  fix_directions_recorded:
+    F1: "`updateNodeCoordinate` 에서 자동 저장을 예약하거나, 좌표 변경도 `updateContentForTab` 을 거치게 한다"
+    F2: "`saveFile` 이 주어진 `paneId` 에서 못 찾으면 전 패널을 훑거나, `scheduleAutosave` 가 `paneId` 를 얼리지 않거나, `cancelAutosave` 를 `closePane` 에도 배선한다"
+    note: "**계획 세션이 처방을 확정하지 않았다** — §3-C 규율대로다. 착수 시 실행 세션이 고른다"
