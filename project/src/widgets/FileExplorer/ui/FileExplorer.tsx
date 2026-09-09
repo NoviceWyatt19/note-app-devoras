@@ -67,31 +67,31 @@ const TreeNode: React.FC<TreeNodeProps> = (props) => {
         onContextMenu={(e) => { if (isSupported) handleContextMenu(e, entry); }}
         className={`group flex items-center space-x-1.5 px-2 py-1.5 rounded text-xs transition-colors ${
           !isSupported 
-            ? 'text-slate-500 opacity-60 cursor-default'
+            ? 'text-faint opacity-60 cursor-default'
             : isDragOver 
               ? 'bg-primary/20 text-primary border-l-2 border-primary cursor-pointer'
               : isSelected
                 ? 'bg-primary/15 text-primary font-medium border-l-2 border-primary cursor-pointer'
-                : 'hover:bg-darkBorder/40 text-slate-300 hover:text-slate-100 border-l-2 border-transparent cursor-pointer'
+                : 'hover:bg-darkBorder/40 text-body hover:text-title border-l-2 border-transparent cursor-pointer'
         }`}
         style={{ paddingLeft: `${depth * 12 + 8}px` }}
       >
         <div className="flex-shrink-0 flex items-center justify-center w-4 h-4 pointer-events-none">
           {entry.isDir ? (
-            isExpanded ? <ChevronDown className="w-3.5 h-3.5 text-slate-500" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
+            isExpanded ? <ChevronDown className="w-3.5 h-3.5 text-faint" /> : <ChevronRight className="w-3.5 h-3.5 text-faint" />
           ) : (
             !isSupported
-              ? <File className="w-3.5 h-3.5 text-slate-500" />
+              ? <File className="w-3.5 h-3.5 text-faint" />
               : entry.name.endsWith('.erd') 
-                ? <Database className={`w-3.5 h-3.5 ${isSelected ? 'text-primary' : 'text-slate-400'}`} />
-                : <FileText className={`w-3.5 h-3.5 ${isSelected ? 'text-primary' : 'text-slate-400'}`} />
+                ? <Database className={`w-3.5 h-3.5 ${isSelected ? 'text-primary' : 'text-mutedText'}`} />
+                : <FileText className={`w-3.5 h-3.5 ${isSelected ? 'text-primary' : 'text-mutedText'}`} />
           )}
         </div>
 
         {isRenaming ? (
           <input
             autoFocus
-            className="flex-1 bg-darkBg border border-primary px-1 rounded text-slate-100 outline-none text-xs min-w-0"
+            className="flex-1 bg-darkBg border border-primary px-1 rounded text-title outline-none text-xs min-w-0"
             value={renameValue}
             onChange={(e) => setRenameValue(e.target.value)}
             onBlur={() => handleRenameSubmit(entry.path, renameValue)}
@@ -112,11 +112,11 @@ const TreeNode: React.FC<TreeNodeProps> = (props) => {
           {isCreatingHere && (
             <div className="flex items-center space-x-1.5 px-2 py-1.5" style={{ paddingLeft: `${(depth + 1) * 12 + 8}px` }}>
               <div className="flex-shrink-0 flex items-center justify-center w-4 h-4">
-                {creatingNode.isDir ? <FolderOpen className="w-3.5 h-3.5 text-slate-500" /> : (creatingNode.isErd ? <Database className="w-3.5 h-3.5 text-slate-400" /> : <FileText className="w-3.5 h-3.5 text-slate-400" />)}
+                {creatingNode.isDir ? <FolderOpen className="w-3.5 h-3.5 text-faint" /> : (creatingNode.isErd ? <Database className="w-3.5 h-3.5 text-mutedText" /> : <FileText className="w-3.5 h-3.5 text-mutedText" />)}
               </div>
               <input
                 autoFocus
-                className="flex-1 bg-darkBg border border-primary px-1 rounded text-slate-100 outline-none text-xs min-w-0"
+                className="flex-1 bg-darkBg border border-primary px-1 rounded text-title outline-none text-xs min-w-0"
                 value={createValue}
                 placeholder={creatingNode.isDir ? "새 폴더명..." : (creatingNode.isErd ? "새 ERD 문서명..." : "새 파일명...")}
                 onChange={(e) => setCreateValue(e.target.value)}
@@ -358,14 +358,14 @@ export const FileExplorer: React.FC = () => {
             <>
               <button
                 onClick={() => { setContextMenu(null); openWorkspace(); }}
-                className="p-1 hover:bg-darkBorder rounded text-mutedText hover:text-slate-100 transition-colors"
+                className="p-1 hover:bg-darkBorder rounded text-mutedText hover:text-title transition-colors"
                 title="워크스페이스 열기"
               >
                 <FolderOpen className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={() => { setContextMenu(null); handleCreateNew('file'); }}
-                className="p-1 hover:bg-darkBorder rounded text-mutedText hover:text-slate-100 transition-colors"
+                className="p-1 hover:bg-darkBorder rounded text-mutedText hover:text-title transition-colors"
                 title="새 파일"
               >
                 <Plus className="w-3.5 h-3.5" />
@@ -373,7 +373,7 @@ export const FileExplorer: React.FC = () => {
               <button
                 onClick={scanWorkspace}
                 disabled={isLoading}
-                className="p-1 hover:bg-darkBorder rounded text-mutedText hover:text-slate-100 transition-colors"
+                className="p-1 hover:bg-darkBorder rounded text-mutedText hover:text-title transition-colors"
                 title="새로고침"
               >
                 {isLoading ? <Loader className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
@@ -386,13 +386,13 @@ export const FileExplorer: React.FC = () => {
       <div className={`flex-1 overflow-y-auto p-2 transition-colors ${dragOverPath === workspacePath ? 'bg-primary/5' : ''}`}>
         {!workspacePath ? (
           <div className="h-full flex flex-col items-center justify-center text-center p-4">
-            <FolderOpen className="w-8 h-8 text-indigo-500/60 mb-3" />
+            <FolderOpen className="w-8 h-8 text-primary/60 mb-3" />
             <p className="text-xs text-mutedText mb-4 leading-relaxed">
               작성할 마크다운 문서가 모여있는 로컬 폴더를 열어주세요.
             </p>
             <button
               onClick={openWorkspace}
-              className="w-full flex items-center justify-center space-x-2 text-xs bg-primary hover:bg-primary/95 text-white font-semibold py-2 px-3 rounded transition-all shadow-md shadow-indigo-600/10"
+              className="w-full flex items-center justify-center space-x-2 text-xs bg-primary hover:bg-primary/95 text-title font-semibold py-2 px-3 rounded transition-all shadow-md shadow-indigo-600/10"
             >
               <FolderOpen className="w-4 h-4" />
               <span>폴더 선택하기</span>
@@ -403,11 +403,11 @@ export const FileExplorer: React.FC = () => {
             {isCreatingInRoot && (
               <div className="flex items-center space-x-1.5 px-2 py-1.5 pl-2">
                 <div className="flex-shrink-0 flex items-center justify-center w-4 h-4">
-                  {creatingNode.isDir ? <FolderOpen className="w-3.5 h-3.5 text-slate-500" /> : (creatingNode.isErd ? <Database className="w-3.5 h-3.5 text-slate-400" /> : <FileText className="w-3.5 h-3.5 text-slate-400" />)}
+                  {creatingNode.isDir ? <FolderOpen className="w-3.5 h-3.5 text-faint" /> : (creatingNode.isErd ? <Database className="w-3.5 h-3.5 text-mutedText" /> : <FileText className="w-3.5 h-3.5 text-mutedText" />)}
                 </div>
                 <input
                   autoFocus
-                  className="flex-1 bg-darkBg border border-primary px-1 rounded text-slate-100 outline-none text-xs min-w-0"
+                  className="flex-1 bg-darkBg border border-primary px-1 rounded text-title outline-none text-xs min-w-0"
                   value={createValue}
                   placeholder={creatingNode.isDir ? "새 폴더명..." : (creatingNode.isErd ? "새 ERD 문서명..." : "새 파일명...")}
                   onChange={(e) => setCreateValue(e.target.value)}
@@ -462,19 +462,19 @@ export const FileExplorer: React.FC = () => {
           {(!contextMenu.entry || contextMenu.entry.isDir) && (
             <>
               <button 
-                className="flex items-center space-x-2 px-3 py-1.5 text-xs text-slate-200 hover:bg-primary/20 hover:text-primary transition-colors text-left"
+                className="flex items-center space-x-2 px-3 py-1.5 text-xs text-strong hover:bg-primary/20 hover:text-primary transition-colors text-left"
                 onClick={() => handleCreateNew('file')}
               >
                 <File className="w-3.5 h-3.5" /> <span>새 문서</span>
               </button>
               <button 
-                className="flex items-center space-x-2 px-3 py-1.5 text-xs text-slate-200 hover:bg-primary/20 hover:text-primary transition-colors text-left"
+                className="flex items-center space-x-2 px-3 py-1.5 text-xs text-strong hover:bg-primary/20 hover:text-primary transition-colors text-left"
                 onClick={() => handleCreateNew('erd')}
               >
                 <Database className="w-3.5 h-3.5" /> <span>새 ERD 문서</span>
               </button>
               <button 
-                className="flex items-center space-x-2 px-3 py-1.5 text-xs text-slate-200 hover:bg-primary/20 hover:text-primary transition-colors text-left"
+                className="flex items-center space-x-2 px-3 py-1.5 text-xs text-strong hover:bg-primary/20 hover:text-primary transition-colors text-left"
                 onClick={() => handleCreateNew('folder')}
               >
                 <FolderPlus className="w-3.5 h-3.5" /> <span>새 폴더</span>
@@ -486,7 +486,7 @@ export const FileExplorer: React.FC = () => {
             <>
               {contextMenu.entry.isDir && <div className="h-px bg-darkBorder my-1 mx-2" />}
               <button 
-                className="flex items-center space-x-2 px-3 py-1.5 text-xs text-slate-200 hover:bg-primary/20 hover:text-primary transition-colors text-left"
+                className="flex items-center space-x-2 px-3 py-1.5 text-xs text-strong hover:bg-primary/20 hover:text-primary transition-colors text-left"
                 onClick={() => {
                   setRenamingPath(contextMenu.entry!.path);
                   setRenameValue(contextMenu.entry!.name);
@@ -496,7 +496,7 @@ export const FileExplorer: React.FC = () => {
                 <Edit2 className="w-3.5 h-3.5" /> <span>이름 변경</span>
               </button>
               <button 
-                className="flex items-center space-x-2 px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-colors text-left"
+                className="flex items-center space-x-2 px-3 py-1.5 text-xs text-danger hover:bg-dangerBg/20 hover:text-danger transition-colors text-left"
                 onClick={() => {
                   handleDelete(contextMenu.entry!);
                   setContextMenu(null);
