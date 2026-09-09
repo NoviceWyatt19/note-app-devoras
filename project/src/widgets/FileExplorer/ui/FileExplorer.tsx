@@ -392,7 +392,7 @@ export const FileExplorer: React.FC = () => {
             </p>
             <button
               onClick={openWorkspace}
-              className="w-full flex items-center justify-center space-x-2 text-xs bg-primary hover:bg-primary/95 text-title font-semibold py-2 px-3 rounded transition-all shadow-md shadow-indigo-600/10"
+              className="w-full flex items-center justify-center space-x-2 text-xs bg-primary hover:bg-primary/95 text-title font-semibold py-2 px-3 rounded transition-all shadow-md shadow-primary/[.11]"
             >
               <FolderOpen className="w-4 h-4" />
               <span>폴더 선택하기</span>
