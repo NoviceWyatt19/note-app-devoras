@@ -648,7 +648,9 @@ const styleBytes = () => [...document.querySelectorAll('style')]
 2. 시스템 추종: `@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { … } }`
    (사용자 결정 — `system`/`dark`/`light` **3택**)
 3. `entities/settings/model/types.ts` 에 `general.themeMode: 'system' | 'dark' | 'light'` 추가, 기본값 `'system'`. **마이그레이션**: 기존 설정에 필드가 없으면 `'system'`.
-4. 진입점 2개: 설정 모달 일반 탭의 3택 + **상태바 토글 1개**.
+4. 진입점 2개: 설정 모달 일반 탭의 3택 + **전역 토글 1개**.
+   ⚠️ **「상태바」라고 적었으나 이 앱에 상태바 컴포넌트가 없다.** 실제 착지 위치는
+   **`App.tsx` 헤더 우측**(`system → dark → light` 순환 아이콘 버튼)이다 — 유일한 전역 상시 크롬이다.
 5. `body` 에 `transition: background-color .2s, color .2s`.
 6. 적용은 `document.documentElement.setAttribute('data-theme', mode)` — `mode === 'system'` 이면 속성을 **제거**한다.
 
