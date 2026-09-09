@@ -37,15 +37,15 @@ export const ErdDesignerMainView: React.FC<{ tab?: TabItem }> = ({ tab }) => {
 
   if (parseError !== null) {
     return (
-      <div className="p-4 h-full overflow-auto text-sm text-red-400 space-y-3">
+      <div className="p-4 h-full overflow-auto text-sm text-danger space-y-3">
         <p>ERD 문서를 해석할 수 없습니다. 원본 내용은 그대로 보존되어 있습니다 — 저장해도 사라지지 않습니다.</p>
-        <pre className="whitespace-pre-wrap text-xs text-mutedText bg-black/20 p-3 rounded">{parseError}</pre>
+        <pre className="whitespace-pre-wrap text-xs text-mutedText bg-scrim/20 p-3 rounded">{parseError}</pre>
       </div>
     );
   }
 
   if (!document) {
-    return <div className="p-4 text-sm text-red-400">ERD 문서를 로드하는 중...</div>;
+    return <div className="p-4 text-sm text-danger">ERD 문서를 로드하는 중...</div>;
   }
 
   return (
