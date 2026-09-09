@@ -125,7 +125,7 @@ export const WorkspacePage: React.FC = () => {
   }, [isResizingMindView]);
 
   return (
-    <div className="absolute inset-0 flex min-h-0 bg-darkBg text-slate-200">
+    <div className="absolute inset-0 flex min-h-0 bg-darkBg text-strong">
       {/* 1. File Explorer Sidebar */}
       {isSidebarOpen && (
         <>
@@ -155,11 +155,11 @@ export const WorkspacePage: React.FC = () => {
             <button
               onClick={() => setIsSidebarOpen((prev) => !prev)}
               title={isSidebarOpen ? '사이드바 닫기 (Cmd+\\)' : '사이드바 열기 (Cmd+\\)'}
-              className="p-1 rounded text-mutedText hover:text-slate-200 hover:bg-white/10 transition-colors"
+              className="p-1 rounded text-mutedText hover:text-strong hover:bg-overlay/10 transition-colors"
             >
               {isSidebarOpen ? <PanelLeftClose size={15} /> : <PanelLeftOpen size={15} />}
             </button>
-            <span className="text-xs font-semibold text-slate-300">Workspace</span>
+            <span className="text-xs font-semibold text-body">Workspace</span>
           </div>
 
           <div className="flex items-center gap-2">
@@ -168,9 +168,9 @@ export const WorkspacePage: React.FC = () => {
               onClick={() => openTab({ type: 'mindmap-global' })}
               title="독립 탭으로 마인드뷰 열기"
               className="flex items-center gap-1.5 text-[10px] px-2 py-1 rounded
-                text-mutedText hover:text-slate-200 hover:bg-white/10 transition-colors border border-darkBorder/40"
+                text-mutedText hover:text-strong hover:bg-overlay/10 transition-colors border border-darkBorder/40"
             >
-              <Network size={12} className="text-indigo-400" />
+              <Network size={12} className="text-accentSoft" />
               <span>독립 마인드맵</span>
             </button>
 
@@ -180,7 +180,7 @@ export const WorkspacePage: React.FC = () => {
                 onClick={() => setIsMindViewOpen(true)}
                 title="사이드 마인드뷰 패널 열기"
                 className="flex items-center gap-1.5 text-[10px] px-2 py-1 rounded
-                  text-mutedText hover:text-slate-200 hover:bg-white/10 transition-colors border border-darkBorder/40"
+                  text-mutedText hover:text-strong hover:bg-overlay/10 transition-colors border border-darkBorder/40"
               >
                 <LayoutPanelTop size={11} />
                 <span>사이드 뷰</span>
@@ -190,7 +190,7 @@ export const WorkspacePage: React.FC = () => {
             <button
               onClick={() => useSettingsStore.getState().setIsOpen(true)}
               title="설정"
-              className="p-1 rounded text-mutedText hover:text-slate-200 hover:bg-white/10 transition-colors border border-transparent"
+              className="p-1 rounded text-mutedText hover:text-strong hover:bg-overlay/10 transition-colors border border-transparent"
             >
               <Settings size={14} />
             </button>
@@ -203,8 +203,8 @@ export const WorkspacePage: React.FC = () => {
                   isSaving 
                     ? 'bg-primary/20 border-primary/50 text-primary cursor-wait'
                     : isDirty
-                    ? 'bg-primary/10 border-primary text-primary hover:bg-primary hover:text-white'
-                    : 'border-darkBorder text-mutedText hover:bg-white/5 hover:text-slate-200'
+                    ? 'bg-primary/10 border-primary text-primary hover:bg-primary hover:text-title'
+                    : 'border-darkBorder text-mutedText hover:bg-overlay/5 hover:text-strong'
                 }`}
               >
                 <span className={`transition-opacity duration-200 ${isSaving ? 'opacity-0' : 'opacity-100'}`}>
@@ -293,14 +293,14 @@ const PaneContainer: React.FC<{
                 }}
                 className={`group flex items-center gap-1.5 px-3 py-1 rounded-t border-t-2 text-xs font-medium cursor-pointer transition-colors max-w-[160px] truncate ${
                   isTabActive
-                    ? 'bg-darkBg border-primary text-slate-100'
-                    : 'border-transparent text-mutedText hover:bg-white/5 hover:text-slate-300'
+                    ? 'bg-darkBg border-primary text-title'
+                    : 'border-transparent text-mutedText hover:bg-overlay/5 hover:text-body'
                 }`}
               >
                 {tab.type === 'mindmap-global' ? (
-                  <Network size={12} className="text-indigo-400 flex-shrink-0" />
+                  <Network size={12} className="text-accentSoft flex-shrink-0" />
                 ) : (
-                  <FileText size={12} className="text-slate-400 flex-shrink-0" />
+                  <FileText size={12} className="text-mutedText flex-shrink-0" />
                 )}
                 <span className="truncate">{tab.title}</span>
                 {tab.isDirty && (
@@ -312,7 +312,7 @@ const PaneContainer: React.FC<{
                     const canClose = await confirmDiscardIfDirty(tab);
                     if (canClose) closeTab(pane.id, tab.id);
                   }}
-                  className="p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-white/20 text-mutedText hover:text-slate-100 ml-auto transition-all"
+                  className="p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-overlay/20 text-mutedText hover:text-title ml-auto transition-all"
                 >
                   <X size={11} />
                 </button>
@@ -329,7 +329,7 @@ const PaneContainer: React.FC<{
               splitPane(pane.id, 'horizontal');
             }}
             title="화면 좌우 분할"
-            className="p-1.5 rounded text-mutedText hover:text-slate-200 hover:bg-white/10 transition-colors flex-shrink-0"
+            className="p-1.5 rounded text-mutedText hover:text-strong hover:bg-overlay/10 transition-colors flex-shrink-0"
           >
             <Columns size={13} />
           </button>
@@ -342,7 +342,7 @@ const PaneContainer: React.FC<{
                 onClose();
               }}
               title="이 패널 닫기 (탭은 옆 패널로 병합)"
-              className="p-1.5 rounded text-mutedText hover:text-red-400 hover:bg-red-500/10 transition-colors flex-shrink-0"
+              className="p-1.5 rounded text-mutedText hover:text-danger hover:bg-dangerBg/10 transition-colors flex-shrink-0"
             >
               <X size={13} />
             </button>
