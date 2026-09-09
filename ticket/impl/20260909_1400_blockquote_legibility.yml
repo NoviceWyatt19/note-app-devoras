@@ -1,0 +1,42 @@
+# ✨ FEATURE TICKET
+type: "FEATURE"
+id: "FEAT-20260909-01"
+# ━━━
+update: "2026-09-09 14:00"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "읽기 모드 인용문이 본문 대비 기준에 미달한다 — `text-faint` → `text-muted`"
+status: "Todo — **R5-a 스코프 밖. 기존 결함**"
+severity: "P3 — 가독성. 데이터 유실·출시 차단 아님"
+found_by: "Impl_worker_v1 (R5-a T6 확인 항목 ① 수행 중)"
+# ━━━
+problem:
+  where: "`project/src/app/styles/index.css:315` `.rv-content blockquote`"
+  what: >
+    인용문 글자색이 `--text-faint` 다. 그 토큰은 **비활성·취소선 전용**으로 정의돼 있는데
+    (`IMPL_PLAN_R5A_THEME_TOKENS.md` §4.2), 인용문은 **사용자가 읽는 본문 콘텐츠**다.
+  measured:
+    note: "실제 배경(`rgb(var(--accent-rgb) / 0.05)`) 위에서 측정"
+    - "현행 `text-faint` — 다크 **3.91** · 라이트 **4.43**. 양쪽 다 본문 기준 **4.5:1 미달**"
+    - "`text-muted` 로 올리면 — 다크 **7.26** · 라이트 **7.05**"
+    - "`text-body` 로 올리면 — 다크 12.54 · 라이트 9.63 (인용문 특유의 「약한 강조」가 사라진다)"
+  preexisting: >
+    **R5-a 가 만든 것이 아니다.** 원래 하드코딩 `#64748b` 였고 T1b(`b11e9c8`)가 그 값을 그대로
+    토큰화했다. 즉 다크 모드에서도 이전부터 3.91 이었다 — 라이트 모드 도입으로 **드러난** 것이지
+    새로 생긴 것이 아니다.
+# ━━━
+why_not_fixed_in_r5a:
+  - "R5-a 는 **값을 옮기는 작업**이지 기존 색 선택을 감사하는 작업이 아니다. 스코프를 넘으면 「무엇이 이관이고 무엇이 개선인가」가 섞인다"
+  - "중단 경계에서 시각 변경을 넣으면 **검증 기회 없이 착지**한다. 이 세션은 워크스페이스 화면 육안 확인이 불가능했다"
+  - "한 줄 수정이라 언제든 싸게 처리할 수 있다"
+# ━━━
+fix:
+  recommended: "`color: rgb(var(--text-muted-rgb));` — 다크 7.26 / 라이트 7.05"
+  why_muted_not_body: >
+    인용문은 본문보다 **한 단 약한 것이 의도**다. `text-body` 로 올리면 본문과 구분이 사라진다.
+    `text-muted` 가 「읽히되 약한」 자리에 맞는다.
+  scope: "1줄. `index.css:315`"
+# ━━━
+dod:
+  - "다크·라이트 양쪽에서 인용문 대비 4.5:1 이상"
+  - "인용문이 본문보다 약해 보이는 시각적 위계는 유지"
+  - "`pnpm test:t1` · `test:t15` 무회귀"
