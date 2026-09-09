@@ -124,8 +124,8 @@ export const FormatToolbar: React.FC = () => {
               className="
                 flex items-center justify-center
                 w-7 h-7 rounded
-                text-mutedText hover:text-slate-200
-                hover:bg-white/10 active:bg-white/20
+                text-mutedText hover:text-strong
+                hover:bg-overlay/10 active:bg-overlay/20
                 transition-colors duration-100
                 select-none
               "
@@ -148,7 +148,7 @@ export const FormatToolbar: React.FC = () => {
         <button
           title="글꼴 크기 줄이기"
           onClick={() => updateEditor({ fontSize: Math.max(12, settings.editor.fontSize - 1) })}
-          className="flex items-center justify-center w-6 h-6 rounded hover:text-slate-200 hover:bg-white/10"
+          className="flex items-center justify-center w-6 h-6 rounded hover:text-strong hover:bg-overlay/10"
         >
           <Minus size={12} />
         </button>
@@ -156,7 +156,7 @@ export const FormatToolbar: React.FC = () => {
         <button
           title="글꼴 크기 키우기"
           onClick={() => updateEditor({ fontSize: Math.min(24, settings.editor.fontSize + 1) })}
-          className="flex items-center justify-center w-6 h-6 rounded hover:text-slate-200 hover:bg-white/10"
+          className="flex items-center justify-center w-6 h-6 rounded hover:text-strong hover:bg-overlay/10"
         >
           <Plus size={12} />
         </button>
@@ -170,8 +170,8 @@ export const FormatToolbar: React.FC = () => {
           className={[
             'flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition-all duration-150 select-none',
             viewMode === 'read'
-              ? 'text-indigo-300 bg-indigo-950/70 border border-indigo-800/50 hover:bg-indigo-900/50'
-              : 'text-mutedText hover:text-slate-200 hover:bg-white/10',
+              ? 'text-accentSubtle bg-indigo-950/70 border border-indigo-800/50 hover:bg-indigo-900/50'
+              : 'text-mutedText hover:text-strong hover:bg-overlay/10',
           ].join(' ')}
         >
           {viewMode === 'write' ? <Eye size={12} /> : <Edit3 size={12} />}

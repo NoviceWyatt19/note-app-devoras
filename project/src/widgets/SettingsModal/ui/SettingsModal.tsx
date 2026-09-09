@@ -11,17 +11,17 @@ export function SettingsModal() {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/50 backdrop-blur-sm">
       <div className="bg-darkBg border border-darkBorder rounded-xl shadow-2xl w-[600px] h-[500px] flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-darkBorder bg-darkPanel select-none">
           <div className="flex items-center space-x-2">
             <Settings size={18} className="text-primary" />
-            <h2 className="font-semibold text-slate-200">설정</h2>
+            <h2 className="font-semibold text-strong">설정</h2>
           </div>
           <button
             onClick={() => setIsOpen(false)}
-            className="p-1 rounded text-mutedText hover:text-slate-200 hover:bg-darkBg transition-colors"
+            className="p-1 rounded text-mutedText hover:text-strong hover:bg-darkBg transition-colors"
           >
             <X size={18} />
           </button>
@@ -34,7 +34,7 @@ export function SettingsModal() {
             <button
               onClick={() => setActiveTab('editor')}
               className={`flex items-center space-x-2 px-3 py-2 rounded text-sm font-medium transition-colors ${
-                activeTab === 'editor' ? 'bg-primary/20 text-primary' : 'text-slate-400 hover:bg-darkBg hover:text-slate-200'
+                activeTab === 'editor' ? 'bg-primary/20 text-primary' : 'text-mutedText hover:bg-darkBg hover:text-strong'
               }`}
             >
               <FileText size={16} />
@@ -43,7 +43,7 @@ export function SettingsModal() {
             <button
               onClick={() => setActiveTab('mindmap')}
               className={`flex items-center space-x-2 px-3 py-2 rounded text-sm font-medium transition-colors ${
-                activeTab === 'mindmap' ? 'bg-primary/20 text-primary' : 'text-slate-400 hover:bg-darkBg hover:text-slate-200'
+                activeTab === 'mindmap' ? 'bg-primary/20 text-primary' : 'text-mutedText hover:bg-darkBg hover:text-strong'
               }`}
             >
               <Database size={16} />
@@ -52,7 +52,7 @@ export function SettingsModal() {
             <button
               onClick={() => setActiveTab('general')}
               className={`flex items-center space-x-2 px-3 py-2 rounded text-sm font-medium transition-colors ${
-                activeTab === 'general' ? 'bg-primary/20 text-primary' : 'text-slate-400 hover:bg-darkBg hover:text-slate-200'
+                activeTab === 'general' ? 'bg-primary/20 text-primary' : 'text-mutedText hover:bg-darkBg hover:text-strong'
               }`}
             >
               <Monitor size={16} />
@@ -65,7 +65,7 @@ export function SettingsModal() {
             {activeTab === 'editor' && (
               <div className="space-y-6">
                 <div className="space-y-3">
-                  <label className="text-sm font-semibold text-slate-300">폰트 크기 ({settings.editor.fontSize}px)</label>
+                  <label className="text-sm font-semibold text-body">폰트 크기 ({settings.editor.fontSize}px)</label>
                   <input
                     type="range"
                     min="12"
@@ -77,7 +77,7 @@ export function SettingsModal() {
                   />
                 </div>
                 <div className="space-y-3">
-                  <label className="text-sm font-semibold text-slate-300 flex items-center justify-between">
+                  <label className="text-sm font-semibold text-body flex items-center justify-between">
                     <span>줄 바꿈 (Line Wrapping)</span>
                     <button
                       onClick={() => updateEditor({ lineWrapping: !settings.editor.lineWrapping })}
@@ -86,7 +86,7 @@ export function SettingsModal() {
                       }`}
                     >
                       <span
-                        className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                        className={`inline-block h-3 w-3 transform rounded-full bg-overlay transition-transform ${
                           settings.editor.lineWrapping ? 'translate-x-5' : 'translate-x-1'
                         }`}
                       />
@@ -95,7 +95,7 @@ export function SettingsModal() {
                   <p className="text-xs text-mutedText">긴 텍스트를 에디터 가로 너비에 맞춰 줄 바꿈 처리합니다.</p>
                 </div>
                 <div className="space-y-3">
-                  <label className="text-sm font-semibold text-slate-300">
+                  <label className="text-sm font-semibold text-body">
                     에디터 좌우 마진 (본문 너비: {settings.editor.contentMaxWidth === 0 ? '전체 너비' : `${settings.editor.contentMaxWidth}px`})
                   </label>
                   <input
@@ -110,7 +110,7 @@ export function SettingsModal() {
                   <p className="text-xs text-mutedText">0으로 설정하면 화면 전체 너비를 사용합니다.</p>
                 </div>
                 <div className="space-y-3">
-                  <label className="text-sm font-semibold text-slate-300">자동 저장 지연 시간 ({settings.editor.autosaveDelay / 1000}초)</label>
+                  <label className="text-sm font-semibold text-body">자동 저장 지연 시간 ({settings.editor.autosaveDelay / 1000}초)</label>
                   <input
                     type="range"
                     min="0"
@@ -128,11 +128,11 @@ export function SettingsModal() {
             {activeTab === 'mindmap' && (
               <div className="space-y-6">
                 <div className="space-y-3">
-                  <label className="text-sm font-semibold text-slate-300">연결선 스타일</label>
+                  <label className="text-sm font-semibold text-body">연결선 스타일</label>
                   <select
                     value={settings.mindmap.edgeStyle}
                     onChange={(e) => updateMindmap({ edgeStyle: e.target.value as any })}
-                    className="w-full bg-darkPanel border border-darkBorder rounded-md px-3 py-2 text-sm text-slate-200 outline-none focus:border-primary"
+                    className="w-full bg-darkPanel border border-darkBorder rounded-md px-3 py-2 text-sm text-strong outline-none focus:border-primary"
                   >
                     <option value="bezier">곡선 (Bezier)</option>
                     <option value="smoothstep">직각 곡선 (Smoothstep)</option>
@@ -145,7 +145,7 @@ export function SettingsModal() {
             {activeTab === 'general' && (
               <div className="space-y-6">
                 <div className="space-y-3">
-                  <label className="text-sm font-semibold text-slate-300 flex items-center justify-between">
+                  <label className="text-sm font-semibold text-body flex items-center justify-between">
                     <span>마지막 워크스페이스 자동 열기</span>
                     <button
                       onClick={() => updateGeneral({ autoOpenLastWorkspace: !settings.general.autoOpenLastWorkspace })}
@@ -154,7 +154,7 @@ export function SettingsModal() {
                       }`}
                     >
                       <span
-                        className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                        className={`inline-block h-3 w-3 transform rounded-full bg-overlay transition-transform ${
                           settings.general.autoOpenLastWorkspace ? 'translate-x-5' : 'translate-x-1'
                         }`}
                       />
@@ -169,7 +169,7 @@ export function SettingsModal() {
                         resetToDefaults();
                       }
                     }}
-                    className="px-4 py-2 bg-darkPanel hover:bg-red-500/10 text-red-400 border border-darkBorder hover:border-red-500/50 rounded-md text-sm transition-colors"
+                    className="px-4 py-2 bg-darkPanel hover:bg-dangerBg/10 text-danger border border-darkBorder hover:border-dangerBg/50 rounded-md text-sm transition-colors"
                   >
                     기본값으로 초기화
                   </button>

@@ -85,7 +85,7 @@ function App() {
   }, []);
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-darkBg text-slate-100 flex flex-col">
+    <div className="h-screen w-screen overflow-hidden bg-darkBg text-title flex flex-col">
       {/* App Header Bar — drag-region + programmatic startDragging for Tauri 2 */}
       <header
         data-tauri-drag-region
@@ -93,7 +93,7 @@ function App() {
       >
         <div data-tauri-drag-region className="flex items-center space-x-3">
           <span data-tauri-drag-region className="font-bold text-sm tracking-widest text-primary">DEVORAS</span>
-          <span data-tauri-drag-region className="text-[10px] bg-indigo-950 text-indigo-400 border border-indigo-900/60 px-2 py-0.5 rounded font-semibold tracking-wide">
+          <span data-tauri-drag-region className="text-[10px] bg-indigo-950 text-accentSoft border border-indigo-900/60 px-2 py-0.5 rounded font-semibold tracking-wide">
             Prototype
           </span>
         </div>

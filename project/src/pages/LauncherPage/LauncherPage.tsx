@@ -37,7 +37,7 @@ export function LauncherPage() {
   }, [recentList]);
 
   return (
-    <div className="flex-1 w-full h-full flex flex-col items-center justify-center bg-darkBg text-slate-200">
+    <div className="flex-1 w-full h-full flex flex-col items-center justify-center bg-darkBg text-strong">
       <div className="flex flex-col items-center max-w-xl w-full">
         {/* Header Logo */}
         <div className="mb-12 text-center select-none cursor-default" data-tauri-drag-region>
@@ -77,7 +77,7 @@ export function LauncherPage() {
                       <FolderOpen size={18} />
                     </div>
                     <div className="flex flex-col truncate">
-                      <span className="font-medium text-slate-300 truncate">
+                      <span className="font-medium text-body truncate">
                         {item.name}
                       </span>
                       <span className="text-xs text-mutedText truncate" title={item.path}>
@@ -93,7 +93,7 @@ export function LauncherPage() {
                         togglePin(item.path);
                       }}
                       className={`p-1.5 rounded hover:bg-darkBg transition-colors ${
-                        item.isPinned ? 'text-primary' : 'text-mutedText hover:text-slate-300'
+                        item.isPinned ? 'text-primary' : 'text-mutedText hover:text-body'
                       }`}
                       title={item.isPinned ? "고정 해제" : "목록에 고정"}
                     >
@@ -104,7 +104,7 @@ export function LauncherPage() {
                         e.stopPropagation();
                         removeRecent(item.path);
                       }}
-                      className="p-1.5 rounded text-mutedText hover:text-red-400 hover:bg-darkBg transition-colors"
+                      className="p-1.5 rounded text-mutedText hover:text-danger hover:bg-darkBg transition-colors"
                       title="목록에서 제거"
                     >
                       <X size={16} />
