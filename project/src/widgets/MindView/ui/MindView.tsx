@@ -111,7 +111,7 @@ const PreviewPanel: React.FC<PreviewPanelProps> = ({
   return (
     <div
       className="fixed flex flex-col rounded-xl shadow-2xl border border-darkBorder/70
-        bg-darkPanel/97 backdrop-blur-sm overflow-hidden
+        bg-darkPanel/95 backdrop-blur-sm overflow-hidden
         transition-[opacity,transform] duration-150 ease-out"
       onMouseEnter={onHoverStart}
       onMouseLeave={onHoverEnd}
