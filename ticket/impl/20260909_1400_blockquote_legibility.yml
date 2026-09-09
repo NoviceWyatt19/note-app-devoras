@@ -4,9 +4,9 @@ id: "FEAT-20260909-01"
 # ━━━
 update: "2026-09-09 14:00"
 project_ref: "PRJ-DEVORAS-MVP"
-subject: "읽기 모드 인용문이 본문 대비 기준에 미달한다 — `text-faint` → `text-muted`"
-status: "Todo — **R5-a 스코프 밖. 기존 결함**"
-severity: "P3 — 가독성. 데이터 유실·출시 차단 아님"
+subject: "읽기 모드 텍스트 시인성 — 인용문·본문을 리스트 텍스트 색으로 통일 (`--text-strong`)"
+status: "**사용자 지시로 처방 확정·범위 확대 (2026-09-09 실기 확인)**"
+severity: "P2 — **사용자가 실기에서 직접 보고**. 「라이트 모드에서 시인성이 크게 낮다」"
 found_by: "Impl_worker_v1 (R5-a T6 확인 항목 ① 수행 중)"
 # ━━━
 problem:
@@ -31,11 +31,23 @@ why_not_fixed_in_r5a:
   - "한 줄 수정이라 언제든 싸게 처리할 수 있다"
 # ━━━
 fix:
-  recommended: "`color: rgb(var(--text-muted-rgb));` — 다크 7.26 / 라이트 7.05"
-  why_muted_not_body: >
-    인용문은 본문보다 **한 단 약한 것이 의도**다. `text-body` 로 올리면 본문과 구분이 사라진다.
-    `text-muted` 가 「읽히되 약한」 자리에 맞는다.
-  scope: "1줄. `index.css:315`"
+  decided_by_user: >
+    **2026-09-09 실기 확인.** 「인용블록이나 평문기반 내용의 텍스트 색을 옅게 내던데
+    그냥 **리스트 텍스트 색상과 같은 게** 좋은 것 같다. 다크 모드에서도 조금 불편했는데
+    라이트 모드에서는 **시인성이 크게 낮더라**.」
+  what_list_text_is: "쓰기 모드 `.cm-list-item`(`index.css:480`)이 `--text-strong` 을 쓴다. 그것이 기준이다"
+  changes:
+    - "`index.css:312` `.rv-content` — `--text-body` → **`--text-strong`** (읽기 모드 본문 전체)"
+    - "`index.css:315` `.rv-content blockquote` — `--text-faint` → **`--text-strong`**"
+  contrast_after:
+    - "본문(base 위) — 다크 12.99 → **15.65** · 라이트 10.35 → **14.63**"
+    - "인용문(accent/0.05 틴트 위) — 다크 3.91 → **15.10** · 라이트 4.43 → **13.61**"
+  superseded: >
+    내가 처음 권한 `text-muted`(7.26/7.05)는 **철회한다.** 「인용문은 본문보다 한 단 약한 것이 의도」라는
+    가정으로 정한 값이었는데, **사용자가 그 가정 자체를 기각**했다. 실기에서 불편을 느낀 쪽이 기준이다.
+  note: >
+    본문이 `--text-strong` 이 되면 H2(같은 토큰)와 색이 같아진다. **크기·굵기로 위계가 남으므로 수용한다** —
+    사용자가 명시적으로 가독성을 택했다.
 # ━━━
 dod:
   - "다크·라이트 양쪽에서 인용문 대비 4.5:1 이상"
