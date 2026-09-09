@@ -128,10 +128,10 @@ const PreviewPanel: React.FC<PreviewPanelProps> = ({
         bg-darkBg/50 flex-shrink-0">
         {/* Heading level badge */}
         <span className="flex-shrink-0 text-[9px] font-mono font-bold px-1.5 py-0.5 rounded
-          bg-accent0/15 text-accent1 border border-accent0/25">
+          bg-primary/15 text-accentSoft border border-primary/25">
           H{node.level}
         </span>
-        <span className="flex-1 text-xs font-semibold text-t1 truncate" title={node.label}>
+        <span className="flex-1 text-xs font-semibold text-strong truncate" title={node.label}>
           {node.label}
         </span>
         {/* Pin toggle */}
@@ -141,8 +141,8 @@ const PreviewPanel: React.FC<PreviewPanelProps> = ({
           className={[
             'flex-shrink-0 p-1.5 rounded transition-colors',
             isPinned
-              ? 'text-accent1 bg-indigo-900/40 hover:bg-indigo-900/60'
-              : 'text-mutedText/40 hover:text-t2 hover:bg-overlay/10',
+              ? 'text-accentSoft bg-indigo-900/40 hover:bg-indigo-900/60'
+              : 'text-mutedText/40 hover:text-body hover:bg-overlay/10',
           ].join(' ')}
         >
           {isPinned ? <Pin size={12} /> : <PinOff size={12} />}
@@ -153,7 +153,7 @@ const PreviewPanel: React.FC<PreviewPanelProps> = ({
             onClick={onClose}
             title="패널 닫기"
             className="flex-shrink-0 p-1.5 rounded text-mutedText/40
-              hover:text-t2 hover:bg-overlay/10 transition-colors"
+              hover:text-body hover:bg-overlay/10 transition-colors"
           >
             <X size={12} />
           </button>
@@ -380,7 +380,7 @@ export const MindView: React.FC<MindViewProps> = ({ onClose, isStandalone }) => 
         <button
           onClick={onClose}
           title="마인드 뷰 닫기"
-          className="absolute top-3 right-3 p-1.5 rounded hover:bg-overlay/10 text-mutedText/40 hover:text-t2 transition-colors"
+          className="absolute top-3 right-3 p-1.5 rounded hover:bg-overlay/10 text-mutedText/40 hover:text-body transition-colors"
         >
           <X size={13} />
         </button>
@@ -390,7 +390,7 @@ export const MindView: React.FC<MindViewProps> = ({ onClose, isStandalone }) => 
 
   // ── Node colours ───────────────────────────────────────────────────────────
   const levelColors: Record<number, string> = {
-    1: 'border-l-accent0 shadow-indigo-950/20 bg-indigo-950/20',
+    1: 'border-l-primary shadow-indigo-950/20 bg-indigo-950/20',
     2: 'border-l-node1 shadow-teal-950/10 bg-teal-950/20',
     3: 'border-l-node2 shadow-sky-950/10 bg-sky-950/20',
     4: 'border-l-node3 shadow-amber-950/10 bg-amber-950/20',
@@ -398,7 +398,7 @@ export const MindView: React.FC<MindViewProps> = ({ onClose, isStandalone }) => 
     6: 'border-l-node5 shadow-purple-950/10 bg-purple-950/20',
   };
   const levelBadgeColors: Record<number, string> = {
-    1: 'bg-accent0/20 text-accent1 border border-accent0/30',
+    1: 'bg-primary/20 text-accentSoft border border-primary/30',
     2: 'bg-node1/20 text-node1 border border-node1/30',
     3: 'bg-node2/20 text-node2 border border-node2/30',
     4: 'bg-node3/20 text-node3 border border-node3/30',
@@ -416,7 +416,7 @@ export const MindView: React.FC<MindViewProps> = ({ onClose, isStandalone }) => 
           onClick={onClose}
           title="마인드 뷰 닫기"
           className="absolute top-3 right-3 z-20 p-1.5 rounded
-            hover:bg-overlay/10 text-mutedText/40 hover:text-t2
+            hover:bg-overlay/10 text-mutedText/40 hover:text-body
             transition-colors"
         >
           <X size={13} />
@@ -427,14 +427,14 @@ export const MindView: React.FC<MindViewProps> = ({ onClose, isStandalone }) => 
       <div className="absolute bottom-4 left-4 z-10 bg-darkPanel/90 border border-darkBorder/60
         px-3 py-2 rounded-lg flex items-center space-x-4 shadow-xl pointer-events-none">
         <div className="text-[10px] text-mutedText flex flex-col font-medium">
-          <span className="font-semibold text-t2">조작 가이드</span>
+          <span className="font-semibold text-body">조작 가이드</span>
           <span>드래그: 노드 이동</span>
           <span>배경 드래그: 패닝(이동)</span>
           <span>마우스 휠: 줌 인/아웃</span>
           <span>호버: 본문 미리보기</span>
         </div>
         <div className="border-l border-darkBorder/60 h-8" />
-        <div className="text-xs font-mono font-bold text-t2">
+        <div className="text-xs font-mono font-bold text-body">
           Zoom: {Math.round(zoom * 100)}%
         </div>
       </div>
@@ -526,17 +526,17 @@ export const MindView: React.FC<MindViewProps> = ({ onClose, isStandalone }) => 
                       'w-full h-full rounded-lg border-l-4 border border-darkBorder',
                       'bg-darkPanel/90 flex flex-col justify-between p-2.5',
                       'shadow-lg select-none transition-all duration-200',
-                      levelColors[node.level] ?? 'border-l-accent1',
+                      levelColors[node.level] ?? 'border-l-accentSoft',
                       isDragging
                         ? 'scale-105 border-primary shadow-primary/20 ring-2 ring-primary/30 z-50 bg-darkPanel/100'
                         : isPinned
-                          ? 'ring-2 ring-accent0/50 border-accent0/50'
+                          ? 'ring-2 ring-primary/50 border-primary/50'
                           : isHovered
-                            ? 'ring-1 ring-accent1/30 border-accent1/30'
+                            ? 'ring-1 ring-accentSoft/30 border-accentSoft/30'
                             : 'hover:border-darkBorder/80 hover:shadow-xl',
                     ].join(' ')}
                   >
-                    <div className="text-xs font-bold text-t0 truncate w-full" title={node.label}>
+                    <div className="text-xs font-bold text-strong truncate w-full" title={node.label}>
                       {node.label}
                     </div>
                     <div className="flex items-center justify-between">
