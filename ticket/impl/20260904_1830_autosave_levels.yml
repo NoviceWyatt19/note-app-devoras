@@ -2,10 +2,10 @@
 type: "FEATURE"
 id: "FEAT-20260904-01"
 # ━━━
-update: "2026-09-04 18:30"
+update: "2026-09-09 (실행 세션 — 배선 완료)"
 project_ref: "PRJ-DEVORAS-MVP"
 subject: "자동 저장 — 슬라이더 제거, off/low/high 3단계로 재설계하고 실제 배선"
-status: "Todo"
+status: "Done — commit d88d054 (v0.9.30). low=5000ms/high=1500ms, 기본값 high. 신규 entities/document/model/autosave.ts 가 updateContentForTab 한 지점에서 전 에디터 공통 배선. 안전장치(직전 비어있지 않은데 새 내용 빔 → 스킵+dirty유지+로깅) 구현. ERD autoSave 설정(entities/erd/model/settings.ts) 은 죽은 코드라 삭제로 정리. T1 하네스 9건 신규(test:autosave), test:t1 101/101·test:t15 16/16·tsc 클린. 상세는 커밋 메시지 참고."
 severity: "P1 (데이터 유실 인접 — 현재 앱이 저장한다고 말하고 하지 않는다)"
 decided_by: "사용자 (2026-09-04, PM-20260904-01 D2)"
 blocked_by: "**BUG-20260902-01 (ERD 빈 문서 덮어쓰기) — 하드 게이트. 착지·검증 전 머지 금지**"
