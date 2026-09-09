@@ -9,6 +9,67 @@
 
 ---
 
+## 0. ⚠️ 방향 전환 (2026-09-09, 사용자 확인) — **Actions 가 아니라 로컬 도구다**
+
+> **사용자 확인**: 「해당 앱은 local 에서 실행되는 앱이니 굳이 Actions 나 EC2 같은 **외부에서 서비스할 필요가 없는 종류**다.
+> 서비스를 한다면 **빌드된 앱을 제공하는 것뿐**이고, 업데이트되면 **`.dmg` 로 배포**한다.
+> GitHub 은 **저장용**이다.」
+
+**PM 이 세운 목적은 그대로 유효하다.** 바뀌는 것은 수단이다:
+
+| 목적 | 원래 수단 | **바뀐 수단** |
+|---|---|---|
+| 하네스가 사람 기억에 의존하는 상태를 끊는다 | Actions CI | **로컬 git hook** |
+| 반복 가능한 릴리스 · sha256 | Actions release.yml | **로컬 릴리스 스크립트** |
+
+**왜 Actions 가 이 프로젝트에서 값을 못 만드는가**: 워크플로는 원격에서 돈다. 사용자가 Actions 를
+쓰지 않으면 **영영 실행되지 않는다** — 게이트를 기계가 지키는 게 아니라 **지키는 척하는 파일**만 남는다.
+그리고 이 프로젝트의 실패 이력(「심각한 결함 3건이 전부 리팩터가 만들었고 전부 자동 테스트를 통과했다」)은
+**원격에 들어가기 전, 로컬에서** 걸렸어야 할 것들이다. **hook 이 제자리다.**
+
+### 0.1 게이트 실행 시간 — 측정값이 배치를 정한다
+
+| 게이트 | 실측 |
+|---|---|
+| `check-version-sync.mjs` | **33ms** |
+| `tsc --noEmit` | 1,788ms |
+| `test:t1` | 7,733ms |
+| `test:t15` | 6,837ms |
+| **tsc + t1 + t15 합** | **약 16.4초** |
+
+**16초를 매 커밋에 걸면 `--no-verify` 로 우회하게 된다.** 우회되는 게이트는 없는 게이트다.
+
+| hook | 내용 | 근거 |
+|---|---|---|
+| **`pre-commit`** | `check-version-sync.mjs` | **33ms.** 체감 0. 버전업 4파일 규약이 커밋 단위 규약이므로 제자리다 |
+| **`pre-push`** | `tsc --noEmit` + `test:t1` + `test:t15` | 16초지만 **push 는 드물다**(원격이 2026-09-02 에 멈춰 있었다). 여기서는 16초가 싸다 |
+
+`lint` 는 hook 에 넣지 않는다 — **기준선 124 이고 지금 실패한다**(§1). 고쳐지기 전에는 게이트가 될 수 없다.
+
+### 0.2 husky 가 설치조차 안 돼 있다
+
+- `.husky/` 디렉터리 **없음** · `git config core.hooksPath` **미설정** → **hook 이 하나도 걸려 있지 않다**
+- `package.json` 의 `"prepare": "cd .. && husky project/.husky"` 는 **husky v9 문법**인데 설치된 것은 **v8**(`^8.0.3`)
+- v8 은 `husky install [dir]` 형식이라 현재 스크립트는 **usage 만 찍고 exit 0** — 조용히 아무것도 안 한다
+
+**즉 husky 는 의존성에만 있고 실제로는 작동한 적이 없다.** E2' 의 첫 작업은 이걸 살리는 것이다.
+
+### 0.3 `gh` CLI 가 있다 — 로컬에서 릴리스까지 만든다
+
+`gh version 2.100.0` 확인. `.dmg` 를 만든 뒤 **`gh release create` 로 태그·릴리스·업로드를 한 번에** 할 수 있다.
+Actions 없이도 **버전 태그 + 안정적 다운로드 URL + 체크섬**이라는 Homebrew 전제(`REL-20260904-01`)가 성립한다.
+
+### 0.4 이미 만든 워크플로 2개는 어떻게 하나
+
+**지운다.** `.github/workflows/ci.yml` · `release.yml` 은 **이 저장소에서 돌지 않는다.**
+남겨 두면 「CI 가 있다」는 **잘못된 신호**가 된다 — 실제로는 아무도 게이트를 지키지 않는데
+다음 세션이 「CI 가 본다」고 가정한다. **작동하지 않는 안전장치는 안전장치가 아니라 오해의 원인이다.**
+
+단, **버전 동기 스크립트(`check-version-sync.mjs`)는 남긴다** — hook 이 그대로 재사용한다.
+워크플로 작성이 헛일이 아니었던 이유가 이것이다.
+
+---
+
 ## 1. 착수 전에 알아야 할 것 — **`lint` 는 지금 실패한다**
 
 ```
@@ -77,112 +138,84 @@ Node 는 **24** (`.nvmrc`, 저장소 루트).
 
 ---
 
-## 3. E2 — CI (`.github/workflows/ci.yml`)
+## 3. E2' — **로컬 게이트 (git hook)**
 
-**트리거**: `push`(main) · `pull_request`. **runner**: `macos-latest`(Tauri 대상 플랫폼과 일치).
+### 3.1 husky 를 실제로 설치한다
 
-### 3.1 차단 게이트 4종
+1. `project/package.json` 의 `prepare` 를 **v8 문법으로 고친다**:
+   ```json
+   "prepare": "cd .. && husky install project/.husky"
+   ```
+   저장소 루트가 `Devoras/` 이고 `package.json` 은 `project/` 에 있으므로 `cd ..` 가 필요하다.
+   `husky install` 이 `core.hooksPath` 를 설정한다.
+2. `pnpm install` 을 한 번 돌려 `.husky/` 가 생기고 `git config core.hooksPath` 가 잡히는지 확인한다.
 
+> **대안**: husky 를 9로 올리면 현재 스크립트 문법이 맞아진다. 다만 v9 는 hook 파일 형식도 달라
+> 마이그레이션이 붙는다. **이번엔 v8 에 문법을 맞추는 쪽이 싸다.**
+
+### 3.2 `pre-commit` — 버전 동기 (33ms)
+
+```sh
+cd project && node scripts/check-version-sync.mjs
 ```
-pnpm install --frozen-lockfile
-pnpm exec tsc --noEmit
-pnpm test:t1        # 92 assertions
-pnpm test:t15       # 16 assertions
-node scripts/check-version-sync.mjs
+
+`.agents/AGENTS.md` §2 의 「코드 커밋 = 4파일 동시 버전업」을 **기계가 지킨다.**
+**문서 전용 커밋은 버전을 올리지 않는 것이 규약**이므로, 스크립트는 「넷이 서로 같은가」만 본다
+(「올랐는가」가 아니다). 그래야 문서 커밋을 막지 않는다.
+
+### 3.3 `pre-push` — 무거운 게이트 (약 16초)
+
+```sh
+cd project && pnpm exec tsc --noEmit && pnpm test:t1 && pnpm test:t15
 ```
 
-### 3.2 버전 동기 검사 — **신규 스크립트**
+**push 는 드물다.** 여기서 16초는 싸고, 원격에 들어간 뒤 발견하는 것보다 훨씬 싸다.
 
-**파일**: `project/scripts/check-version-sync.mjs`
+### 3.4 `check-version-sync.mjs` — 유지
 
-`.agents/AGENTS.md` §2 의 「코드 커밋 = 4파일 동시 버전업」을 **기계가 지키게** 한다. 네 곳을 읽어 전부 같은지 본다:
-
-| 파일 | 읽는 곳 |
-|---|---|
-| `package.json` | `.version` |
-| `src-tauri/Cargo.toml` | `^version = "…"` (첫 번째) |
-| `src-tauri/tauri.conf.json` | `.version` |
-| `src-tauri/Cargo.lock` | `[[package]] name = "devoras"` 바로 아래 `version` |
-
-**현재 넷 다 `0.9.27` 이다** — 착수 시점에 통과하는 것을 확인했다. 불일치면 **네 값을 전부 출력하고 exit 1**. 「어디가 틀렸나」를 사람이 다시 찾게 하지 않는다.
-
-### 3.3 `lint` — **기준선 비교, 비차단**
-
-```
-pnpm lint || true        # 실패해도 job 을 죽이지 않는다
-```
-문제 수를 세어 **기준선 124 와 비교**한다. **늘어나면 경고**하되 job 은 통과시킨다.
-
-- **줄어들면 기준선을 낮춘다** — 워크플로 파일의 상수를 그때 갱신한다(래칫)
-- **차단으로 승격하는 조건**: 기준선이 0 이 되는 날. 그전에는 승격하지 않는다
-
-> **왜 지금 고치지 않나**: 124건 중 `react-hooks/exhaustive-deps` 9건은 **의존성 배열을 바꾸는 일**이라
-> 동작이 바뀔 수 있다. R5-a 직후에 그걸 일괄로 손대면 **회귀 원인이 R5-a 인지 lint 수정인지 분리되지 않는다.**
-> 별건 티켓 대상이다.
-
-### 3.4 캐시
-
-`actions/setup-node`(pnpm 캐시) + `Swatinem/rust-cache`(`project/src-tauri`). **CI 에서 Rust 를 빌드하지 않으므로 rust-cache 는 E1 에만 필요하다.**
+이미 작성됐고 4케이스로 검증됐다(일치·태그일치·태그불일치·4파일 불일치).
+**태그 인자를 받는 기능은 릴리스 스크립트가 그대로 재사용한다.**
 
 ---
 
-## 4. E1 — Releases (`.github/workflows/release.yml`)
+## 4. E1' — **로컬 릴리스 스크립트**
 
-### 4.1 ⚠️ 수동 실행은 **이미 되어 있다**
+### 4.1 ⚠️ 수동 실행은 이미 되어 있다
 
-PM 지시가 「수동으로 한 번 돌려본 뒤 CI 로 옮기라」인데, **그 산출물이 이미 존재한다**(2026-09-09 15:59 생성):
+산출물이 이미 존재한다(2026-09-09 15:59):
 
 | | |
 |---|---|
 | 경로 | `project/src-tauri/target/release/bundle/dmg/Devoras_0.9.27_aarch64.dmg` |
 | 크기 | 10,186,112 bytes |
 | **sha256** | `4eaa7ac17642ec39d3e8daf2e7f7f1babd5137516e1c03a39b6191141985393e` |
-| `.app` 서명 | **adhoc** (`flags=0x20002(adhoc,linker-signed)`) — E3(a) 무서명 경로 그대로 |
+| `.app` 서명 | **adhoc** — E3(a) 무서명 경로 그대로 |
 | 아키텍처 | **arm64 단독** |
-| `.app` 버전 | 0.9.27 (4파일과 일치) |
 
-**즉 「빌드가 되는가」는 이미 답이 나왔다.** E1 의 남은 일은 **자동화와 배포**다.
+### 4.2 ⚠️ arm64 단독이다 — PM 판단 대기
 
-### 4.2 ⚠️ arm64 단독이다 — 결정 필요
+**Intel Mac 사용자는 실행할 수 없다.** 개인 배포 단계에서는 arm64 로 충분하다고 보나,
+**Homebrew cask 는 아키텍처를 명시해야** 하므로 E6 전에는 확정돼야 한다.
 
-현재 산출물은 **Apple Silicon 전용**이다. Intel Mac 사용자는 **실행할 수 없다.**
-
-| 선택 | 비용 |
-|---|---|
-| **arm64 단독 유지** | 0. README 에 「Apple Silicon 전용」 명시 필수 |
-| **universal 바이너리** | `--target universal-apple-darwin` + Rust 타깃 2개 추가. 빌드 시간·용량 증가 |
-
-**개인 배포 단계에서는 arm64 단독으로 충분하다고 본다.** 다만 **Homebrew cask 는 아키텍처를 명시해야** 하므로 E6 착수 전에 정해야 한다. **PM 판단 요청 사항이지 실행 세션이 정할 것이 아니다.**
-
-### 4.3 워크플로
-
-**트리거**: `push: tags: ['v*']` + `workflow_dispatch`
+### 4.3 `project/scripts/release.mjs` (또는 `pnpm release`)
 
 ```
-1. tag 에서 버전 추출 (v0.9.27 → 0.9.27)
-2. 4파일 버전과 tag 가 일치하는지 검사 — 불일치면 즉시 실패
-   (§3.2 스크립트 재사용. 태그와 코드가 어긋난 릴리스를 원천 차단)
-3. pnpm install --frozen-lockfile
-4. pnpm tauri build
-5. sha256 계산 → SHA256SUMS.txt
-6. softprops/action-gh-release 로 .dmg + SHA256SUMS.txt 업로드
+1. 인자로 받은 태그(v0.9.x)와 4파일 버전 일치 검사
+   → check-version-sync.mjs 재사용. 불일치면 즉시 중단
+2. git 트리가 clean 한지 확인 (미커밋 상태로 릴리스하지 않는다)
+3. pnpm tauri build
+4. .dmg 경로 확인 + sha256 계산 → SHA256SUMS.txt
+5. gh release create <tag> --title <tag> --notes-file <notes> <dmg> SHA256SUMS.txt
 ```
 
-**sha256 은 Homebrew cask 의 전제**다(`REL-20260904-01` §what_homebrew_changes). 지금부터 남긴다.
+**`gh` 는 설치돼 있다**(v2.100.0). 인증이 안 돼 있으면 4단계까지만 수행하고
+**산출물 경로와 sha256 을 출력한 뒤 종료**한다 — 업로드는 사람이 한다.
+**빌드와 체크섬이 재현 가능해지는 것이 이 스크립트의 값**이지 업로드 자동화가 아니다.
 
 ### 4.4 README — 첫 실행 안내 (**필수**)
 
-무서명이라 **Gatekeeper 가 막는다.** `README.md` 에 넣는다:
-
-```markdown
-## 설치 (macOS · Apple Silicon)
-1. Releases 에서 `.dmg` 를 받아 앱을 Applications 로 옮깁니다.
-2. **처음 한 번은 우클릭 → 열기** 로 실행하세요. 더블클릭하면
-   "확인되지 않은 개발자" 경고로 열리지 않습니다.
-3. 이후에는 더블클릭으로 열립니다.
-```
-
-**이 문구가 없으면 사용자는 앱이 고장 난 줄 안다.**
+무서명이라 **Gatekeeper 가 막는다.** `README.md` 에 이미 반영됨(`7a0b069`):
+설치 절 · **우클릭 → 열기** · `SHA256SUMS.txt` 검증법 · **Apple Silicon 전용** 명시.
 
 ---
 
@@ -194,21 +227,25 @@ PM 지시가 「수동으로 한 번 돌려본 뒤 CI 로 옮기라」인데, **
 | Homebrew tap (E6) | 무서명 상태에서는 `--no-quarantine` 이 필요해 보류 |
 | `tauri-plugin-updater` | Homebrew 가 업데이트 경로가 되므로 우선순위 하락 |
 | Windows 빌드 | macOS 단독 확정 |
-| `lint` 124건 수정 | 별건. `exhaustive-deps` 9건은 동작이 바뀔 수 있다 |
-| `prepare`/husky v8→v9 | 별건. CI 를 막지 않는다(exit 0 확인) |
+| `lint` 124건 수정 | 별건. `exhaustive-deps` 9건은 동작이 바뀔 수 있다. **hook 게이트에도 넣지 않는다** |
+| **Actions CI · release 워크플로** | **이 저장소에서 돌지 않는다**(§0). 작동하지 않는 안전장치는 오해의 원인이다 |
+| husky **v9 업그레이드** | v8 에 문법을 맞추는 쪽이 싸다(§3.1). v9 는 hook 파일 형식도 다르다 |
 
 ---
 
 ## 6. DoD
 
-- [ ] `.github/workflows/ci.yml` — 차단 게이트 4종이 **저장소 루트에서** 돈다
+- [ ] `.github/workflows/` **삭제** — 이 저장소에서 돌지 않는다(§0.4)
+- [ ] `prepare` 를 husky **v8 문법**으로 고치고 `pnpm install` 로 `.husky/` 생성 확인
+- [ ] `git config core.hooksPath` 가 실제로 잡힌다
+- [ ] **`pre-commit`** — 버전 4파일 동기 검사가 돈다. 불일치 커밋이 **실제로 막히는지** 확인
+- [ ] **`pre-push`** — `tsc` + `t1` + `t15` 가 돈다. 실패 시 push 가 **실제로 막히는지** 확인
+- [ ] **문서 전용 커밋이 막히지 않는다** — 버전 미상승이 규약이다
+- [ ] `check-version-sync.mjs` — 불일치 시 **네 값을 전부 출력하고** exit 1
 - [ ] `packageManager` 필드로 pnpm 버전 고정
-- [ ] `check-version-sync.mjs` — 4파일 불일치 시 **네 값을 전부 출력하고** exit 1
-- [ ] `lint` 는 비차단, 기준선 **124** 대비 증가 시 경고
-- [ ] `.github/workflows/release.yml` — 태그 push 로 `.dmg` + `SHA256SUMS.txt` 발행
-- [ ] 태그와 4파일 버전 불일치 시 릴리스 **실패**
-- [ ] `README.md` 에 첫 실행 안내(우클릭→열기) + **Apple Silicon 전용** 명시
-- [ ] CI 가 **초록**이다 — 빨간 채로 두지 않는다
+- [ ] `scripts/release.mjs` — 태그·버전 일치 검사 → 빌드 → sha256 → (`gh` 있으면) 릴리스 생성
+- [ ] `gh` 미인증 시 **산출물 경로와 sha256 을 출력하고 정상 종료**한다
+- [ ] `README.md` 첫 실행 안내 + Apple Silicon 전용 명시 (`7a0b069` 반영됨)
 
 ---
 

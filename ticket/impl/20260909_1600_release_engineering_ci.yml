@@ -4,8 +4,8 @@ id: "IMPL-20260909-01"
 # ━━━
 update: "2026-09-09 16:00"
 project_ref: "PRJ-DEVORAS-MVP"
-subject: "R3 출시 엔지니어링 — E2(CI) → E1(GitHub Releases)"
-status: "Todo — 실행 사양서 작성 완료"
+subject: "R3 출시 엔지니어링 — **E2' 로컬 git hook → E1' 로컬 릴리스 스크립트** (Actions 아님)"
+status: "**방향 전환 (2026-09-09 사용자 확인)** — Actions 워크플로는 폐기, 로컬 도구로 재작성"
 parent: "REL-20260904-01"
 assignee: "Impl_worker_v1"
 planned_by: "Impl_Manager_v1"
@@ -86,3 +86,34 @@ this_unit_ends_with:
     dev 를 한 번 거치면 정상」, 2026-08-30)가 이 `.dmg` 에서 재현되는지가 **첫 확인 대상**이다.
     사실이면 새 사용자 전원이 깨진 앱을 본다.
   also: "§2 · §4(프로덕션 csp) · **§12(라이트 모드 육안 — R5-a 산출물)**"
+# ━━━
+direction_change_20260909:
+  user_statement: >
+    「해당 앱은 local 에서 실행되는 앱이니 굳이 Actions 나 EC2 같은 **외부에서 서비스할 필요가 없는
+    종류**다. 서비스를 한다면 **빌드된 앱을 제공하는 것뿐**이고, 업데이트되면 `.dmg` 로 배포한다.」
+    + 「GitHub 은 **저장용**이다」
+  what_survives: "**PM 이 세운 목적은 그대로다** — 하네스가 사람 기억에 의존하는 상태를 끊는 것, 반복 가능한 릴리스와 sha256"
+  what_changes:
+    - "Actions CI → **로컬 git hook**(husky)"
+    - "Actions release.yml → **로컬 릴리스 스크립트** + `gh release create`"
+  why: >
+    워크플로는 원격에서 돈다. 사용자가 Actions 를 쓰지 않으면 **영영 실행되지 않는다** —
+    게이트를 기계가 지키는 게 아니라 **지키는 척하는 파일**만 남는다. 그리고 이 프로젝트의 실패 이력
+    (「심각한 결함 3건이 전부 리팩터가 만들었고 전부 자동 테스트를 통과했다」)은 **원격에 들어가기 전
+    로컬에서** 걸렸어야 할 것들이다.
+  workflows_are_deleted:
+    what: "`.github/workflows/ci.yml` · `release.yml` 삭제"
+    why: >
+      남겨 두면 「CI 가 있다」는 **잘못된 신호**가 된다. 실제로는 아무도 게이트를 지키지 않는데
+      다음 세션이 「CI 가 본다」고 가정한다. **작동하지 않는 안전장치는 안전장치가 아니라 오해의 원인이다**
+    what_survives: "`check-version-sync.mjs` 는 남는다 — hook 과 릴리스 스크립트가 재사용한다"
+# ━━━
+measurements_that_shaped_the_design:
+  note: "hook 배치는 실측 시간이 정했다"
+  items:
+    - "`check-version-sync.mjs` **33ms** → `pre-commit`. 체감 0"
+    - "`tsc --noEmit` 1,788ms · `test:t1` 7,733ms · `test:t15` 6,837ms — 합 **약 16.4초** → `pre-push`"
+    - "**16초를 매 커밋에 걸면 `--no-verify` 로 우회하게 된다.** 우회되는 게이트는 없는 게이트다"
+    - "push 는 드물다 — 원격이 2026-09-02 에서 멈춰 있었고 로컬이 104 커밋 앞섰다. 거기서는 16초가 싸다"
+    - "`gh` CLI **v2.100.0 설치돼 있음** → 로컬에서 릴리스 생성까지 가능"
+    - "**husky 는 의존성에만 있고 작동한 적이 없다** — `.husky/` 없음, `core.hooksPath` 미설정, `prepare` 가 v9 문법인데 v8 설치라 usage 만 찍고 exit 0"
