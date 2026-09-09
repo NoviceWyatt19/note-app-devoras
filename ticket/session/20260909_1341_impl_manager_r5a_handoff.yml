@@ -6,7 +6,7 @@ supersedes: "SESS-20260905-IMPL (ticket/session/20260905_2303_impl_manager_hando
 update: "2026-09-09 13:41"
 project_ref: "PRJ-DEVORAS-MVP"
 subject: "Impl_Manager_v1 인수인계 — R5-a 는 T6 하나 남았고, T6 는 값 판단이 아니라 배선 작업이다"
-baseline: "v0.9.24 · 워킹 트리에 T6 1단계(라이트 팔레트 블록) 미커밋 — Impl_worker_v1 소유"
+baseline: "v0.9.24 · 워킹 트리에 T6 6파일 미커밋 — Impl_worker_v1 소유. 아래 open_items 참조"
 status: "**중단** — PM 지시(사용자 토큰 한도). T6 코드 착수 직전"
 # ━━━
 read_this_first:
@@ -37,7 +37,7 @@ r5a_status:
     - "T2② `afce308` **R-6 `createEditorTheme` 상수화** — PM `D21` 로 R-6 종결 판정"
   numbers: "토큰 **36개** · 팔레트 클래스 **194 → 1** · `tsc` 클린 · `test:t1` 92/92 · `test:t15` 16/16"
   remaining:
-    what: "**T6 하나뿐이다.** 추정 3~4h"
+    what: "**T6 하나뿐이고, 그 대부분이 이미 트리에 있다.** 잔여는 진입점 2/2 + 실기 검증. 추정 1h 미만"
     items:
       - "1. `index.css` `:root[data-theme=\"light\"]` 블록 36값 — **워킹 트리에 미커밋으로 존재. 값 전수 검증 완료(정확함)**"
       - "2. 시스템 추종 `@media (prefers-color-scheme: light)` + `documentElement.setAttribute('data-theme', mode)` (`'system'` 이면 속성 **제거**)"
@@ -136,7 +136,18 @@ verification_method:
 # ━━━
 open_items:
   items:
-    - "**미커밋 T6 1단계** — 라이트 팔레트 블록 61줄. **값 전수 검증 완료(정확함).** `Impl_worker_v1` 이 커밋 예정. 코드 변경이므로 버전업 4파일 동시(v0.9.24 → 0.9.25)"
+    - >
+      **미커밋 T6 — 1단계가 아니라 사실상 4단계까지 진행돼 있다.** 중단 지시가 도착하기 전에
+      실행 세션이 계속 진행했다. 6파일: `index.css`(라이트 36값) · `entities/settings/model/types.ts`
+      (`themeMode` 3택 + 기본 `system`) · `SettingsModal.tsx`(3택 UI) · `App.tsx`(전환 적용 로직) ·
+      `WorkspacePage.tsx`(dirty 점) · `save_dirty_indicator_harness.tsx`(`.bg-warning` 단언 갱신).
+      **내가 라이트 36값을 전수 대조했고 전부 정확하다** — §4.9·§4.6 정정분(`warning 180 83 9` ·
+      `highlight 113 63 18` · `accent-subtle 55 48 163` · node hue/tint · `overlay 0 0 0`)이 다 반영됐다.
+      dirty 점과 하네스가 **같은 변경분**에 있는 것도 조건 충족이다.
+      `Impl_worker_v1` 이 v0.9.25 로 커밋하도록 지시했다. **재개 시 트리에 남아 있으면 그것부터 커밋한다**
+    - >
+      **T6 잔여는 진입점 2/2(상태바 토글) 하나로 보인다** — `WorkspacePage.tsx` 에 `themeMode` 참조가
+      0건이다. 설정 모달 3택은 들어가 있다. 확정은 커밋 메시지로 확인할 것
     - "`MindView.tsx:114` `bg-darkPanel/97` — **죽은 클래스**(Tailwind 기본 스케일에 97 없음 → 규칙 미생성 → 배경 안 깔림). 기준선에서도 동일한 **기존 결함**. `/95` vs `/100` 판단 필요. 별건 티켓 대상"
     - "`--text-faint` 가 본문에 쓰이지 않는지 T6 에서 확인 — 대비 3.86~4.05 라 비활성·취소선 전용이어야 한다"
     - "`erd.css:130` `rgba(15,23,42,0.12)` box-shadow — 그림자라 테마 무관으로 판단했으나 미확정"
