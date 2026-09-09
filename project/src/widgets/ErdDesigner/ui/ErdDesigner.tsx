@@ -200,7 +200,7 @@ export default function ErdDesigner(props: ErdDesignerProps): JSX.Element {
         </div>
         <div className="erd-toolbar-actions">
           <button 
-            className="px-3 py-1.5 bg-darkPanel border border-darkBorder hover:bg-darkHover rounded-md text-sm text-slate-200 transition-colors"
+            className="px-3 py-1.5 bg-darkPanel border border-darkBorder hover:bg-darkHover rounded-md text-sm text-strong transition-colors"
             onClick={() => {
               const nextId = nextEntityId("table", props.document.tables.map((table) => table.id));
               commitDocument((current) => addTable(current, "id:uuid:pk,name:text", nextId));
@@ -210,19 +210,19 @@ export default function ErdDesigner(props: ErdDesignerProps): JSX.Element {
             Add table
           </button>
           <button 
-            className="px-3 py-1.5 bg-darkPanel border border-darkBorder hover:bg-darkHover rounded-md text-sm text-slate-200 transition-colors"
+            className="px-3 py-1.5 bg-darkPanel border border-darkBorder hover:bg-darkHover rounded-md text-sm text-strong transition-colors"
             onClick={() => commitDocument(applySimpleLayout)}
           >
             Layout
           </button>
           <button 
-            className="px-3 py-1.5 bg-darkPanel border border-darkBorder hover:bg-darkHover rounded-md text-sm text-slate-200 transition-colors"
+            className="px-3 py-1.5 bg-darkPanel border border-darkBorder hover:bg-darkHover rounded-md text-sm text-strong transition-colors"
             onClick={() => exportSvg(props.document, "diagram")}
           >
             SVG
           </button>
           <button 
-            className="px-3 py-1.5 bg-darkPanel border border-darkBorder hover:bg-darkHover rounded-md text-sm text-slate-200 transition-colors"
+            className="px-3 py-1.5 bg-darkPanel border border-darkBorder hover:bg-darkHover rounded-md text-sm text-strong transition-colors"
             onClick={() => exportPng(props.document, "diagram")}
           >
             PNG
@@ -472,7 +472,7 @@ function Inspector(props: {
         <label>
           Selected table
           <select 
-            className="bg-darkBg text-slate-200 border border-darkBorder px-2 py-1.5 rounded-md focus:outline-none focus:border-primary"
+            className="bg-darkBg text-strong border border-darkBorder px-2 py-1.5 rounded-md focus:outline-none focus:border-primary"
             value={selectedTable.id} 
             onChange={(event) => props.onSelect({ type: "table", id: event.currentTarget.value })}
           >
@@ -484,7 +484,7 @@ function Inspector(props: {
         <label>
           Name
           <input
-            className="bg-darkBg text-slate-200 border border-darkBorder px-2 py-1.5 rounded-md focus:outline-none focus:border-primary"
+            className="bg-darkBg text-strong border border-darkBorder px-2 py-1.5 rounded-md focus:outline-none focus:border-primary"
             value={selectedTable.name}
             onChange={(event) => {
               const name = event.currentTarget.value;
@@ -494,13 +494,13 @@ function Inspector(props: {
         </label>
         <div className="erd-inspector-actions gap-2">
           <button 
-            className="px-3 py-1.5 bg-darkPanel hover:bg-darkHover text-slate-200 border border-darkBorder rounded-md transition-colors text-sm"
+            className="px-3 py-1.5 bg-darkPanel hover:bg-darkHover text-strong border border-darkBorder rounded-md transition-colors text-sm"
             onClick={() => props.onChange((document) => addColumn(document, selectedTable.id))}
           >
             Add column
           </button>
           <button 
-            className="px-3 py-1.5 bg-darkPanel hover:bg-darkHover text-slate-200 border border-darkBorder rounded-md transition-colors text-sm"
+            className="px-3 py-1.5 bg-darkPanel hover:bg-darkHover text-strong border border-darkBorder rounded-md transition-colors text-sm"
             onClick={() => {
               const nextRelationId = nextEntityId("relation", props.document.relations.map((relation) => relation.id));
               props.onChange((document) => addRelationForTable(document, props.defaultFromCardinality, props.defaultToCardinality, nextRelationId, selectedTable.id));
@@ -509,7 +509,7 @@ function Inspector(props: {
             Add relation
           </button>
           <button 
-            className="px-3 py-1.5 bg-darkPanel hover:bg-darkHover text-slate-200 border border-darkBorder rounded-md transition-colors text-sm"
+            className="px-3 py-1.5 bg-darkPanel hover:bg-darkHover text-strong border border-darkBorder rounded-md transition-colors text-sm"
             onClick={() => {
               props.onChange((document) => deleteTable(document, selectedTable.id));
               props.onSelect(null);
@@ -562,7 +562,7 @@ function Inspector(props: {
       <div className="erd-list gap-2">
         {props.document.tables.map((table) => (
           <button 
-            className="px-3 py-1.5 bg-darkPanel hover:bg-darkHover text-slate-200 border border-darkBorder rounded-md transition-colors text-sm"
+            className="px-3 py-1.5 bg-darkPanel hover:bg-darkHover text-strong border border-darkBorder rounded-md transition-colors text-sm"
             key={table.id} 
             onClick={() => props.onSelect({ type: "table", id: table.id })}
           >
@@ -587,7 +587,7 @@ function ColumnEditor(props: {
     <div className="erd-column-card">
       <div className="erd-column-grid">
         <input
-          className="bg-darkBg text-slate-200 border border-darkBorder px-2 py-1.5 rounded-md focus:outline-none focus:border-primary"
+          className="bg-darkBg text-strong border border-darkBorder px-2 py-1.5 rounded-md focus:outline-none focus:border-primary"
           aria-label="Column name"
           value={props.column.name}
           onChange={(event) => props.onChange({
@@ -596,7 +596,7 @@ function ColumnEditor(props: {
           })}
         />
         <input
-          className="bg-darkBg text-slate-200 border border-darkBorder px-2 py-1.5 rounded-md focus:outline-none focus:border-primary"
+          className="bg-darkBg text-strong border border-darkBorder px-2 py-1.5 rounded-md focus:outline-none focus:border-primary"
           aria-label="Column type"
           value={props.column.type}
           onChange={(event) => props.onChange({ ...props.column, type: event.currentTarget.value })}
@@ -604,33 +604,33 @@ function ColumnEditor(props: {
       </div>
       <div className="erd-column-flags">
         <label><input type="checkbox" checked={props.column.primaryKey === true} onChange={(event) => props.onChange({ ...props.column, primaryKey: event.currentTarget.checked })} /> PK</label>
-        {props.relation && <span className="text-xs bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-500/30 font-bold ml-1">FK</span>}
+        {props.relation && <span className="text-xs bg-primary/20 text-accentSubtle px-1.5 py-0.5 rounded border border-primary/30 font-bold ml-1">FK</span>}
         <label className={props.relation ? "ml-2" : ""}><input type="checkbox" checked={props.column.unique === true} onChange={(event) => props.onChange({ ...props.column, unique: event.currentTarget.checked })} /> UQ</label>
         <label><input type="checkbox" checked={props.column.nullable !== false} onChange={(event) => props.onChange({ ...props.column, nullable: event.currentTarget.checked })} /> Nullable</label>
       </div>
       <div className="erd-column-actions gap-2">
         {props.column.foreignKey === true && props.relation && (
           <button 
-            className="px-3 py-1.5 bg-darkPanel hover:bg-darkHover text-slate-200 border border-darkBorder rounded-md transition-colors text-sm"
+            className="px-3 py-1.5 bg-darkPanel hover:bg-darkHover text-strong border border-darkBorder rounded-md transition-colors text-sm"
             onClick={() => props.onEditRelation(props.relation!.id)}
           >
             Edit relation
           </button>
         )}
         <button 
-          className="px-3 py-1.5 bg-darkPanel hover:bg-darkHover text-slate-200 border border-darkBorder rounded-md transition-colors text-sm"
+          className="px-3 py-1.5 bg-darkPanel hover:bg-darkHover text-strong border border-darkBorder rounded-md transition-colors text-sm"
           onClick={() => props.onMove(-1)}
         >
           Up
         </button>
         <button 
-          className="px-3 py-1.5 bg-darkPanel hover:bg-darkHover text-slate-200 border border-darkBorder rounded-md transition-colors text-sm"
+          className="px-3 py-1.5 bg-darkPanel hover:bg-darkHover text-strong border border-darkBorder rounded-md transition-colors text-sm"
           onClick={() => props.onMove(1)}
         >
           Down
         </button>
         <button 
-          className="px-3 py-1.5 bg-darkPanel hover:bg-darkHover text-slate-200 border border-darkBorder rounded-md transition-colors text-sm"
+          className="px-3 py-1.5 bg-darkPanel hover:bg-darkHover text-strong border border-darkBorder rounded-md transition-colors text-sm"
           onClick={props.onDelete}
         >
           Delete
@@ -656,7 +656,7 @@ function RelationInspector(props: {
       <label>
         From table
         <select 
-          className="bg-darkBg text-slate-200 border border-darkBorder px-2 py-1.5 rounded-md focus:outline-none focus:border-primary"
+          className="bg-darkBg text-strong border border-darkBorder px-2 py-1.5 rounded-md focus:outline-none focus:border-primary"
           value={props.relation.fromTable} 
           onChange={(event) => {
             const fromTable = event.currentTarget.value;
@@ -672,7 +672,7 @@ function RelationInspector(props: {
       <label>
         From column
         <select 
-          className="bg-darkBg text-slate-200 border border-darkBorder px-2 py-1.5 rounded-md focus:outline-none focus:border-primary"
+          className="bg-darkBg text-strong border border-darkBorder px-2 py-1.5 rounded-md focus:outline-none focus:border-primary"
           value={props.relation.fromColumn} 
           onChange={(event) => {
             const fromColumn = event.currentTarget.value;
@@ -685,7 +685,7 @@ function RelationInspector(props: {
       <label>
         To table
         <select 
-          className="bg-darkBg text-slate-200 border border-darkBorder px-2 py-1.5 rounded-md focus:outline-none focus:border-primary"
+          className="bg-darkBg text-strong border border-darkBorder px-2 py-1.5 rounded-md focus:outline-none focus:border-primary"
           value={props.relation.toTable} 
           onChange={(event) => {
             const toTable = event.currentTarget.value;
@@ -701,7 +701,7 @@ function RelationInspector(props: {
       <label>
         To column
         <select 
-          className="bg-darkBg text-slate-200 border border-darkBorder px-2 py-1.5 rounded-md focus:outline-none focus:border-primary"
+          className="bg-darkBg text-strong border border-darkBorder px-2 py-1.5 rounded-md focus:outline-none focus:border-primary"
           value={props.relation.toColumn} 
           onChange={(event) => {
             const toColumn = event.currentTarget.value;
@@ -714,7 +714,7 @@ function RelationInspector(props: {
       <label>
         From cardinality
         <select 
-          className="bg-darkBg text-slate-200 border border-darkBorder px-2 py-1.5 rounded-md focus:outline-none focus:border-primary"
+          className="bg-darkBg text-strong border border-darkBorder px-2 py-1.5 rounded-md focus:outline-none focus:border-primary"
           value={props.relation.fromCardinality} 
           onChange={(event) => {
             const fromCardinality = event.currentTarget.value as ErdEndpointCardinality;
@@ -727,7 +727,7 @@ function RelationInspector(props: {
       <label>
         To cardinality
         <select 
-          className="bg-darkBg text-slate-200 border border-darkBorder px-2 py-1.5 rounded-md focus:outline-none focus:border-primary"
+          className="bg-darkBg text-strong border border-darkBorder px-2 py-1.5 rounded-md focus:outline-none focus:border-primary"
           value={props.relation.toCardinality} 
           onChange={(event) => {
             const toCardinality = event.currentTarget.value as ErdEndpointCardinality;
@@ -738,7 +738,7 @@ function RelationInspector(props: {
         </select>
       </label>
       <button 
-        className="px-3 py-1.5 mt-2 bg-darkPanel hover:bg-darkHover text-slate-200 border border-darkBorder rounded-md transition-colors text-sm"
+        className="px-3 py-1.5 mt-2 bg-darkPanel hover:bg-darkHover text-strong border border-darkBorder rounded-md transition-colors text-sm"
         onClick={props.onDelete}
       >
         Delete relation
