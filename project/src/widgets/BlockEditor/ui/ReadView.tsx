@@ -65,15 +65,15 @@ markedParser.use({
 
       return `
         <div class="code-block-wrapper relative group my-4 mx-4 rounded-xl overflow-hidden border border-darkBorder/40">
-          <div class="flex items-center justify-between px-4 py-1.5 bg-[#141520] border-b border-darkBorder/40 relative">
-            <span class="text-[11px] font-mono text-slate-400 uppercase tracking-wider">${language}</span>
-            ${title ? `<span class="text-[12px] font-medium text-slate-300 absolute left-1/2 -translate-x-1/2">${escapeHtml(title)}</span>` : ''}
-            <button class="opacity-0 group-hover:opacity-100 transition-opacity hover:text-primary text-slate-400 rv-copy-btn p-1 flex items-center gap-1 cursor-pointer" data-code="${safeText}" title="Copy">
+          <div class="flex items-center justify-between px-4 py-1.5 bg-darkPanel border-b border-darkBorder/40 relative">
+            <span class="text-[11px] font-mono text-mutedText uppercase tracking-wider">${language}</span>
+            ${title ? `<span class="text-[12px] font-medium text-body absolute left-1/2 -translate-x-1/2">${escapeHtml(title)}</span>` : ''}
+            <button class="opacity-0 group-hover:opacity-100 transition-opacity hover:text-primary text-mutedText rv-copy-btn p-1 flex items-center gap-1 cursor-pointer" data-code="${safeText}" title="Copy">
               <span class="text-[10px] copy-feedback hidden">Copied!</span>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
             </button>
           </div>
-          <pre class="!m-0 !bg-[#1a1b26] !p-4"><code class="hljs language-${language} text-xs font-mono">${highlighted}</code></pre>
+          <pre class="!m-0 !bg-code !p-4"><code class="hljs language-${language} text-xs font-mono">${highlighted}</code></pre>
         </div>
       `;
     }
@@ -407,8 +407,8 @@ export const ReadView: React.FC<{ tab?: TabItem }> = ({ tab }) => {
                 className={[
                   'flex items-center justify-center w-6 h-6 rounded transition-colors duration-100',
                   btn.yellow
-                    ? 'text-yellow-300 hover:bg-yellow-500/20'
-                    : 'text-slate-300 hover:bg-white/10',
+                    ? 'text-highlight hover:bg-highlight/20'
+                    : 'text-body hover:bg-overlay/10',
                 ].join(' ')}
               >
                 {btn.icon}
@@ -455,9 +455,9 @@ export const ReadBlockNode = React.memo<{
       case 1: 
         return 'mb-8 bg-transparent'; 
       case 2: 
-        return 'mt-6 p-5 rounded-2xl bg-[#141520] border border-darkBorder/40 shadow-md';
+        return 'mt-6 p-5 rounded-2xl bg-darkPanel border border-darkBorder/40 shadow-md';
       case 3: 
-        return 'mt-4 p-4 rounded-xl bg-[#1d1f30] border border-darkBorder/40';
+        return 'mt-4 p-4 rounded-xl bg-raised border border-darkBorder/40';
       default: 
         return 'mt-2 pl-2 border-l-2 border-transparent hover:border-darkBorder/40';
     }
@@ -485,7 +485,7 @@ export const ReadBlockNode = React.memo<{
     >
       {isBox && (
          <div className="absolute right-3 top-3.5 opacity-0 group-hover:opacity-25 transition-opacity pointer-events-none">
-            <GripVertical size={13} className="text-slate-400" />
+            <GripVertical size={13} className="text-mutedText" />
          </div>
       )}
 

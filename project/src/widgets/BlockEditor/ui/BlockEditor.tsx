@@ -418,9 +418,9 @@ const BlockNode = React.memo<{
       case 1: 
         return 'mb-8 bg-transparent'; 
       case 2: 
-        return 'mt-6 p-5 rounded-2xl bg-[#141520] border border-darkBorder/40 shadow-md';
+        return 'mt-6 p-5 rounded-2xl bg-darkPanel border border-darkBorder/40 shadow-md';
       case 3: 
-        return 'mt-4 p-4 rounded-xl bg-[#1d1f30] border border-darkBorder/40';
+        return 'mt-4 p-4 rounded-xl bg-raised border border-darkBorder/40';
       default: 
         return 'mt-2 pl-2';
     }
@@ -705,7 +705,7 @@ export const BlockEditor: React.FC<{ paneId?: string; tab?: TabItem; isActivePan
     return (
       <div className="h-full flex flex-col items-center justify-center text-center p-6 select-none">
         <FileEdit className="w-12 h-12 text-primary/40 mb-3 animate-pulse" />
-        <h3 className="text-sm font-semibold text-slate-300 mb-1">문서가 선택되지 않았습니다</h3>
+        <h3 className="text-sm font-semibold text-body mb-1">문서가 선택되지 않았습니다</h3>
         <p className="text-xs text-mutedText max-w-xs leading-relaxed">
           좌측 파일 탐색기에서 마크다운 문서를 선택하거나, 새 문서를 생성하여 편집을 시작해 주세요.
         </p>
