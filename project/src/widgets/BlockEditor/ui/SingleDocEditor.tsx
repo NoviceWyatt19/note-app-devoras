@@ -59,26 +59,27 @@ const SINGLE_DOC_SENTINEL_ID = '__single-doc__';
 const lineWrappingCompartment = new Compartment();
 const editorThemeCompartment = new Compartment();
 
-function createEditorTheme(settingsEditor: { fontFamily: string; fontSize: number }) {
-  return EditorView.theme({
-    '&': { background: 'transparent !important', height: 'auto' },
-    '.cm-scroller': {
-      fontFamily: settingsEditor.fontFamily,
-      fontSize: `${settingsEditor.fontSize}px`,
-      minWidth: '0',
-    },
-    '.cm-content': { caretColor: '#6366f1', padding: '24px 0', minWidth: '0' },
-    '.cm-line': { padding: '0 4px' },
-    '.cm-line > span:not([class*="cm-"])': {
-      fontSize: 'inherit',
-      lineHeight: 'inherit',
-      verticalAlign: 'baseline',
-    },
-    '.cm-widgetBuffer': { fontSize: 'inherit' },
-    '&.cm-focused .cm-cursor': { borderLeftColor: '#6366f1' },
-    '&.cm-focused': { outline: 'none' },
-  });
-}
+// R-6(BUG-20260831-02) — BlockEditor.tsx 의 CodeMirrorBlock 과 같은 처리. 유일한 설정
+// 의존값(폰트 패밀리·크기)을 CSS 변수 참조로 바꿔 인자 없는 모듈 상수로 만든다. 실제
+// 값은 아래 렌더의 컨테이너 div 인라인 스타일이 CSS 캐스케이드로 전달한다.
+const editorTheme = EditorView.theme({
+  '&': { background: 'transparent !important', height: 'auto' },
+  '.cm-scroller': {
+    fontFamily: 'var(--editor-font-family)',
+    fontSize: 'var(--editor-font-size)',
+    minWidth: '0',
+  },
+  '.cm-content': { caretColor: 'rgb(var(--accent-rgb))', padding: '24px 0', minWidth: '0' },
+  '.cm-line': { padding: '0 4px' },
+  '.cm-line > span:not([class*="cm-"])': {
+    fontSize: 'inherit',
+    lineHeight: 'inherit',
+    verticalAlign: 'baseline',
+  },
+  '.cm-widgetBuffer': { fontSize: 'inherit' },
+  '&.cm-focused .cm-cursor': { borderLeftColor: 'rgb(var(--accent-rgb))' },
+  '&.cm-focused': { outline: 'none' },
+});
 
 export const SingleDocEditor: React.FC<{ paneId: string; tab: TabItem }> = ({ paneId, tab }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -97,13 +98,14 @@ export const SingleDocEditor: React.FC<{ paneId: string; tab: TabItem }> = ({ pa
   useEffect(() => {
     const view = viewRef.current;
     if (!view) return;
+    // editorThemeCompartment.reconfigure(...) 는 R-6 로 제거됐다 — BlockEditor.tsx 와 동일한
+    // 이유(테마가 CSS 변수 참조 모듈 상수). 이 이펙트는 lineWrappingCompartment 처리로 유지한다.
     view.dispatch({
       effects: [
         lineWrappingCompartment.reconfigure(settings.editor.lineWrapping ? EditorView.lineWrapping : []),
-        editorThemeCompartment.reconfigure(createEditorTheme(settings.editor)),
       ],
     });
-  }, [settings.editor.lineWrapping, settings.editor.fontFamily, settings.editor.fontSize]);
+  }, [settings.editor.lineWrapping]);
 
   // 디바운스 동기화 — 문서 스토어(탭 바 dirty 점 · 디스크 저장 대상)에 rawContent 를
   // 반영한다. `setContent` 가 기존 파이프라인(resolveBlocksFromContent/parseMarkdown)
@@ -185,7 +187,7 @@ export const SingleDocEditor: React.FC<{ paneId: string; tab: TabItem }> = ({ pa
           setDirty(true);
           syncContent(update.state.doc.toString());
         }),
-        editorThemeCompartment.of(createEditorTheme(settings.editor)),
+        editorThemeCompartment.of(editorTheme),
       ],
     });
 
@@ -205,5 +207,14 @@ export const SingleDocEditor: React.FC<{ paneId: string; tab: TabItem }> = ({ pa
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return <div ref={containerRef} className="w-full min-w-0" />;
+  return (
+    <div
+      ref={containerRef}
+      className="w-full min-w-0"
+      style={{
+        '--editor-font-size': `${settings.editor.fontSize}px`,
+        '--editor-font-family': settings.editor.fontFamily,
+      } as React.CSSProperties}
+    />
+  );
 };

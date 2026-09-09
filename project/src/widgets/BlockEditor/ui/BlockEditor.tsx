@@ -87,27 +87,31 @@ interface CodeMirrorBlockProps {
   onFocusNext: () => void;
 }
 
-function createEditorTheme(settingsEditor: any) {
-  return EditorView.theme({
-    '&': { background: 'transparent !important', height: 'auto' },
-    '.cm-scroller': {
-      fontFamily: settingsEditor.fontFamily,
-      fontSize: `${settingsEditor.fontSize}px`,
-      overflow: 'hidden',
-      minWidth: '0',
-    },
-    '.cm-content': { caretColor: '#6366f1', padding: '4px 0', minWidth: '0' },
-    '.cm-line': { padding: '0 4px' },
-    '.cm-line > span:not([class*="cm-"])': {
-      fontSize: 'inherit',
-      lineHeight: 'inherit',
-      verticalAlign: 'baseline',
-    },
-    '.cm-widgetBuffer': { fontSize: 'inherit' },
-    '&.cm-focused .cm-cursor': { borderLeftColor: '#6366f1' },
-    '&.cm-focused': { outline: 'none' },
-  });
-}
+// R-6(BUG-20260831-02) — 이전엔 설정(폰트 크기·패밀리)에 의존하는 함수라 매 EditorView
+// 생성 이펙트마다 새로 호출됐고, 그때마다 StyleModule 이 하나씩 생겨 블록 수에 비례해
+// <style> 바이트가 계속 늘었다(회수 안 됨). 유일한 설정 의존값 2개를 CSS 변수 참조로
+// 바꿔 인자 없는 모듈 상수로 만든다 — EditorView.theme() 이 정확히 1회만 호출되고,
+// 실제 폰트 값은 래퍼(:727 부근)의 인라인 `--editor-font-family`/`--editor-font-size`
+// 를 통해 CSS 캐스케이드로 전달된다.
+const editorTheme = EditorView.theme({
+  '&': { background: 'transparent !important', height: 'auto' },
+  '.cm-scroller': {
+    fontFamily: 'var(--editor-font-family)',
+    fontSize: 'var(--editor-font-size)',
+    overflow: 'hidden',
+    minWidth: '0',
+  },
+  '.cm-content': { caretColor: 'rgb(var(--accent-rgb))', padding: '4px 0', minWidth: '0' },
+  '.cm-line': { padding: '0 4px' },
+  '.cm-line > span:not([class*="cm-"])': {
+    fontSize: 'inherit',
+    lineHeight: 'inherit',
+    verticalAlign: 'baseline',
+  },
+  '.cm-widgetBuffer': { fontSize: 'inherit' },
+  '&.cm-focused .cm-cursor': { borderLeftColor: 'rgb(var(--accent-rgb))' },
+  '&.cm-focused': { outline: 'none' },
+});
 
 const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBlock({
   paneId,
@@ -142,13 +146,15 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
     const view = viewRef.current;
     if (!view) return;
 
+    // editorThemeCompartment.reconfigure(...) 는 R-6 로 제거됐다 — 테마가 이제 CSS 변수를
+    // 참조하는 모듈 상수라 재구성이 필요 없다(폰트 변경은 :727 의 인라인 스타일이 CSS
+    // 캐스케이드로 전파한다). 이 이펙트 자체는 유지 — lineWrappingCompartment 는 계속 여기서 처리한다.
     view.dispatch({
       effects: [
         lineWrappingCompartment.reconfigure(settings.editor.lineWrapping ? EditorView.lineWrapping : []),
-        editorThemeCompartment.reconfigure(createEditorTheme(settings.editor))
       ]
     });
-  }, [settings.editor.lineWrapping, settings.editor.fontFamily, settings.editor.fontSize]);
+  }, [settings.editor.lineWrapping]);
 
   React.useLayoutEffect(() => {
     if (!containerRef.current) return;
@@ -232,7 +238,7 @@ const CodeMirrorBlock = React.memo<CodeMirrorBlockProps>(function CodeMirrorBloc
             update.state.selection.main.anchor,
           );
         }),
-        editorThemeCompartment.of(createEditorTheme(settings.editor)),
+        editorThemeCompartment.of(editorTheme),
       ],
     });
 
@@ -724,7 +730,10 @@ export const BlockEditor: React.FC<{ paneId?: string; tab?: TabItem; isActivePan
   return (
     <div
       className="min-h-full flex flex-col items-center w-full"
-      style={{ '--editor-font-size': `${settings.editor.fontSize}px` } as React.CSSProperties}
+      style={{
+        '--editor-font-size': `${settings.editor.fontSize}px`,
+        '--editor-font-family': settings.editor.fontFamily,
+      } as React.CSSProperties}
     >
       <div className="sticky top-0 z-10 bg-darkBg/95 backdrop-blur-sm w-full">
         <div className=" mx-auto" style={maxWidthStyle}>
