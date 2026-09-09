@@ -149,7 +149,7 @@ background: rgb(var(--accent-1-rgb) / 0.15);   /* 알파도 이 형태로 */
 | `--border-rgb` | `39 42 55` (`#272a37`) | `226 232 240` | 기본 테두리 · 구분선 |
 | `--border-strong-rgb` | `58 63 82` (`#3a3f52`) | `203 213 225` | 강조 테두리 · `<hr>` · 스크롤바 hover |
 
-### 4.4 강조 — 4개 (구 5개, `accent-deep` 제거)
+### 4.4 강조 — 5개 (`accent-deep` 부활, **값이 바뀌었다**)
 
 | 토큰 | 다크 | 라이트 | 역할 |
 |---|---|---|---|
@@ -157,10 +157,14 @@ background: rgb(var(--accent-1-rgb) / 0.15);   /* 알파도 이 형태로 */
 | `--accent-soft-rgb` | `129 140 248` (`#818cf8`) | `99 102 241` | 링크 |
 | `--accent-subtle-rgb` | `165 180 252` (`#a5b4fc`) | `129 140 248` | 인라인 코드 |
 | `--accent-alt-rgb` | `20 184 166` (`#14b8a6`) | `13 148 136` | 보조 강조(teal) |
+| `--accent-deep-rgb` | `49 46 129` (`#312e81`, indigo-900) | `199 210 254` | **딥 인디고 표면** — 배지·토글 배경 |
 
-> **`--accent-deep`(`#7c3aed`) 제거** — 유일한 용처가 `entities/erd/lib/relations.ts:157` 의
-> `var(--text-accent, #7c3aed)` **폴백**인데, `--text-accent` 가 `erd.css` 에서 항상 정의되므로
-> **그 폴백은 발화하지 않는다.** 죽은 토큰이다.
+> **`--accent-deep` 이력**: 원래 값 `#7c3aed` 는 **죽은 토큰이었다** — 유일 용처가
+> `entities/erd/lib/relations.ts:157` 의 `var(--text-accent, #7c3aed)` **폴백**인데
+> `--text-accent` 가 항상 정의돼 발화하지 않았다. 그래서 제거했다.
+> **그런데 T3 에서 소비처 7곳이 나왔다** — indigo-900/950/800 계열 딥 인디고 표면이다.
+> **이름을 되살리되 값을 `indigo-900 #312e81` 로 바꾼다.** 죽은 값이 산 값으로 교체된 것이지
+> 제거 판단이 틀렸던 것이 아니다.
 
 ### 4.5 의미색 — 6개 (유지)
 
@@ -359,6 +363,22 @@ colors: {
 | `bg-indigo-900/40` · `/60` | `bg-primary/[.21]` · `/[.33]` | 2.92 · 5.28 ⚠️ |
 | `shadow-indigo-600/10` | `shadow-primary/[.11]` | **1.97** ✅ |
 
+#### 딥 인디고 7곳 — **`--accent-deep` 하나로 전부 덮인다**
+
+`primary`(indigo-500)로는 색상각이 달라 못 맞추던 것들이다. `--accent-deep`(indigo-900)을 기준으로 두면:
+
+| 원본 | 위치 | 치환 | ΔE |
+|---|---|---|---|
+| `bg-indigo-900/40` · `/60` | `MindView.tsx:144` | `bg-accentDeep/40` · `/60` | **0.00** |
+| `bg-indigo-950/70` | `FormatToolbar.tsx:173` | `bg-accentDeep/[.39]` | 1.46 |
+| `hover:bg-indigo-900/50` | 〃 | `hover:bg-accentDeep/50` | **0.00** |
+| `border-indigo-800/50` | 〃 | `border-accentDeep/[.70]` | 2.28 |
+| `bg-indigo-950` (불투명) | `App.tsx:96` | `bg-accentDeep/[.54]` | 2.11 |
+| `border-indigo-900/60` | 〃 | `border-accentDeep/60` | **0.00** |
+
+**전부 JND(2.3) 안이다.** 토큰 2~3개로 나누면 ΔE 0 이 되지만, **1개로 2.28 이하면 나눌 근거가 없다** —
+§4 의 판정 기준(「이 둘이 실제로 다른 색인가」)을 그대로 적용한 결과다.
+
 ⚠️ **`bg-indigo-900/40·/60` 2곳만 ΔE 가 크다**(`MindView.tsx:144` 핀 버튼). 알파로 못 맞춘다 —
 `indigo-900` 이 `primary`(indigo-500)와 색상각이 다르다. **이 2곳은 T3 에서 마지막에 처리하고 보고할 것.**
 필요하면 `--accent-deep-rgb` 를 되살리는 것이 답일 수 있다(구 `#7c3aed`가 아니라 `indigo-900 #312e81` 값으로).
@@ -518,7 +538,12 @@ colors: {
 
 ### T2 — `orchestrator.ts` 신택스 색 + `createEditorTheme` 상수화 (**R-6**)
 
-**파일**: `shared/lib/editor/decorators/orchestrator.ts`
+**파일**: `shared/lib/editor/decorators/orchestrator.ts` · **`shared/lib/editor/decorators/impl/BlockCardDecorator.ts`**
+
+> **`BlockCardDecorator.ts` 의 raw color 9곳**(`rgba(39,42,55,0.55/0.6/0.75)` 계열)이 T2 스코프다.
+> T3f(Tailwind 임의값 클래스) 범위 밖이지만 **성격이 `orchestrator.ts` 와 같다** — CodeMirror
+> 데코레이터 테마 리터럴이고, 라이트 모드에 반응해야 하는 앱 크롬 색이다. **스코프 증가가 아니라
+> 소속 정정이다.** `rgb(var(--border-rgb) / 0.55)` 형태로 옮긴다(`#272a37` = `--border`).
 
 `decorationBaseTheme`(`:120` 시작)의 색 12개를 `rgb(var(--…-rgb))` 로 바꾼다.
 CodeMirror 의 `baseTheme` 은 CSS 로 컴파일되므로 CSS 변수가 그대로 동작한다.
