@@ -1,0 +1,80 @@
+# 🧭 SESSION HANDOFF
+type: "SESSION_HANDOFF"
+id: "SESS-20260914-PLANNER"
+supersedes: "SESS-20260909-PLANNER (`ticket/session/20260909_1600_planner_handoff.yml`)"
+# ━━━
+update: "2026-09-14"
+project_ref: "PRJ-DEVORAS-MVP"
+subject: "계획 세션(Debug_Manager_v2) 인수인계 — R2 교차검증 완료·처분됨. **R1-c 산출 3건 미처분**"
+baseline: "fad02f3 · v0.9.31"
+role: "판정 · 교차검증 · 문서 일관성. **구현하지 않는다.**"
+reason: "사용자 토큰 한도 — PM 정리 지시"
+# ━━━
+r2_status:
+  note: "**PM 의 「어디까지 갔든 거기서 닫으라」 지시는 시점이 어긋났다 — R2 는 이미 완료·처분됐다.** 미실시 항목 없음"
+  verdict: "`VER-20260909-02` (`1fab45c`) → PM D22 (`fad02f3`) **조건부 통과 수용, 출시 가능**"
+  focus_results:
+    F1: "🟠 **불통과** — 마인드맵 좌표 드래그가 `updateContentForTab` 을 안 탄다(`useActiveTabStore.ts:60-66`). 자동 저장 `high` 여도 좌표는 저장되지 않는다"
+    F2: "✅ 내용 축 통과 / 🟠 **`paneId` 축 불통과** — `saveFile` 이 얼어붙은 `paneId` 의 패널을 못 찾으면 조용히 early return. `closePane` 은 탭을 옮기고 `cancelAutosave` 는 `closeTab` 에만 배선"
+    F3: "✅ **통과** — 역방향 안전. 구버전 스프레드가 옛 기본값으로 폴백하고 소비자가 0건이었다"
+    F4: "✅ **통과** — `erd/model/settings.ts` 삭제 잔재 0건"
+  s1_style_risk: "✅ **재현되지 않는다.** `prev`/`new` 는 skip 판정에만 쓰이고 쓰기엔 안 실린다 — `saveFile` 이 `getTabStore(tabId)` 로 발화 시점 라이브 내용을 읽는다. **얼어붙은 것은 내용이 아니라 `paneId` 였다**"
+  r1c_applied: "✅ **물었다.** 「이 초점이 위험을 다 덮는가」 → **초점 밖 3건(U1·U2·U3) 발견**"
+# ━━━
+# 🔴 재개 즉시 확인할 것 ────────────────────────────
+unresolved:
+  id: "**D22 가 R1-c 산출 3건(U1·U2·U3)을 처분하지 않았다**"
+  status: "**미처분. PM 판단 필요.**"
+  how_found: "`ticket/project/20260904_1800_release_lane_hold.yml` 전수 검색 — `U1`/`U2`/`U3` 항목 없음. D22 는 F1~F4 와 S1형 위험만 다룬다"
+  why_it_matters: >
+    **이것이 R1-c 가 막으려던 형태가 한 층 위에서 재현된 것이다.**
+    R1-c 는 「판정 세션이 초점만 보고 닫는 것」을 막는 규칙인데, 여기서는
+    **처분 단계가 초점 4건만 보고 닫았다.** 초점 밖 산출물은 처분표에 자리가 없었다.
+    → **판정에 R1-c 가 있으면 처분에도 그에 대응하는 자리가 필요하다.** 규칙 보완 후보.
+  items:
+    U2:
+      severity: "🔴 **셋 중 유일하게 새로운 손상 가능성.** 가장 먼저 판단할 것"
+      what: "`saveFile` 이 매번 `readSpatialMetadata` → 병합 → `writeSpatialMetadata` 를 **무조건** 수행한다(`store.ts:648-650`). 좌표가 안 바뀌어도 돈다"
+      amplified_by_r2: >
+        기본값 `high` 면 **편집 중 ~1.5초마다** 워크스페이스 **전체** 메타데이터 읽기+쓰기가 일어난다.
+        R2 전에는 사용자가 저장할 때만이었다 — **R2 가 만든 코드는 아니나 노출 빈도를 사용자 손에서 빼앗아 자동화했다.**
+      risk: "`spatial.json` 하나에 **전 파일의 좌표**가 들어 있다. 쓰기 도중 앱이 죽으면 **한 문서 편집 때문에 워크스페이스 전체 좌표**가 날아갈 수 있다. 실패는 `console.warn('...ignoring')` 으로 삼켜진다"
+    U1:
+      severity: "🟠 표시 결함 (기존 결함을 R2 가 상시화)"
+      what: >
+        `tabId = file.path`(`store.ts:172`)라 같은 파일을 두 패널에 열면 **같은 tabId 가 두 패널에** 있다.
+        `saveFile` 은 `targetPaneId` 패널만 갱신하고(`store.ts:668-678`), `scheduleAutosave` 는
+        **첫 번째로 발견된 패널** id 로 예약한다(`store.ts:582-588` 의 `break`).
+      consequence: "패널 B 에서 편집해도 dirty 가 꺼지는 건 패널 A 뿐 — **편집 중인 패널의 점이 안 꺼지고**, 이미 저장된 탭에 **거짓 확인창**이 뜬다"
+    U3:
+      severity: "🟡 관측성"
+      what: "지속성 기능의 실패가 세 겹 다 조용하다(spatial `warn...ignoring` · `saveFile` `error` · 자동 저장 `.catch`). UI 신호는 「dirty 점이 안 꺼진다」뿐인데 사용자는 자동 저장을 믿으므로 볼 이유가 없다"
+      relation: "`code_review.md` **I-2**(`settings/store.ts:79` 빈 catch)와 같은 계열. 지속성 기능이라 비용이 더 크다"
+# ━━━
+carried_over:
+  - "**N2** — D12·D13 교차검증(`BUG-20260905-01`). 이월"
+  - "**N4** — `BUG-20260909-02` 빈 배열 크래시(`nextFlatBlocks[length-1].id`). 미해소"
+  - "F1·F2 는 D22 가 **신규 티켓 발행 + 다음 작업 단위 최우선**으로 지시했다. **처방은 확정하지 않았다**(§3-C) — 착수 시 실행 세션이 고른다"
+# ━━━
+work_unit:
+  scope: "**R2 · R3 · R4**"
+  r2: "✅ 완료 (D22)"
+  r3: "**Impl 레인 진행 중** — GitHub Actions 폐기하고 **로컬 git hook + 릴리스 스크립트**로 선회(`7efdb15`). 버전 4파일 동기 훅이 실제로 돈다(커밋 시 통과 확인)"
+  r4: "릴리스 번들 실기 검증 — 미착수"
+# ━━━
+harness_note:
+  claim: "R2 하네스 9/9 통과"
+  planner_reading: >
+    **「배선된 경로가 동작한다」를 증명하지 「배선이 모든 경로를 덮는다」를 증명하지 않는다.**
+    F1(좌표 경로) · F2·U1(다중 패널) · U2(실디스크 I/O)는 **구조적으로 못 덮는다** —
+    하네스가 단일 패널 + `MockFileSystem`(인메모리)이기 때문이다.
+    **라이브 검증이 실패한 것과는 별개 축이다** — 라이브로 했어도 이 넷은 안 나왔다(다중 패널·킬 타이밍을 의도적으로 만들어야 한다).
+# ━━━
+do_not:
+  - "**공유 트리에서 `--amend`·`rebase` 금지**(R7). **`git add` 도 경로 지정이 아니다**(`a377e39` — 실제 사고 2회)"
+  - "8-D 동결 유지 — 재개 시 첫 행동은 `DEBUG_PLAN.md` §5.21 G-BULK"
+  - "**판정만 한다. 결함을 직접 고치지 않는다** — 티켓 발행 + PM 보고까지가 이 레인의 몫"
+entry_points:
+  - "`DOCUMENTS.md` — 문서 지도"
+  - "`ticket/project/20260904_1800_release_lane_hold.yml` — 전 결정(D6~D22)·조율 규칙(R0~R7·R1-b·R1-c)"
+  - "`ticket/debug/20260909_1900_r2_autosave_verdict.yml` — R2 판정 전문(U1·U2·U3 상세 포함)"
