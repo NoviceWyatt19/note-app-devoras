@@ -139,7 +139,7 @@ const decorationBaseTheme = EditorView.baseTheme({
   '&.cm-editor .cm-h3-line': {
     fontSize: '1.05rem',
     fontWeight: '600',
-    color: 'rgb(var(--text-body-rgb))',
+    color: 'rgb(var(--text-strong-rgb))',
     margin: '0',
     padding: '0.5rem 4px 0.35rem',
     lineHeight: '1.4',
@@ -147,7 +147,7 @@ const decorationBaseTheme = EditorView.baseTheme({
   '&.cm-editor .cm-h4-line, &.cm-editor .cm-h5-line, &.cm-editor .cm-h6-line': {
     fontSize: '0.9rem',
     fontWeight: '600',
-    color: 'rgb(var(--text-muted-rgb))',
+    color: 'rgb(var(--text-strong-rgb))',
     margin: '0',
     padding: '0.4rem 4px 0.25rem',
     lineHeight: '1.4',
