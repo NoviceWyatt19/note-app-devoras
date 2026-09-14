@@ -5,7 +5,7 @@ id: "IMPL-20260909-01"
 update: "2026-09-09 16:00"
 project_ref: "PRJ-DEVORAS-MVP"
 subject: "R3 출시 엔지니어링 — **E2' 로컬 git hook → E1' 로컬 릴리스 스크립트** (Actions 아님)"
-status: "**방향 전환 (2026-09-09 사용자 확인)** — Actions 워크플로는 폐기, 로컬 도구로 재작성"
+status: "**배포 부분 종료 (2026-09-14 사용자 확언). 로컬 훅만 남기고 완료**"
 parent: "REL-20260904-01"
 assignee: "Impl_worker_v1"
 planned_by: "Impl_Manager_v1"
@@ -117,3 +117,19 @@ measurements_that_shaped_the_design:
     - "push 는 드물다 — 원격이 2026-09-02 에서 멈춰 있었고 로컬이 104 커밋 앞섰다. 거기서는 16초가 싸다"
     - "`gh` CLI **v2.100.0 설치돼 있음** → 로컬에서 릴리스 생성까지 가능"
     - "**husky 는 의존성에만 있고 작동한 적이 없다** — `.husky/` 없음, `core.hooksPath` 미설정, `prepare` 가 v9 문법인데 v8 설치라 usage 만 찍고 exit 0"
+# ━━━
+scope_closed_20260914:
+  user_statement: >
+    「**당장 배포할 계획은 없어.** 그러니 **github actions, release 같은 배포 기능,
+    app store 등록 등의 배포 활동은 고려하지 마.**」
+  effect: "**R3 의 배포 부분 전체가 스코프 밖.** E1'(릴리스 스크립트 실행)·태그·Homebrew·서명·공증·업데이터 전부 수행하지 않는다"
+  what_survives:
+    - "**로컬 git hook** — `pre-commit`(버전 4파일 동기, 33ms) · `pre-push`(tsc+t1+t15, 약 26초). 실측 검증 완료"
+    - "`check-version-sync.mjs` — 훅이 재사용"
+    - "`.github/workflows/` 삭제 완료"
+    - "`scripts/release.mjs` — 파일은 남으나 **아무도 실행하지 않는다.** 명시적 호출로만 도는 스크립트라 해롭지 않다"
+  pm_goal_met: >
+    PM 이 R3 를 지시한 목적은 「하네스가 사람 기억에 의존하는 상태를 끊는 것」이었다.
+    **훅 하나로 달성됐다.** 배포 인프라는 이 프로젝트에 애초에 필요하지 않은 것이었다 —
+    로컬 데스크톱 앱이고 원격은 저장용이다.
+  do_not_revive_without_user: "배포 관련 작업은 **사용자가 명시적으로 요청할 때만** 재개한다"
