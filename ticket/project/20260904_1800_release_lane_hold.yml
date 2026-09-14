@@ -1280,3 +1280,50 @@ D22_r2_conditional_pass:
     F1: "`updateNodeCoordinate` 에서 자동 저장을 예약하거나, 좌표 변경도 `updateContentForTab` 을 거치게 한다"
     F2: "`saveFile` 이 주어진 `paneId` 에서 못 찾으면 전 패널을 훑거나, `scheduleAutosave` 가 `paneId` 를 얼리지 않거나, `cancelAutosave` 를 `closePane` 에도 배선한다"
     note: "**계획 세션이 처방을 확정하지 않았다** — §3-C 규율대로다. 착수 시 실행 세션이 고른다"
+# ━━━
+D23_u2_correction:
+  update: "2026-09-14 — **D22 판정 정정. R1-c 가 초점 밖에서 3건을 찾았고 U2 가 판정을 뒤집는다**"
+  my_error:
+    what: "D22 헤드라인 「**디스크를 잘못 덮는 경로는 없다. 발견된 둘은 전부 켜져 있다고 믿는데 안 도는 축이다**」"
+    verdict: "🔴 **틀렸다.** 내 초점 F1~F4 밖에 **새 손상 노출**이 있었다"
+    how: "**R1-c 가 잡았다** — 계획 세션이 초점 4건을 통과시킨 뒤 「이 초점이 위험을 다 덮는가」를 물어 U1~U3 을 찾았다. **규칙이 설계자(PM)의 누락을 잡는다**는 R1-c 의 목적 그대로 작동했다"
+  U2_spatial_rewrite:
+    severity: "🔴 **R2 가 만든 유일한 새 손상 가능성.** 나머지(F1·F2·U1·U3)는 미이행·표시 결함이다"
+    pm_verified_code: "`store.ts:647-653` 직접 확인"
+    mechanism: >
+      `saveFile` 이 매번 `readSpatialMetadata(workspacePath)` 로 **워크스페이스 전 파일 좌표**를 읽고
+      `{ ...allMetadata, [path]: spatialToPersist }` 로 머지한 뒤
+      `writeSpatialMetadata(workspacePath, updatedMetadata)` 로 **파일 전체를 다시 쓴다.**
+      **좌표가 바뀌지 않아도 무조건 돈다.**
+    what_r2_changed: >
+      **코드는 R2 가 만들지 않았다. R2 가 바꾼 것은 빈도다.**
+      전에는 사용자가 `Cmd+S` 를 누를 때만 돌았다. 이제 **기본값 `high` 에서 편집 중 ~1.5초마다** 돈다.
+      **노출 빈도를 사용자 손에서 빼앗아 자동화했다** — 그것이 R2 의 책임이다
+    damage: >
+      `spatial.json` **하나에 전 파일 좌표**가 들어 있다. 쓰기 중 앱이 죽으면
+      **한 문서를 편집하다 워크스페이스 전체 좌표**가 날아갈 수 있다.
+      그리고 실패는 `console.warn('Failed to update spatial metadata (ignoring):', e)` 로 **삼켜진다** —
+      사용자는 알 방법이 없다
+    proportion: "**문서 내용이 아니라 메타데이터(노드 좌표)다.** 잃으면 마인드맵 레이아웃이 초기화되는 것이지 글이 사라지는 게 아니다. 그러나 **워크스페이스 전역**이다"
+    fix_direction: >
+      **좌표가 바뀌지 않았으면 `spatial.json` 쓰기를 건너뛴다.**
+      텍스트 편집 중에는 좌표가 안 바뀌므로 **노출이 R2 이전 수준으로 되돌아간다.**
+      원자적 쓰기(temp + rename)는 그다음 선택지 — 더 근본적이나 더 크다.
+      **처방 확정은 착수 시 실행 세션이 한다**
+  U1_pane_id_dirty:
+    what: "`tabId = file.path`(`:172`)라 **같은 파일이 두 패널에 같은 id** 로 존재하는데, `saveFile` 은 `targetPaneId` 패널만 갱신하고(`:668-678`) `scheduleAutosave` 는 **첫 번째 패널** id 로 예약한다"
+    consequence: "**패널 B 에서 편집해도 dirty 가 꺼지는 건 패널 A 뿐.** 편집 중인 패널의 점이 안 꺼지고, 이미 저장된 탭에 **거짓 확인창**이 뜬다"
+    note: "기존 결함을 **R2 가 상시 노출**시킨 형태. F2 의 얼어붙은 `paneId` 와 뿌리가 같다"
+  U3_silent_failures: "지속성 기능의 실패가 **세 겹 다 조용하다**(`I-2` 계열). 사용자가 저장 실패를 알 방법이 없다"
+  harness_coverage_answer:
+    asked: "PM 이 「하네스가 덮지 못하는 축이 있는가」를 물었다"
+    answer: "**있다. 그리고 라이브로 했어도 안 나왔을 것들이다**"
+    why: "F2·U1 은 **다중 패널** 상태가 필요하고, U2 는 `MockFileSystem`(인메모리)이라 **쓰기 비용·손상 창이 재현되지 않으며**, F1 은 좌표 경로를 태우는 케이스가 없다"
+    key_sentence: "**「9/9 통과는 「배선된 경로가 동작한다」를 증명하지 「배선이 모든 경로를 덮는다」를 증명하지 않는다.」**"
+    implication: "**라이브 검증 실패(HMR 오염)는 이 판정에 영향이 없다** — 실패한 축과 놓친 축이 다르다. 다중 패널·킬 타이밍은 **의도적으로 만들어야** 나온다"
+  disposition:
+    r2_status: "**출시 스코프 항목으로는 완료 유지.** 유실 경로가 아니고 dirty·수동 저장·종료 가드가 전부 정상이다"
+    but: "**D22 의 「새 손상 가능성 없음」은 철회한다.** U2 가 있다"
+    next_unit_first: "**U2 → F1 ≈ F2 → U1 → U3.** 계획 세션 우선순위 의견 그대로 수용"
+    why_not_now: "사용자가 디버그 레인 정리를 지시했고, **U2 도 메타데이터 손상이지 문서 유실이 아니다.** 다만 **자동 저장이 기본 ON 인 이상 다음 단위 첫 항목**이다"
+    r4_note: "**R4(번들 실기 검증) 중에도 U2 노출이 있다.** 짧은 수동 세션이라 확률은 낮으나, R4 를 하실 때 마인드맵 좌표가 틀어지면 이 건을 의심할 것"
